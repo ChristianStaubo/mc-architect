@@ -1,0 +1,74 @@
+{
+  "id": "chapel-slope",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 2,
+  "brief": "A small chapel on a gentle slope: a nave with pews facing an altar, a bell tower or spire, tall windows, a path to the door. Level its floor without leaving a cliff around it.",
+  "style": "pale stone, slate roof",
+  "plot": {
+    "min": [
+      -376,
+      440
+    ],
+    "max": [
+      -357,
+      459
+    ]
+  },
+  "budget": {
+    "calls": 45,
+    "minutes": 25,
+    "usd": 3.0
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "door_reaches_outside"
+    },
+    {
+      "code": "indoor_floor",
+      "min": 40
+    },
+    {
+      "code": "lit_indoors"
+    },
+    {
+      "code": "height",
+      "min": 14
+    },
+    {
+      "code": "contains",
+      "any": [
+        "bell"
+      ]
+    },
+    {
+      "code": "contains",
+      "any": [
+        "*_stairs"
+      ],
+      "min": 8,
+      "on_floor": true
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site",
+        "interior"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/chapel-slope.py"
+}

@@ -1,0 +1,64 @@
+{
+  "id": "pond-gazebo",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 2,
+  "brief": "An open gazebo beside the pond with a small jetty, seats and lanterns. Leave the pond's water as it is: build around and over it, never fill it in.",
+  "style": "garden: oak, stone, flowers",
+  "plot": {
+    "min": [
+      264,
+      224
+    ],
+    "max": [
+      283,
+      243
+    ]
+  },
+  "budget": {
+    "calls": 35,
+    "minutes": 20,
+    "usd": 2.5
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "water_untouched"
+    },
+    {
+      "code": "contains",
+      "any": [
+        "*_stairs",
+        "*_slab"
+      ],
+      "min": 4
+    },
+    {
+      "code": "contains",
+      "any": [
+        "lantern",
+        "*_lantern"
+      ],
+      "min": 2
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/pond-gazebo.py"
+}

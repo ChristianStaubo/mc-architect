@@ -1,0 +1,64 @@
+{
+  "id": "windmill-hill",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 2,
+  "brief": "A windmill on the hilltop: a stone or timber body with a door, a floor or two inside, and big sails on the side facing the view.",
+  "style": "rustic stone and wood",
+  "plot": {
+    "min": [
+      -456,
+      -192
+    ],
+    "max": [
+      -439,
+      -175
+    ]
+  },
+  "budget": {
+    "calls": 40,
+    "minutes": 20,
+    "usd": 3.0
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "door_reaches_outside"
+    },
+    {
+      "code": "height",
+      "min": 14
+    },
+    {
+      "code": "contains",
+      "any": [
+        "*_wool",
+        "*_fence",
+        "*_trapdoor"
+      ],
+      "min": 16
+    },
+    {
+      "code": "lit_indoors"
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/windmill-hill.py"
+}

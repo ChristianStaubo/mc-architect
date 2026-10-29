@@ -1,5 +1,8 @@
 {
   "id": "tavern-slope",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 2,
   "brief": "A two-storey tavern set into a grassy hillside: a ground-floor bar room with tables and seats, rooms upstairs reached by stairs, a sign or banner at the entrance. Use the slope rather than flattening it all.",
   "style": "medieval timber frame",
   "plot": {
@@ -12,13 +15,62 @@
       231
     ]
   },
-  "must": [
-    "door",
-    "interior"
-  ],
-  "min_indoor_floor": 30,
   "budget": {
     "calls": 45,
-    "minutes": 25
-  }
+    "minutes": 25,
+    "usd": 3.0
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "door_reaches_outside"
+    },
+    {
+      "code": "indoor_floor",
+      "min": 30
+    },
+    {
+      "code": "lit_indoors"
+    },
+    {
+      "code": "storeys",
+      "min": 2
+    },
+    {
+      "code": "stairs_reach_every_storey"
+    },
+    {
+      "code": "contains",
+      "any": [
+        "*_sign",
+        "*_wall_sign",
+        "*_banner",
+        "*_wall_banner"
+      ]
+    },
+    {
+      "code": "floor_levels",
+      "min": 2
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site",
+        "interior"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/tavern-slope.py"
 }

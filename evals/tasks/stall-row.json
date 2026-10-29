@@ -1,0 +1,65 @@
+{
+  "id": "stall-row",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 3,
+  "brief": "A row of four or five shopfronts along one street side, each different in width, height, roof and colour (not copies), sharing party walls. Every shop has a door and a lit room.",
+  "style": "colourful timber town houses",
+  "plot": {
+    "min": [
+      0,
+      -24
+    ],
+    "max": [
+      25,
+      -11
+    ]
+  },
+  "budget": {
+    "calls": 50,
+    "minutes": 30,
+    "usd": 3.0
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "door_reaches_outside"
+    },
+    {
+      "code": "indoor_floor",
+      "min": 40
+    },
+    {
+      "code": "lit_indoors"
+    },
+    {
+      "code": "not_symmetric",
+      "max_ratio": 0.75
+    },
+    {
+      "code": "materials",
+      "min": 4,
+      "max": 10
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site",
+        "interior"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/stall-row.py"
+}

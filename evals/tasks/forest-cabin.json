@@ -1,0 +1,75 @@
+{
+  "id": "forest-cabin",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 2,
+  "brief": "A hunter's cabin in a forest grove: tuck it among the trees and keep most of them standing (clear only what the cabin needs). A porch, a fireplace or stove, a bed.",
+  "style": "dark logs, mossy stone",
+  "plot": {
+    "min": [
+      16,
+      56
+    ],
+    "max": [
+      35,
+      75
+    ]
+  },
+  "budget": {
+    "calls": 35,
+    "minutes": 20,
+    "usd": 2.5
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "door_reaches_outside"
+    },
+    {
+      "code": "indoor_floor",
+      "min": 12
+    },
+    {
+      "code": "lit_indoors"
+    },
+    {
+      "code": "keeps_trees",
+      "min_share": 0.6
+    },
+    {
+      "code": "contains",
+      "any": [
+        "*_bed"
+      ]
+    },
+    {
+      "code": "contains",
+      "any": [
+        "campfire",
+        "furnace",
+        "smoker",
+        "blast_furnace"
+      ]
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site",
+        "interior"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/forest-cabin.py"
+}

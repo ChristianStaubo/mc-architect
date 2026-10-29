@@ -1,5 +1,8 @@
 {
   "id": "cottage-meadow",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 1,
   "brief": "A cozy one-player cottage on a flat meadow: a bed, storage, a crafting spot, everything lit. It should look charming and lived-in from outside, not like a box.",
   "style": "medieval timber and stone",
   "plot": {
@@ -12,13 +15,66 @@
       -9
     ]
   },
-  "must": [
-    "door",
-    "interior"
-  ],
-  "min_indoor_floor": 12,
   "budget": {
     "calls": 30,
-    "minutes": 15
-  }
+    "minutes": 15,
+    "usd": 2.0
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "door_reaches_outside"
+    },
+    {
+      "code": "indoor_floor",
+      "min": 12
+    },
+    {
+      "code": "lit_indoors"
+    },
+    {
+      "code": "contains",
+      "any": [
+        "*_bed"
+      ]
+    },
+    {
+      "code": "contains",
+      "any": [
+        "chest",
+        "barrel"
+      ]
+    },
+    {
+      "code": "contains",
+      "any": [
+        "crafting_table"
+      ]
+    },
+    {
+      "code": "materials",
+      "min": 3,
+      "max": 6
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site",
+        "interior"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/cottage-meadow.py"
 }

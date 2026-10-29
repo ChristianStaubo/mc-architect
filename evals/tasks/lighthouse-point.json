@@ -1,0 +1,67 @@
+{
+  "id": "lighthouse-point",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 3,
+  "brief": "A lighthouse on the point where land meets water: a tall tower with a spiral stair up to a lit lantern room, and a small keeper's room at the base.",
+  "style": "white and red stone, nautical",
+  "plot": {
+    "min": [
+      -296,
+      448
+    ],
+    "max": [
+      -281,
+      463
+    ]
+  },
+  "budget": {
+    "calls": 45,
+    "minutes": 25,
+    "usd": 3.0
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "door_reaches_outside"
+    },
+    {
+      "code": "indoor_floor",
+      "min": 8
+    },
+    {
+      "code": "lit_indoors"
+    },
+    {
+      "code": "height",
+      "min": 22
+    },
+    {
+      "code": "stairs_reach_every_storey"
+    },
+    {
+      "code": "light_near_top",
+      "within": 5
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site",
+        "interior"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/lighthouse-point.py"
+}

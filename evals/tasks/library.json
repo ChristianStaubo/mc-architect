@@ -1,0 +1,77 @@
+{
+  "id": "library",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 2,
+  "brief": "A two-storey village library: tall windows, bookshelves along the walls, reading tables, a gallery or mezzanine overlooking the main hall.",
+  "style": "stone and dark oak, scholarly",
+  "plot": {
+    "min": [
+      -48,
+      360
+    ],
+    "max": [
+      -27,
+      381
+    ]
+  },
+  "budget": {
+    "calls": 45,
+    "minutes": 25,
+    "usd": 3.0
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "door_reaches_outside"
+    },
+    {
+      "code": "indoor_floor",
+      "min": 60
+    },
+    {
+      "code": "lit_indoors"
+    },
+    {
+      "code": "storeys",
+      "min": 2
+    },
+    {
+      "code": "stairs_reach_every_storey"
+    },
+    {
+      "code": "contains",
+      "any": [
+        "bookshelf",
+        "chiseled_bookshelf"
+      ],
+      "min": 24
+    },
+    {
+      "code": "contains",
+      "any": [
+        "lectern"
+      ]
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site",
+        "interior"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/library.py"
+}

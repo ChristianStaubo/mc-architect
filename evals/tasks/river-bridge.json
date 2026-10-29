@@ -1,0 +1,68 @@
+{
+  "id": "river-bridge",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 3,
+  "brief": "A covered timber bridge across the river, walkable from bank to bank without swimming, with a roof over the deck and lanterns. Join each end to its bank naturally (steps or ramps where the banks differ in height).",
+  "style": "oak and stone, covered bridge",
+  "plot": {
+    "min": [
+      296,
+      -491
+    ],
+    "max": [
+      323,
+      -478
+    ]
+  },
+  "budget": {
+    "calls": 45,
+    "minutes": 25,
+    "usd": 3.0
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "spans_water",
+      "frm": [
+        300,
+        -484
+      ],
+      "to": [
+        318,
+        -484
+      ]
+    },
+    {
+      "code": "over_water",
+      "min": 20
+    },
+    {
+      "code": "contains",
+      "any": [
+        "lantern",
+        "*_lantern"
+      ],
+      "min": 2
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/river-bridge.py"
+}

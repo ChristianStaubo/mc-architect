@@ -30,20 +30,58 @@ def in_plot(t, lo, hi):
     return px0 <= lo[0] and hi[0] <= px1 and pz0 <= lo[2] and hi[2] <= pz1
 
 
-def brief(tid, run):
+CHECKS = {  # the code graders in words, for the builder's brief
+    "audit_clean": "`mc audit` shows no FAIL",
+    "inside_plot": "nothing changes outside the plot",
+    "untouched_outside": "nothing changes outside the plot (tree clearing and foundations included)",
+    "door_reaches_outside": "every door can be walked to from outside",
+    "indoor_floor": "at least {min} indoor floor spots",
+    "lit_indoors": "every indoor floor is lit",
+    "storeys": "at least {min} storeys",
+    "stairs_reach_every_storey": "every storey can be walked to (stairs or ladders)",
+    "height": "at least {min} blocks tall above the ground",
+    "over_water": "at least {min} columns of the build stand over water",
+    "spans_water": "walkable without swimming from {frm} to {to} (x, z)",
+    "contains": "at least {min} of {any}",
+    "contains_not": "none of {any}",
+    "floor_levels": "people stand at {min}+ different heights (split levels, terraces)",
+    "not_symmetric": "not a mirror image of itself",
+    "materials": "{min}-{max} main materials",
+    "water_untouched": "no water block changes",
+    "keeps_trees": "at least {min_share:.0%} of the plot's tree logs still standing",
+    "light_near_top": "a light in the top {within} blocks",
+}
+
+
+def checks(t):
+    out = []
+    for g in t.get("graders", []):
+        if "code" in g:
+            args = {"min": 1, "within": 4, **{k: v for k, v in g.items() if k != "code"}}
+            out.append(CHECKS[g["code"]].format(**args) + (" on an indoor floor" if g.get("on_floor") else ""))
+    return out
+
+
+def brief(tid, run, plan=None):
+    """The builder's brief. With `plan`, run is the full MC_RUN_ID and is already in the environment."""
     t = task(tid)
     (x0, z0), (x1, z1) = t["plot"]["min"], t["plot"]["max"]
     b = t["budget"]
-    return "\n".join([
+    lines = [
         f"TASK {tid} (run {run})",
         f"Brief: {t['brief']}",
         f"Style: {t.get('style', 'your choice, consistent')}",
         f"Plot: x {x0}..{x1}, z {z0}..{z1} (the whole build, roof overhangs included, must fit inside).",
-        f"Budget: {b['calls']} mc calls, {b['minutes']} minutes.",
-        f"Must have: {', '.join(t.get('must', [])) or '-'}",
-        f"Every command: MC_RUN_ID={run}:{tid} ./mc.py ... ; place with --task {tid}.",
-        f"Your plan file: local/plans/{run}/{tid}.py",
-    ])
+        f"Budget: {b['calls']} mc calls, {b['minutes']} minutes" + (f", ${b['usd']}" if "usd" in b else "") + ".",
+        "Checks your build must pass:", *([f"  - {c}" for c in checks(t)] or ["  -"]),
+    ]
+    if plan:
+        lines += [f"Run commands as plain `./mc.py ...` (MC_RUN_ID is set for you); place with --task {tid}.",
+                  f"Your plan file: {plan}"]
+    else:
+        lines += [f"Every command: MC_RUN_ID={run}:{tid} ./mc.py ... ; place with --task {tid}.",
+                  f"Your plan file: local/plans/{run}/{tid}.py"]
+    return "\n".join(lines)
 
 
 def tool_stats(run_task):

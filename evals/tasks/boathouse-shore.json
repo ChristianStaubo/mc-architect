@@ -1,5 +1,8 @@
 {
   "id": "boathouse-shore",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 2,
   "brief": "A timber boathouse on the shoreline: part of it stands over the water on posts, with a dock running out into the water and a small enclosed room for storage.",
   "style": "weathered spruce and stone",
   "plot": {
@@ -12,13 +15,46 @@
       159
     ]
   },
-  "must": [
-    "door",
-    "interior"
-  ],
-  "min_indoor_floor": 6,
   "budget": {
     "calls": 40,
-    "minutes": 20
-  }
+    "minutes": 20,
+    "usd": 3.0
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "door_reaches_outside"
+    },
+    {
+      "code": "indoor_floor",
+      "min": 6
+    },
+    {
+      "code": "lit_indoors"
+    },
+    {
+      "code": "over_water",
+      "min": 12
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site",
+        "interior"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/boathouse-shore.py"
 }

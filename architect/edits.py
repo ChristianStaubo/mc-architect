@@ -122,6 +122,16 @@ def _restore_body(e):
     return payload(snapshot(e), label=f"undo {e['id']}")
 
 
+def retire(task, how):
+    """Mark a task's live edits undone without touching the world: its site was put back some other way
+    (an eval reset), so their snapshots no longer describe what's there."""
+    with _locked():
+        gone = [e for e in listing() if e.get("task") == task]
+        for e in gone:
+            _write({**e, "undone": time.strftime("%Y-%m-%dT%H:%M:%S"), "undo_via": how})
+    return gone
+
+
 def _overlap(a, b):
     return all(a["min"][i] <= b["max"][i] and b["min"][i] <= a["max"][i] for i in range(3))
 

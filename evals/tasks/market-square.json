@@ -1,5 +1,8 @@
 {
   "id": "market-square",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 1,
   "brief": "A small market square: at least three market stalls with colourful awnings around a central well, a paved floor, lanterns. Open-air, no doors needed.",
   "style": "colourful village market",
   "plot": {
@@ -12,10 +15,58 @@
       -129
     ]
   },
-  "must": [],
-  "min_indoor_floor": 0,
   "budget": {
     "calls": 40,
-    "minutes": 20
-  }
+    "minutes": 20,
+    "usd": 3.0
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "contains",
+      "any": [
+        "*_wool",
+        "*_carpet",
+        "*_banner"
+      ],
+      "min": 12
+    },
+    {
+      "code": "contains",
+      "any": [
+        "lantern",
+        "*_lantern",
+        "torch",
+        "*_torch"
+      ],
+      "min": 4
+    },
+    {
+      "code": "contains",
+      "any": [
+        "water",
+        "cauldron",
+        "water_cauldron"
+      ]
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/market-square.py"
 }

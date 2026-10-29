@@ -1,5 +1,8 @@
 {
   "id": "watchtower-hill",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 2,
   "brief": "A stone watchtower on a snowy hilltop: at least 16 blocks tall, a way up inside (stairs or ladders), a lookout platform at the top with crenellations, a door at the base.",
   "style": "grey stone, dark wood accents",
   "plot": {
@@ -12,13 +15,44 @@
       -177
     ]
   },
-  "must": [
-    "door",
-    "interior"
-  ],
-  "min_indoor_floor": 4,
   "budget": {
     "calls": 40,
-    "minutes": 20
-  }
+    "minutes": 20,
+    "usd": 3.0
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "door_reaches_outside"
+    },
+    {
+      "code": "height",
+      "min": 16
+    },
+    {
+      "code": "stairs_reach_every_storey"
+    },
+    {
+      "code": "light_near_top"
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/watchtower-hill.py"
 }

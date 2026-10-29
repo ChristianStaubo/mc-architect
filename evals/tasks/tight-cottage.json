@@ -1,0 +1,65 @@
+{
+  "id": "tight-cottage",
+  "suite": "capability",
+  "kind": "should",
+  "difficulty": 2,
+  "brief": "A tiny cottage that makes the most of a cramped 9 by 11 plot: a bed, storage, light, and some charm. Nothing may spill outside the plot, roof included.",
+  "style": "your choice, consistent",
+  "plot": {
+    "min": [
+      -472,
+      -48
+    ],
+    "max": [
+      -464,
+      -38
+    ]
+  },
+  "budget": {
+    "calls": 30,
+    "minutes": 15,
+    "usd": 2.0
+  },
+  "graders": [
+    {
+      "code": "audit_clean"
+    },
+    {
+      "code": "inside_plot"
+    },
+    {
+      "code": "door_reaches_outside"
+    },
+    {
+      "code": "indoor_floor",
+      "min": 10
+    },
+    {
+      "code": "lit_indoors"
+    },
+    {
+      "code": "contains",
+      "any": [
+        "*_bed"
+      ]
+    },
+    {
+      "code": "untouched_outside"
+    },
+    {
+      "judge": "rubric",
+      "dimensions": [
+        "brief",
+        "shape",
+        "depth",
+        "palette",
+        "proportion",
+        "detail",
+        "site",
+        "interior"
+      ]
+    }
+  ],
+  "pass": "all code graders pass",
+  "reference": "evals/reference/tight-cottage.py"
+}
