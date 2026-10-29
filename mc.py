@@ -47,7 +47,7 @@ MC_RUN_ID); a failure saves an incident in local/runs/incidents/. Pictures: loca
 """
 
 import argparse
-import difflib
+from collections import Counter
 import importlib.util
 import json
 import os
@@ -62,8 +62,10 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from architect import audit as auditing  # noqa: E402
-from architect import bridge, edits, evals, incidents, journal, render, terrain, trace  # noqa: E402
+from architect import blocks, bridge, edits, evals, incidents, journal, render, terrain  # noqa: E402
 from architect import town as towns  # noqa: E402
+from architect.placement import (bounds, check_blocks, clear_trees, ground_cells, original_ground,  # noqa: E402
+                                 overflow, water_depths, whole_trees)
 
 RENDERS = ROOT / "local" / "renders"
 
@@ -152,17 +154,13 @@ def cmd_site(a):
         raise SystemExit("give X,Z [W,D] or --task T")
     cols = bridge.heightmap(lo, hi)
     ys = [v[0] for v in cols.values()]
-    surface = {}
-    for _, b in cols.values():
-        n = render.block_name(b)
-        surface[n] = surface.get(n, 0) + 1
+    tops = Counter(blocks.name(b) for _, b in cols.values())
     w, d = hi[0] - lo[0] + 1, hi[1] - lo[1] + 1
     path = out_path(f"site-{lo[0]}_{lo[1]}")
     render.top_down(cols, path, scale=max(4, 480 // max(w, d)))
     print(f"site x {lo[0]}..{hi[0]}, z {lo[1]}..{hi[1]}: ground y {min(ys)}..{max(ys)} "
           f"(median {statistics.median(ys):.0f}, spread {max(ys) - min(ys)})")
-    print("surface: " + ", ".join(f"{k} {v * 100 // len(ys)}%" for k, v in
-                                  sorted(surface.items(), key=lambda kv: -kv[1])[:6]))
+    print("surface: " + ", ".join(f"{k} {v * 100 // len(ys)}%" for k, v in tops.most_common(6)))
     side = lambda pts: statistics.mean(cols[p][0] for p in pts)  # noqa: E731
     sides = {"north": side([(x, lo[1]) for x in range(lo[0], hi[0] + 1)]),
              "south": side([(x, hi[1]) for x in range(lo[0], hi[0] + 1)]),
@@ -173,28 +171,15 @@ def cmd_site(a):
     step = max(1, max(w, d) // 8)
     print(f"ground y every {step} blocks (rows = z north→south, cols = x west→east; ~ = water):")
     print("        " + " ".join(f"{x:>5}" for x in range(lo[0], hi[0] + 1, step)))
-    for z in range(lo[1], hi[1] + 1, step):
-        row = []
-        for x in range(lo[0], hi[0] + 1, step):
-            y, b = cols[(x, z)]
-            row.append(f"{y:>4}{'~' if render.block_name(b) == 'water' else ' '}")
-        if any(render.block_name(cols[(x, z)][1]) == "water" for x in range(lo[0], hi[0] + 1, step)):
-            row.append("  depth: " + " ".join(str(water_depth(x, z, cols[(x, z)][0])) if
-                                              render.block_name(cols[(x, z)][1]) == "water" else "."
-                                              for x in range(lo[0], hi[0] + 1, step)))
+    grid_x, grid_z = range(lo[0], hi[0] + 1, step), range(lo[1], hi[1] + 1, step)
+    wet = {(x, z) for x in grid_x for z in grid_z if terrain.is_water(cols[(x, z)])}
+    depth = water_depths([(x, z, cols[(x, z)][0]) for x, z in wet])
+    for z in grid_z:
+        row = [f"{cols[(x, z)][0]:>4}{'~' if (x, z) in wet else ' '}" for x in grid_x]
+        if any((x, z) in wet for x in grid_x):
+            row.append("  depth: " + " ".join(str(depth[(x, z)]) if (x, z) in wet else "." for x in grid_x))
         print(f"{z:>7} " + " ".join(row))
     print(f"map (north up, brighter = higher): {path}")
-
-
-def water_depth(x, z, surface):
-    """Blocks of water below the surface at a column (where posts must reach)."""
-    col = bridge.region((x, surface - 30, z), (x, surface, z))
-    d = 0
-    for y in range(surface, surface - 31, -1):
-        if render.block_name(col.get((x, y, z), "")) != "water":
-            break
-        d += 1
-    return d
 
 
 def load_plan(name):
@@ -210,126 +195,6 @@ def load_plan(name):
     if not b.blocks:
         raise SystemExit(f"plan {name} built nothing")
     return b
-
-
-BLOCKS = ROOT / "local" / "blocks.json"
-
-
-def check_blocks(cells):
-    """Refuse before placing (or previewing) if any block-data string won't parse on this server, with
-    the closest real names. r2: 'chain' (it's iron_chain) and 'dark_oak_log[axis=x][axis=z]' only
-    failed at place time."""
-    names = sorted({b for b in cells.values() if b not in ("air", None)})
-    bad = bridge.call("/validate", {"blocks": names})["invalid"]
-    if not bad:
-        return
-    if not BLOCKS.exists():
-        BLOCKS.parent.mkdir(parents=True, exist_ok=True)
-        BLOCKS.write_text(json.dumps(bridge.call("/blocks")["blocks"]))
-    known = json.loads(BLOCKS.read_text())
-    lines = []
-    for x in bad:
-        base = x["block"].split("[")[0].replace("minecraft:", "")
-        hint = ""
-        if base not in known:
-            close = difflib.get_close_matches(base, known, n=3, cutoff=0.6) or [k for k in known if base in k][:3]
-            hint = f" (did you mean {', '.join(close)}?)" if close else ""
-        lines.append(f"  {x['block']}: {x['error']}{hint}")
-    sys.exit("refused: blocks this server can't place:\n" + "\n".join(lines))
-
-
-def original_ground(cols, task="", run=""):
-    """Ground heights as they were before this task's (or run's) own live edits: re-previewing a plan
-    over its own earlier build must not read that build as terrain (r2 tavern: y 122)."""
-    mine = [e for e in edits.listing() if (task and e.get("task") == task) or (run and e.get("run") == run)]
-    for e in mine:
-        snap = edits.snapshot(e)
-        tops = {}
-        for (x, y, z), b in snap.items():
-            if not render.skipped(b) and not any(k in b for k in TREE) and y > tops.get((x, z), (-999,))[0]:
-                tops[(x, z)] = (y, b)
-        for xz in cols:
-            if xz in tops and e["min"][1] <= cols[xz][0] <= e["max"][1]:
-                cols[xz] = tops[xz]
-    return cols
-
-
-def ground_cells(build, at, foundation="cobblestone", floor_y=None, clear=True, task="", run=""):
-    """World cells for a build whose local (0, 0, 0) corner goes at X,Z on the ground: local y 0 sits one
-    above the median ground height (or at floor_y); columns below the footprint are filled down to the
-    terrain with `foundation` ("none": leave them, e.g. posts over water), and terrain inside the build's
-    box (a hill) is cleared to air unless clear is False."""
-    (lx0, ly0, lz0), (lx1, ly1, lz1) = build.bounds()
-    x, z = at
-    cols = original_ground(bridge.heightmap((x + lx0, z + lz0), (x + lx1, z + lz1)), task, run)
-    foot = build.footprint()
-    heights = [cols[(x + fx, z + fz)][0] for fx, fz in foot]
-    y0 = floor_y if floor_y is not None else int(statistics.median(heights)) + 1
-    cells = {}
-    for (fx, fz) in foot:
-        g = cols[(x + fx, z + fz)][0]
-        if foundation != "none":
-            for y in range(g + 1, y0 + ly0):  # foundation down to the ground
-                cells[(x + fx, y, z + fz)] = foundation
-        if clear:  # clear the hill inside the footprint, from the ground floor up (never below it:
-            # posts and basements change only where the plan says; r1's boathouse got a flooded-out
-            # air pocket under its floor when clearing started at its lowest post)
-            for y in range(y0, max(g, y0 + ly1) + 1):
-                cells[(x + fx, y, z + fz)] = "air"
-    for (bx, by, bz), blk in build.blocks.items():
-        cells[(x + bx, y0 + by, z + bz)] = blk
-    return cells, y0
-
-
-TREE = ("_log", "_leaves", "vine", "bee_nest", "_wood")
-
-
-def clear_trees(cells, task=None, margin=2, reach=7):
-    """Trees that touch the build (its box plus `margin`) go whole: every log, leaf, vine and the snow
-    on them connected to a touching one, up to `reach` blocks beyond. r2: clearing only the touching
-    blocks left snow-capped leaves floating around the watchtower. Within a task, only inside its plot."""
-    xs, ys, zs = zip(*cells)
-    box_lo = (min(xs) - margin, min(ys), min(zs) - margin)
-    box_hi = (max(xs) + margin, max(ys) + 8, max(zs) + margin)
-    world = bridge.region((box_lo[0] - reach, box_lo[1], box_lo[2] - reach),
-                          (box_hi[0] + reach, box_hi[1] + reach, box_hi[2] + reach))
-    treeish = lambda b: any(k in b for k in TREE)  # noqa: E731
-    near = lambda p: all(box_lo[i] <= p[i] <= box_hi[i] for i in range(3))  # noqa: E731
-    seeds = [p for p, b in world.items() if near(p) and p not in cells and treeish(b)]
-    tree = auditing.flood(world, seeds, treeish)
-    tree |= {(x, y + 1, z) for (x, y, z) in tree if render.block_name(world.get((x, y + 1, z), "")) == "snow"}
-    out = dict(cells)
-    for p in tree:
-        if p not in cells and (not task or evals.in_plot(task, p, p)):
-            out[p] = "air"
-    return out
-
-
-def overflow(build, at, t):
-    """Say exactly what sticks out of the plot: which sides, by how much, and which blocks (in local
-    coordinates, so the plan can be fixed). The inn's builder had to guess from a bare refusal."""
-    (px0, pz0), (px1, pz1) = t["plot"]["min"], t["plot"]["max"]
-    out = {}
-    for (x, y, z), b in build.blocks.items():
-        wx, wz = at[0] + x, at[1] + z
-        sides = [s for s, bad in (("west", wx < px0), ("east", wx > px1), ("north", wz < pz0), ("south", wz > pz1)) if bad]
-        for s in sides:
-            out.setdefault(s, []).append(((x, y, z), b.split("[")[0]))
-    (lx0, _, lz0), (lx1, _, lz1) = build.bounds()
-    lines = [f"refused: the build doesn't fit the plot (x {px0}..{px1}, z {pz0}..{pz1}); placed at --at {at[0]},{at[1]} "
-             f"it covers x {at[0] + lx0}..{at[0] + lx1}, z {at[1] + lz0}..{at[1] + lz1}."]
-    for side, cells in out.items():
-        far = {"west": px0 - min(at[0] + c[0] for c, _ in cells), "east": max(at[0] + c[0] for c, _ in cells) - px1,
-               "north": pz0 - min(at[1] + c[2] for c, _ in cells), "south": max(at[1] + c[2] for c, _ in cells) - pz1}[side]
-        kinds = {}
-        for _, n in cells:
-            kinds[n] = kinds.get(n, 0) + 1
-        sample = sorted(c for c, _ in cells)[:3]
-        lines.append(f"  {side}: {far} block(s) too far, {len(cells)} blocks: "
-                     + ", ".join(f"{k} {v}" for k, v in sorted(kinds.items(), key=lambda kv: -kv[1])[:4])
-                     + f" (local e.g. {sample})")
-    lines.append("  fix: trim those (often a roof overhang: gable_roof end_overhang=0, or overhang=0), or move with --at")
-    return "\n".join(lines)
 
 
 def cmd_place(a):
@@ -358,23 +223,21 @@ def cmd_place(a):
     print(f"{build.name}: {len(build.blocks)} blocks, footprint x {lx0}..{lx1} z {lz0}..{lz1} (local), " +
           ", ".join(f"{k} {v}" for k, v in list(build.counts().items())[:6]))
     if t and not evals.in_plot(t, (at[0] + lx0, 0, at[1] + lz0), (at[0] + lx1, 0, at[1] + lz1)):
-        sys.exit(overflow(build, at, t))
+        sys.exit(overflow(build, at, (t["plot"]["min"], t["plot"]["max"])))
     check_blocks(build.blocks)
     cells, y0 = ground_cells(build, at, a.foundation, a.y, not a.no_clear, a.task or "", journal.run_id())
     if not a.keep_trees:
-        cells = clear_trees(cells, t)
+        cells = clear_trees(cells, (t["plot"]["min"], t["plot"]["max"]) if t else None)
     if a.dry_run:  # the build drawn over the real terrain, exactly as place would leave it, and audited
-        xs, ys, zs = zip(*cells)
-        world = bridge.region((min(xs) - 3, min(ys) - 4, min(zs) - 3), (max(xs) + 3, max(ys) + 2, max(zs) + 3))
+        (x0, y0_, z0), (x1, y1, z1) = bounds(cells)
+        world = bridge.region((x0 - 3, y0_ - 4, z0 - 3), (x1 + 3, y1 + 2, z1 + 3))
         world.update(cells)
         path = out_path(f"{build.name}-preview")
         render.sheet([render.iso(world, view=v) for v in ("se", "nw")], path, columns=2)
-        r = auditing.audit(world, ((min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs))))
+        r = auditing.audit(world, bounds(cells))
         print(f"dry run at {at[0]},{y0},{at[1]} (--at {at[0]},{at[1]}), nothing placed. "
               f"preview on the real terrain, two opposite corners: {path}")
-        print(f"audit of the preview: {r['fails']} fail, {r['warns']} warn")
-        for c in r["checks"]:
-            print(f"  {c['level'].upper():<4} {c['check']:<9} {c['msg']}" + (f"  e.g. {c['at'][:3]}" if c["at"] else ""))
+        print(auditing.report(r, "audit of the preview: "))
         return
     t0 = time.time()
     ents = [(at[0] + x, y0 + y, at[1] + z, k) for (x, y, z, k) in build.entities]
@@ -415,8 +278,8 @@ def cmd_blueprint(a):
     at = tuple(ints(a.at))
     check_blocks(build.blocks)
     cells, y0 = ground_cells(build, at, a.foundation, a.y, not a.no_clear)
-    xs, ys, zs = zip(*cells)
-    lo, hi = (min(xs) - 6, min(ys) - 3, min(zs) - 6), (max(xs) + 6, max(ys) + 6, max(zs) + 6)
+    (bx0, by0, bz0), (bx1, by1, bz1) = box = bounds(cells)
+    lo, hi = (bx0 - 6, by0 - 3, bz0 - 6), (bx1 + 6, by1 + 6, bz1 + 6)
     before = bridge.region(lo, hi)
     after = dict(before)
     after.update(cells)
@@ -425,7 +288,7 @@ def cmd_blueprint(a):
     cols = bridge.heightmap((lo[0], lo[2]), (hi[0], hi[2]))
     scale = 4
     w, h, px = render.top_down(cols, scale=scale)
-    foot = {(x, z) for (x, y, z), b in cells.items() if b != "air" or True}
+    foot = {(x, z) for x, _, z in cells}
     edge = {(x, z) for (x, z) in foot if any((x + dx, z + dz) not in foot for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))}
     for (x, z) in edge:
         for dx in range(scale):
@@ -440,16 +303,14 @@ def cmd_blueprint(a):
     imgs.append(render.elevation(before, look=a.face, scale=6))
     imgs.append(render.elevation(after, look=a.face, scale=6))
     # 4. floor plans of the design at its storeys (from the audit of the result), up to 4
-    r = auditing.audit(after, ((min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs))))
+    r = auditing.audit(after, box)
     levels = r["stats"]["indoor_levels"][:4] or [y0 + 1]
     imgs += [render.plan(after, y, scale=6) for y in levels]
     path = out_path(f"{build.name}-blueprint")
     render.sheet(imgs, path, columns=3)
     print(f"{path}\norder: site with footprint (red), design x-ray SE and NW, the {a.face}-looking face before "
           f"and after, floor plans at y {', '.join(map(str, levels))}")
-    print(f"audit of the result: {r['fails']} fail, {r['warns']} warn")
-    for c in r["checks"]:
-        print(f"  {c['level'].upper():<4} {c['check']:<9} {c['msg']}")
+    print(auditing.report(r, "audit of the result: "))
 
 
 # ---- look and judge ----
@@ -458,11 +319,7 @@ def latest_edit(eid):
     """eid, or the newest live edit of this run (MC_RUN_ID), or the newest overall."""
     if eid:
         return edits.get(eid)
-    run = journal.run_id()
-    live = [e for e in edits.listing() if not run or e.get("run") == run]
-    if not live:
-        raise SystemExit("no live edits" + (f" in run {run}" if run else ""))
-    return max(live, key=lambda x: int(x["id"][1:]))
+    return edits.newest(journal.run_id())
 
 
 def around(e, margin=3, below=4, above=2):
@@ -479,10 +336,9 @@ def run_audit(e):
 def cmd_audit(a):
     e = latest_edit(a.id)
     r = run_audit(e)
-    print(f"audit {e['id']} ({e['label']}): {r['fails']} fail, {r['warns']} warn; "
-          f"{r['stats']['blocks']} blocks, {r['stats']['doors']} doors, {r['stats']['indoor_floor']} indoor floor spots")
-    for c in r["checks"]:
-        print(f"  {c['level'].upper():<4} {c['check']:<9} {c['msg']}" + (f"  e.g. {c['at'][:3]}" if c["at"] else ""))
+    st = r["stats"]
+    print(auditing.report(r, f"audit {e['id']} ({e['label']}): ",
+                          f"; {st['blocks']} blocks, {st['doors']} doors, {st['indoor_floor']} indoor floor spots"))
     if r["fails"] and a.friction:
         fid = journal.stuck(f"audit {e['id']} failed: " + "; ".join(c["msg"] for c in r["checks"] if c["level"] == "fail"))
         print(f"friction filed: {fid}")
@@ -557,11 +413,10 @@ def cmd_incident(a):
     info = json.loads((d / "incident.json").read_text())
     if a.action == "replay":
         argv = info["argv"]
-        if argv[0] == "place" and "--dry-run" not in argv:
-            argv = argv + ["--dry-run"]
-        elif argv[0] not in ("place", "blueprint", "site", "audit", "shots", "render", "status", "edits", "town"):
+        changes_world = argv[0] == "place" or argv[:1] == ["town"] and argv[1] in ("road", "terrace", "tidy")
+        if not changes_world and argv[0] not in ("blueprint", "site", "audit", "shots", "render", "status", "edits", "town"):
             raise SystemExit(f"won't replay '{argv[0]}' (it changes the world); run it yourself")
-        if argv[0] == "town" and argv[1] in ("road", "terrace", "tidy") and "--dry-run" not in argv:
+        if changes_world and "--dry-run" not in argv:
             argv = argv + ["--dry-run"]
         env = dict(os.environ, MC_RUN_ID=info["run"] or "")
         print(f"replaying (dry): mc {' '.join(argv)}")
@@ -662,7 +517,7 @@ def cmd_town(a):
         cols = town_terrain(name)
         issues = towns.check(name, cols)
         path = out_path(f"town-{name}-layout")
-        numbering, colors = towns.draw(name, cols, path)
+        numbering = towns.draw(name, cols, path)
         lay = towns.layout(name)
         print(f"{len(lay.get('roads', []))} roads, {len(lay.get('plots', []))} plots")
         for n, pid in numbering.items():
@@ -735,7 +590,7 @@ def cmd_town(a):
         lay = towns.layout(name)
         reach = 4
         plots = [((p["min"][0], p["min"][1]), (p["max"][0], p["max"][1])) for p in lay["plots"]]
-        in_plot = lambda x, z: any(p0[0] <= x <= p1[0] and p0[1] <= z <= p1[1] for p0, p1 in plots)  # noqa: E731
+        in_plots = {(x, z) for p0, p1 in plots for x in range(p0[0], p1[0] + 1) for z in range(p0[1], p1[1] + 1)}
         road = set()
         for r in lay["roads"]:
             road |= towns.road_cells({**r, "width": r.get("width", 3) + 2})
@@ -749,13 +604,10 @@ def cmd_town(a):
         cols = bridge.heightmap(lo, hi)
         floors = [p["floor_y"] for p in lay["plots"]]
         world = bridge.region((lo[0], min(floors) - 6, lo[1]), (hi[0], max(floors) + 28, hi[1]))
-        ok = lambda p: (not in_plot(p[0], p[2]) and (p[0], p[2]) not in road and  # noqa: E731
+        ok = lambda p: ((p[0], p[2]) not in in_plots and (p[0], p[2]) not in road and  # noqa: E731
                         not terrain.is_water(cols.get((p[0], p[2]), (0, "air"))))
-        tree = lambda b: any(k in b for k in TREE)  # noqa: E731
-        seeds = [p for p, b in world.items() if (p[0], p[2]) in near and tree(b) and ok(p)]
-        found = auditing.flood(world, seeds, tree)
-        found = {p for p in found if ok(p)}
-        found |= {(x, y + 1, z) for (x, y, z) in found if render.block_name(world.get((x, y + 1, z), "")) == "snow"}
+        seeds = [p for p, b in world.items() if (p[0], p[2]) in near and blocks.is_tree(b) and ok(p)]
+        found = whole_trees(world, seeds, ok)
         if a.dry_run:
             print(f"tidy {name}: would remove {len(found)} tree blocks; nothing placed")
             return
@@ -778,14 +630,14 @@ def cmd_eval(a):
         print(evals.brief(a.task, a.run))
     elif a.action == "reset":
         live = [e for e in edits.listing() if e.get("task") == a.task]
-        for e in sorted(live, key=lambda x: -int(x["id"][1:])):
+        for e in sorted(live, key=edits.seq, reverse=True):
             edits.undo(e["id"])
             print(f"undid {e['id']}")
         print(f"{a.task}: plot back to its terrain ({len(live)} edits undone)")
     elif a.action == "record":
         run_task = f"{a.run}:{a.task}"
         mine = [e for e in edits.listing() if e.get("task") == a.task and e.get("run") == run_task]
-        e = max(mine, key=lambda x: int(x["id"][1:])) if mine else None
+        e = max(mine, key=edits.seq) if mine else None
         r = run_audit(e) if e else {"fails": 1, "warns": 0, "checks": [{"check": "nothing built", "level": "fail"}],
                                     "stats": {"doors": 0, "indoor_floor": 0}}
         crit = json.loads(Path(a.critique).read_text()) if a.critique else None
@@ -807,8 +659,17 @@ def cmd_eval(a):
                       f"{('| ' + c.get('summary', '')[:90]) if c else ''}")
 
 
+class Parser(argparse.ArgumentParser):
+    """Coordinates like -68,-20 are values, not options. Subparsers are made with the parent's class,
+    so every subcommand inherits this."""
+
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
+        self._negative_number_matcher = re.compile(r"^-\d+(,-?\d+)*$")
+
+
 def main():
-    p = argparse.ArgumentParser(prog="mc", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = Parser(prog="mc", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
     for n in ("doctor", "status", "restart", "edits"):
         sub.add_parser(n)
@@ -878,11 +739,6 @@ def main():
     ev.add_argument("task", nargs="?")
     ev.add_argument("--run")
     ev.add_argument("--critique")
-    # Coordinates like -68,-20 are values, not options.
-    coords = re.compile(r"^-\d+(,-?\d+)*$")
-    for parser in [p, *sub.choices.values()]:
-        parser._negative_number_matcher = coords
-        parser._has_negative_number_optionals = []
     a = p.parse_args()
     if a.cmd == "eval" and a.action == "report" and a.task and not a.run:
         a.run = a.task  # `mc eval report RUN`
@@ -911,7 +767,6 @@ def main():
         traceback.print_exception(exc)
     if err:
         print(err, file=sys.stderr)
-    trace.prune()
     sys.exit(code)
 
 
