@@ -29,6 +29,7 @@ Towns (towns/NAME/town.json + layout.json; docs/town.md)
   mc town road NAME ROAD [--dry-run]       build a road (follows the land, bridges over water)
   mc town terrace NAME PLOT [--dry-run]    level a plot at its floor_y with retaining walls
   mc town brief NAME PLOT           a builder's brief for a plot; build it with place --plot NAME/PLOT
+  mc town shots NAME                the whole town from four corners and above (the town critic's input)
   mc town status NAME               what's built
 Server
   mc doctor | status | restart | cmd "<command>"  (cmd refuses stop/restart/reload)
@@ -517,12 +518,13 @@ def cmd_town(a):
     elif a.action == "terrace":
         p = towns.plot(name, a.id)
         (x0, z0), (x1, z1) = p["min"], p["max"]
-        cols = original_ground(bridge.heightmap((x0 - 3, z0 - 3), (x1 + 3, z1 + 3)), task=f"town:{name}:{a.id}")
+        cols = original_ground(bridge.heightmap((x0 - 3, z0 - 3), (x1 + 3, z1 + 3)), task=f"town:{name}:{a.id}:terrace")
         cells = terrain.terrace(x0, z0, x1, z1, p["floor_y"], cols, margin=0)
         if a.dry_run:
             print(f"terrace {a.id}: {len(cells)} cells; nothing placed")
             return
-        e = edits.place(cells, label=f"terrace-{a.id}", run=journal.run_id(), task=f"town:{name}:{a.id}")
+        # its own tag: the building's place reads the terraced ground, not the ground before the terrace
+        e = edits.place(cells, label=f"terrace-{a.id}", run=journal.run_id(), task=f"town:{name}:{a.id}:terrace")
         print(f"terraced {a.id} as {e['id']}: {e['changed']} blocks changed")
     elif a.action == "brief":
         p = towns.plot(name, a.id)
@@ -537,6 +539,22 @@ def cmd_town(a):
             f"Door: on the {p.get('door', 'south')} side, facing the road.",
             f"Place with: ./mc.py place PLAN --plot {name}/{p['id']} (y 0 of your plan = floor y {p['floor_y']}).",
         ]))
+    elif a.action == "shots":
+        lay = towns.layout(name)
+        pts = [tuple(p) for r in lay["roads"] for p in r["points"]] + \
+              [tuple(p[k]) for p in lay["plots"] for k in ("min", "max")]
+        xs, zs = [p[0] for p in pts], [p[1] for p in pts]
+        lo_xz, hi_xz = (min(xs) - 6, min(zs) - 6), (max(xs) + 6, max(zs) + 6)
+        floors = [p["floor_y"] for p in lay["plots"]]
+        cols = bridge.heightmap(lo_xz, hi_xz)
+        cells = bridge.region((lo_xz[0], min(floors) - 10, lo_xz[1]), (hi_xz[0], max(floors) + 30, hi_xz[1]))
+        cells = {p: b for p, b in cells.items() if p[1] >= cols[(p[0], p[2])][0] - 3 or p[1] >= min(floors) - 2}
+        imgs = [render.iso(cells, tile=a.tile, view=v) for v in ("se", "sw", "nw", "ne")]
+        imgs.append(render.top_down(cols, scale=4))
+        path = out_path(f"town-{name}-shots")
+        render.sheet(imgs, path, columns=2)
+        print(f"{path}\nlayout: views from the SE, SW, NW, NE corners (2 per row), then top-down (north up); "
+              f"area x {lo_xz[0]}..{hi_xz[0]}, z {lo_xz[1]}..{hi_xz[1]}")
     elif a.action == "status":
         live = [e for e in edits.listing() if e.get("task", "").startswith(f"town:{name}")]
         for e in live:
@@ -627,7 +645,8 @@ def main():
     f.add_argument("--repeat-of")
     f.add_argument("--all", action="store_true")
     tw = sub.add_parser("town")
-    tw.add_argument("action", choices=["site", "show", "road", "terrace", "brief", "status"])
+    tw.add_argument("action", choices=["site", "show", "road", "terrace", "brief", "shots", "status"])
+    tw.add_argument("--tile", type=int, default=5)
     tw.add_argument("name")
     tw.add_argument("id", nargs="?")
     tw.add_argument("--dry-run", action="store_true")

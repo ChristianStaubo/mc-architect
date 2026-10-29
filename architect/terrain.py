@@ -155,14 +155,14 @@ def terrace(x1, z1, x2, z2, floor_y, cols, top="grass_block", fill="dirt", wall=
     """Seat a level pad (x1..x2, z1..z2, plus `margin`) at floor_y - 1 so a plan's y 0 sits on it.
     Higher ground is cut away (and a retaining wall faces the cut where it's 2+ blocks high); lower
     ground is filled, with a retaining wall on the pad's edge where the drop is 2+ blocks, capped with
-    a slab lip. Returns world cells."""
+    a slab lip. Water is left as it is. Returns world cells."""
     cells = {}
     lo_x, hi_x, lo_z, hi_z = x1 - margin, x2 + margin, z1 - margin, z2 + margin
     pad_y = floor_y - 1
     for x in range(lo_x, hi_x + 1):
         for z in range(lo_z, hi_z + 1):
             g = cols.get((x, z))
-            if not g:
+            if not g or is_water(g):  # water stays water (a boathouse stands over it on posts)
                 continue
             gy = g[0]
             edge = x in (lo_x, hi_x) or z in (lo_z, hi_z)

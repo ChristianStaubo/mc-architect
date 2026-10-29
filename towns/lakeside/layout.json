@@ -1,208 +1,227 @@
 {
- "palette": {
-  "notes": "medieval lake town: dark oak timber frames over white plaster, stone-brick bases mixed with cobble and mossy bricks, steep dark oak roofs, spruce for docks, piers and shutters; colourful wool awnings only in the market",
-  "frame": "dark_oak_log",
-  "fill": "white_terracotta",
-  "base": "stone_bricks",
-  "roof": "dark_oak_stairs",
-  "accent": "spruce"
- },
- "roads": [
-  {
-   "id": "high_street",
-   "width": 3,
-   "points": [
-    [
-     303,
-     -189
-    ],
-    [
-     326,
-     -189
-    ],
-    [
-     337,
-     -189
-    ],
-    [
-     337,
-     -201
-    ],
-    [
-     342,
-     -207
-    ],
-    [
-     343,
-     -214
-    ],
-    [
-     350,
-     -220
-    ],
-    [
-     357,
-     -222
-    ],
-    [
-     384,
-     -222
-    ]
-   ]
+  "palette": {
+    "notes": "medieval lake town: dark oak timber frames over white plaster, stone-brick bases mixed with cobble and mossy bricks, steep dark oak roofs, spruce for docks, piers and shutters; colourful wool awnings only in the market",
+    "frame": "dark_oak_log",
+    "fill": "white_terracotta",
+    "base": "stone_bricks",
+    "roof": "dark_oak_stairs",
+    "accent": "spruce"
   },
-  {
-   "id": "church_lane",
-   "width": 3,
-   "points": [
-    [
-     337,
-     -189
-    ],
-    [
-     338,
-     -183
-    ],
-    [
-     350,
-     -182
-    ],
-    [
-     362,
-     -184
-    ]
-   ]
-  }
- ],
- "plots": [
-  {
-   "id": "market",
-   "district": "market",
-   "type": "market square",
-   "min": [
-    340,
-    -199
-   ],
-   "max": [
-    356,
-    -185
-   ],
-   "floor_y": 68,
-   "door": "west",
-   "landmark": true,
-   "brief": "The town's market square on the crown of the peninsula (17x15), where the causeway road from the west meets the harbour street. Paved in a mix of stone bricks, cobble and gravel with a roofed stone well in the middle and a market cross; 5-6 timber stalls with colourful wool awnings along the north and south edges (the only bright colour in town). The ground is level at 67-68 over the west two-thirds and falls ~5 blocks to the east: keep the paving at 68, and finish the east edge with a low stone parapet and a short flight of steps down, a lookout over the east lake towards the lighthouse. Lanterns on dark oak posts at the corners; open to the high street on the west and to church lane on the south."
-  },
-  {
-   "id": "church",
-   "district": "market",
-   "type": "church",
-   "min": [
-    341,
-    -179
-   ],
-   "max": [
-    356,
-    -172
-   ],
-   "floor_y": 67,
-   "door": "north",
-   "landmark": true,
-   "brief": "The parish church (16x8, nave running east-west) on the south end of the crest, facing the square across church lane. Stone-brick base, white plaster and dark oak frame on the nave, steep dark roof, and a square stone bell tower at the west end about 20 blocks high: the tallest thing in the lower town, seen from both lakes and the causeway. Door on the north side onto the lane. The ground falls ~5 blocks to the south shore: carry the south wall on a stone terrace wall with buttresses rather than a cliff of fill. One special detail: a round window in the east gable looking out over the water."
-  },
-  {
-   "id": "merchant",
-   "district": "market",
-   "type": "merchant house",
-   "min": [
-    327,
-    -200
-   ],
-   "max": [
-    334,
-    -193
-   ],
-   "floor_y": 66,
-   "door": "east",
-   "brief": "A merchant's house (8x8, two storeys plus attic) on the west flank of the crest, looking over the long west lake. Street floor at 66 with the door east onto the high street; the ground drops to 62 towards the lake, so put a stone undercroft (storeroom) under the west half, opening onto a small landing at the water. Upper floor jettied out one block over the street side. Special detail: a hoist beam with a pulley in the street gable for lifting goods to the loft."
-  },
-  {
-   "id": "cottage_w",
-   "district": "market",
-   "type": "cottage",
-   "min": [
-    333,
-    -214
-   ],
-   "max": [
-    339,
-    -206
-   ],
-   "floor_y": 66,
-   "door": "east",
-   "brief": "A fisherman's cottage (7x9, a storey and a half) on the west side of the harbour street, gable end to the street, door east. Ground 62-66: the street end sits on the ground at 66, the lake end on a 2-3 block stone plinth. Plaster and dark oak frame, steep roof, a fat stone chimney. Special detail: a net-drying rack and a small smokehouse lean-to on the lake side."
-  },
-  {
-   "id": "cottage_e",
-   "district": "market",
-   "type": "cottage",
-   "min": [
-    346,
-    -213
-   ],
-   "max": [
-    352,
-    -205
-   ],
-   "floor_y": 64,
-   "door": "west",
-   "brief": "A cottage (7x9, one and a half storeys) on the low east side of the harbour street, door west to the street; floor 64 on ground 62-65, so a low stone base on the bay side. Plaster and timber, dormer in the roof. Special detail: an outside wooden stair to the loft and flower boxes under the street windows; a little garden strip down to the bay."
-  },
-  {
-   "id": "inn",
-   "district": "harbour",
-   "type": "tavern",
-   "min": [
-    349,
-    -236
-   ],
-   "max": [
-    363,
-    -225
-   ],
-   "floor_y": 63,
-   "door": "south",
-   "brief": "The harbour inn (15x12) at the head of the street, where it turns east onto the quay: the first thing you see walking down from the market. Flat ground at 62-63. Two storeys plus attic, L-shaped (main hall along the quay, a stable/kitchen wing behind), stone ground floor, timber-framed plaster upper floor jettied over the front, big chimneys. Door south onto the quay. Special detail: a covered front porch with benches and a hanging sign on an iron bracket, looking straight out over the bay."
-  },
-  {
-   "id": "boathouse",
-   "district": "harbour",
-   "type": "boathouse",
-   "min": [
-    366,
-    -219
-   ],
-   "max": [
-    375,
-    -207
-   ],
-   "floor_y": 64,
-   "door": "north",
-   "brief": "A boathouse (10x13) on the north shore of the east lake: the north 3-4 rows stand on the shore (y 62), the rest on spruce/oak posts over the water, deck at 64. Stone-brick plinth on the land end, spruce plank walls with dark oak frame, low wide roof. Door north onto the quay; a wide open water gate on the south end over an indoor boat slip. Special detail: a short spruce pier running out along its east side with mooring posts and a moored boat."
-  },
-  {
-   "id": "lighthouse",
-   "district": "harbour",
-   "type": "lighthouse",
-   "min": [
-    364,
-    -188
-   ],
-   "max": [
-    370,
-    -182
-   ],
-   "floor_y": 64,
-   "door": "west",
-   "brief": "The lighthouse on the east point of the peninsula, the end of church lane, marking the way into the harbour bay for boats on the east lake. A round or octagonal stone-brick tower (5-6 across, about 22-25 high) on a rough cobble/mossy base that stands partly in the water (the plot is half lake); a spruce gallery round the top and a glazed lantern room lit with glowstone or sea lanterns. Keeper's door on the west to the lane. Special detail: a tiny lean-to keeper's store at the foot of the tower on the land side."
-  }
- ]
+  "roads": [
+    {
+      "id": "high_street",
+      "width": 3,
+      "points": [
+        [
+          303,
+          -189
+        ],
+        [
+          326,
+          -189
+        ],
+        [
+          337,
+          -189
+        ],
+        [
+          337,
+          -201
+        ],
+        [
+          342,
+          -207
+        ],
+        [
+          343,
+          -214
+        ],
+        [
+          350,
+          -220
+        ],
+        [
+          357,
+          -222
+        ],
+        [
+          384,
+          -222
+        ]
+      ]
+    },
+    {
+      "id": "church_lane",
+      "width": 3,
+      "points": [
+        [
+          337,
+          -189
+        ],
+        [
+          338,
+          -183
+        ],
+        [
+          350,
+          -182
+        ],
+        [
+          362,
+          -184
+        ]
+      ]
+    },
+    {
+      "id": "lake_bridge",
+      "points": [
+        [
+          303,
+          -189
+        ],
+        [
+          305,
+          -182
+        ],
+        [
+          338,
+          -183
+        ]
+      ],
+      "width": 3,
+      "note": "user's choice (2026-10-29): a bridge over the small south lake from the foot of the western slope to the market; phase 2's slope road arrives at its west end"
+    }
+  ],
+  "plots": [
+    {
+      "id": "market",
+      "district": "market",
+      "type": "market square",
+      "min": [
+        340,
+        -199
+      ],
+      "max": [
+        356,
+        -185
+      ],
+      "floor_y": 68,
+      "door": "west",
+      "landmark": true,
+      "brief": "The town's market square on the crown of the peninsula (17x15), where the causeway road from the west meets the harbour street. Paved in a mix of stone bricks, cobble and gravel with a roofed stone well in the middle and a market cross; 5-6 timber stalls with colourful wool awnings along the north and south edges (the only bright colour in town). The ground is level at 67-68 over the west two-thirds and falls ~5 blocks to the east: keep the paving at 68, and finish the east edge with a low stone parapet and a short flight of steps down, a lookout over the east lake towards the lighthouse. Lanterns on dark oak posts at the corners; open to the high street on the west and to church lane on the south."
+    },
+    {
+      "id": "church",
+      "district": "market",
+      "type": "church",
+      "min": [
+        341,
+        -179
+      ],
+      "max": [
+        356,
+        -172
+      ],
+      "floor_y": 67,
+      "door": "north",
+      "landmark": true,
+      "brief": "The parish church (16x8, nave running east-west) on the south end of the crest, facing the square across church lane. Stone-brick base, white plaster and dark oak frame on the nave, steep dark roof, and a square stone bell tower at the west end about 20 blocks high: the tallest thing in the lower town, seen from both lakes and the causeway. Door on the north side onto the lane. The ground falls ~5 blocks to the south shore: carry the south wall on a stone terrace wall with buttresses rather than a cliff of fill. One special detail: a round window in the east gable looking out over the water."
+    },
+    {
+      "id": "merchant",
+      "district": "market",
+      "type": "merchant house",
+      "min": [
+        327,
+        -200
+      ],
+      "max": [
+        334,
+        -193
+      ],
+      "floor_y": 66,
+      "door": "east",
+      "brief": "A merchant's house (8x8, two storeys plus attic) on the west flank of the crest, looking over the long west lake. Street floor at 66 with the door east onto the high street; the ground drops to 62 towards the lake, so put a stone undercroft (storeroom) under the west half, opening onto a small landing at the water. Upper floor jettied out one block over the street side. Special detail: a hoist beam with a pulley in the street gable for lifting goods to the loft."
+    },
+    {
+      "id": "cottage_w",
+      "district": "market",
+      "type": "cottage",
+      "min": [
+        333,
+        -214
+      ],
+      "max": [
+        339,
+        -206
+      ],
+      "floor_y": 66,
+      "door": "east",
+      "brief": "A fisherman's cottage (7x9, a storey and a half) on the west side of the harbour street, gable end to the street, door east. Ground 62-66: the street end sits on the ground at 66, the lake end on a 2-3 block stone plinth. Plaster and dark oak frame, steep roof, a fat stone chimney. Special detail: a net-drying rack and a small smokehouse lean-to on the lake side."
+    },
+    {
+      "id": "cottage_e",
+      "district": "market",
+      "type": "cottage",
+      "min": [
+        346,
+        -213
+      ],
+      "max": [
+        352,
+        -205
+      ],
+      "floor_y": 64,
+      "door": "west",
+      "brief": "A cottage (7x9, one and a half storeys) on the low east side of the harbour street, door west to the street; floor 64 on ground 62-65, so a low stone base on the bay side. Plaster and timber, dormer in the roof. Special detail: an outside wooden stair to the loft and flower boxes under the street windows; a little garden strip down to the bay."
+    },
+    {
+      "id": "inn",
+      "district": "harbour",
+      "type": "tavern",
+      "min": [
+        349,
+        -236
+      ],
+      "max": [
+        363,
+        -225
+      ],
+      "floor_y": 63,
+      "door": "south",
+      "brief": "The harbour inn (15x12) at the head of the street, where it turns east onto the quay: the first thing you see walking down from the market. Flat ground at 62-63. Two storeys plus attic, L-shaped (main hall along the quay, a stable/kitchen wing behind), stone ground floor, timber-framed plaster upper floor jettied over the front, big chimneys. Door south onto the quay. Special detail: a covered front porch with benches and a hanging sign on an iron bracket, looking straight out over the bay."
+    },
+    {
+      "id": "boathouse",
+      "district": "harbour",
+      "type": "boathouse",
+      "min": [
+        366,
+        -219
+      ],
+      "max": [
+        375,
+        -207
+      ],
+      "floor_y": 64,
+      "door": "north",
+      "brief": "A boathouse (10x13) on the north shore of the east lake: the north 3-4 rows stand on the shore (y 62), the rest on spruce/oak posts over the water, deck at 64. Stone-brick plinth on the land end, spruce plank walls with dark oak frame, low wide roof. Door north onto the quay; a wide open water gate on the south end over an indoor boat slip. Special detail: a short spruce pier running out along its east side with mooring posts and a moored boat."
+    },
+    {
+      "id": "lighthouse",
+      "district": "harbour",
+      "type": "lighthouse",
+      "min": [
+        364,
+        -188
+      ],
+      "max": [
+        370,
+        -182
+      ],
+      "floor_y": 64,
+      "door": "west",
+      "brief": "The lighthouse on the east point of the peninsula, the end of church lane, marking the way into the harbour bay for boats on the east lake. A round or octagonal stone-brick tower (5-6 across, about 22-25 high) on a rough cobble/mossy base that stands partly in the water (the plot is half lake); a spruce gallery round the top and a glazed lantern room lit with glowstone or sea lanterns. Keeper's door on the west to the lane. Special detail: a tiny lean-to keeper's store at the foot of the tower on the land side."
+    }
+  ]
 }

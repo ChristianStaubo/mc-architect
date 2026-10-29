@@ -93,3 +93,12 @@ class AuditTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TerraceTest(unittest.TestCase):
+    def test_terrace_leaves_water_alone(self):
+        # town1: the boathouse terrace filled its half of the bay with dirt
+        from architect import terrain
+        cols = {(x, z): ((62, "water") if x >= 3 else (64, "grass_block")) for x in range(-2, 8) for z in range(-2, 4)}
+        cells = terrain.terrace(0, 0, 5, 2, 65, cols, margin=0)
+        self.assertFalse(any(x >= 3 for (x, y, z) in cells if (x, z) in cols and cols[(x, z)][1] == "water"))
