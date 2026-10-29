@@ -29,6 +29,7 @@ Every call is logged to local/runs/commands.jsonl with MC_RUN_ID. Pictures: loca
 """
 
 import argparse
+import difflib
 import importlib.util
 import json
 import re
@@ -172,14 +173,56 @@ def load_plan(name):
     return b
 
 
-def ground_cells(build, at, foundation="cobblestone", floor_y=None, clear=True):
+BLOCKS = ROOT / "local" / "blocks.json"
+
+
+def check_blocks(cells):
+    """Refuse before placing (or previewing) if any block-data string won't parse on this server, with
+    the closest real names. r2: 'chain' (it's iron_chain) and 'dark_oak_log[axis=x][axis=z]' only
+    failed at place time."""
+    names = sorted({b for b in cells.values() if b not in ("air", None)})
+    bad = bridge.call("/validate", {"blocks": names})["invalid"]
+    if not bad:
+        return
+    if not BLOCKS.exists():
+        BLOCKS.parent.mkdir(parents=True, exist_ok=True)
+        BLOCKS.write_text(json.dumps(bridge.call("/blocks")["blocks"]))
+    known = json.loads(BLOCKS.read_text())
+    lines = []
+    for x in bad:
+        base = x["block"].split("[")[0].replace("minecraft:", "")
+        hint = ""
+        if base not in known:
+            close = difflib.get_close_matches(base, known, n=3, cutoff=0.6) or [k for k in known if base in k][:3]
+            hint = f" (did you mean {', '.join(close)}?)" if close else ""
+        lines.append(f"  {x['block']}: {x['error']}{hint}")
+    sys.exit("refused: blocks this server can't place:\n" + "\n".join(lines))
+
+
+def original_ground(cols, task="", run=""):
+    """Ground heights as they were before this task's (or run's) own live edits: re-previewing a plan
+    over its own earlier build must not read that build as terrain (r2 tavern: y 122)."""
+    mine = [e for e in edits.listing() if (task and e.get("task") == task) or (run and e.get("run") == run)]
+    for e in mine:
+        snap = edits.snapshot(e)
+        tops = {}
+        for (x, y, z), b in snap.items():
+            if not render.skipped(b) and not any(k in b for k in TREE) and y > tops.get((x, z), (-999,))[0]:
+                tops[(x, z)] = (y, b)
+        for xz in cols:
+            if xz in tops and e["min"][1] <= cols[xz][0] <= e["max"][1]:
+                cols[xz] = tops[xz]
+    return cols
+
+
+def ground_cells(build, at, foundation="cobblestone", floor_y=None, clear=True, task="", run=""):
     """World cells for a build whose local (0, 0, 0) corner goes at X,Z on the ground: local y 0 sits one
     above the median ground height (or at floor_y); columns below the footprint are filled down to the
     terrain with `foundation` ("none": leave them, e.g. posts over water), and terrain inside the build's
     box (a hill) is cleared to air unless clear is False."""
     (lx0, ly0, lz0), (lx1, ly1, lz1) = build.bounds()
     x, z = at
-    cols = bridge.heightmap((x + lx0, z + lz0), (x + lx1, z + lz1))
+    cols = original_ground(bridge.heightmap((x + lx0, z + lz0), (x + lx1, z + lz1)), task, run)
     foot = build.footprint()
     heights = [cols[(x + fx, z + fz)][0] for fx, fz in foot]
     y0 = floor_y if floor_y is not None else int(statistics.median(heights)) + 1
@@ -202,20 +245,24 @@ def ground_cells(build, at, foundation="cobblestone", floor_y=None, clear=True):
 TREE = ("_log", "_leaves", "vine", "bee_nest", "_wood")
 
 
-def clear_trees(cells, task=None, margin=2):
-    """Trees that would touch the build (its box plus `margin`) are removed whole-ish: every log and leaf
-    there that the plan doesn't place itself. No half-trees growing through roofs (STYLE.md: site).
-    Within a task, only inside its plot."""
+def clear_trees(cells, task=None, margin=2, reach=7):
+    """Trees that touch the build (its box plus `margin`) go whole: every log, leaf, vine and the snow
+    on them connected to a touching one, up to `reach` blocks beyond. r2: clearing only the touching
+    blocks left snow-capped leaves floating around the watchtower. Within a task, only inside its plot."""
     xs, ys, zs = zip(*cells)
-    lo = (min(xs) - margin, min(ys), min(zs) - margin)
-    hi = (max(xs) + margin, max(ys) + 8, max(zs) + margin)
+    box_lo = (min(xs) - margin, min(ys), min(zs) - margin)
+    box_hi = (max(xs) + margin, max(ys) + 8, max(zs) + margin)
+    world = bridge.region((box_lo[0] - reach, box_lo[1], box_lo[2] - reach),
+                          (box_hi[0] + reach, box_hi[1] + reach, box_hi[2] + reach))
+    treeish = lambda b: any(k in b for k in TREE)  # noqa: E731
+    near = lambda p: all(box_lo[i] <= p[i] <= box_hi[i] for i in range(3))  # noqa: E731
+    seeds = [p for p, b in world.items() if near(p) and p not in cells and treeish(b)]
+    tree = auditing.flood(world, seeds, treeish)
+    tree |= {(x, y + 1, z) for (x, y, z) in tree if render.block_name(world.get((x, y + 1, z), "")) == "snow"}
     out = dict(cells)
-    for p, b in bridge.region(lo, hi).items():
-        if p in cells or not any(k in b for k in TREE):
-            continue
-        if task and not evals.in_plot(task, p, p):
-            continue
-        out[p] = "air"
+    for p in tree:
+        if p not in cells and (not task or evals.in_plot(task, p, p)):
+            out[p] = "air"
     return out
 
 
@@ -240,17 +287,22 @@ def cmd_place(a):
     if t and not evals.in_plot(t, (at[0] + lx0, 0, at[1] + lz0), (at[0] + lx1, 0, at[1] + lz1)):
         sys.exit(f"refused: the build would cover x {at[0] + lx0}..{at[0] + lx1}, z {at[1] + lz0}..{at[1] + lz1}; "
                  f"plot is x {t['plot']['min'][0]}..{t['plot']['max'][0]}, z {t['plot']['min'][1]}..{t['plot']['max'][1]}")
-    cells, y0 = ground_cells(build, at, a.foundation, a.y, not a.no_clear)
+    check_blocks(build.blocks)
+    cells, y0 = ground_cells(build, at, a.foundation, a.y, not a.no_clear, a.task or "", journal.run_id())
     if not a.keep_trees:
         cells = clear_trees(cells, t)
-    if a.dry_run:  # the build drawn over the real terrain, exactly as place would leave it
+    if a.dry_run:  # the build drawn over the real terrain, exactly as place would leave it, and audited
         xs, ys, zs = zip(*cells)
-        world = bridge.region((min(xs) - 3, min(ys) - 2, min(zs) - 3), (max(xs) + 3, max(ys) + 2, max(zs) + 3))
+        world = bridge.region((min(xs) - 3, min(ys) - 4, min(zs) - 3), (max(xs) + 3, max(ys) + 2, max(zs) + 3))
         world.update(cells)
         path = out_path(f"{build.name}-preview")
         render.sheet([render.iso(world, view=v) for v in ("se", "nw")], path, columns=2)
+        r = auditing.audit(world, ((min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs))))
         print(f"dry run at {at[0]},{y0},{at[1]} (--at {at[0]},{at[1]}), nothing placed. "
               f"preview on the real terrain, two opposite corners: {path}")
+        print(f"audit of the preview: {r['fails']} fail, {r['warns']} warn")
+        for c in r["checks"]:
+            print(f"  {c['level'].upper():<4} {c['check']:<9} {c['msg']}" + (f"  e.g. {c['at'][:3]}" if c["at"] else ""))
         return
     t0 = time.time()
     e = edits.place(cells, label=build.name, run=journal.run_id(), task=a.task or "",
@@ -314,27 +366,33 @@ def cmd_audit(a):
 
 
 def shots(e):
+    """Contact sheet: 4 corner views, top-down, and a floor plan per storey (up to 4)."""
     cells = around(e, margin=2, below=2, above=1)
     lo, hi = e["min"], e["max"]
-    build = {p: b for p, b in cells.items() if lo[1] - 1 <= p[1]}
-    imgs = [render.iso(build, view=v) for v in ("se", "sw", "nw", "ne")]
+    floor = e.get("floor_y", lo[1])
+    # Terrain more than 3 below the floor is cut away, except under the build itself (posts, cellars).
+    inside = lambda p: lo[0] <= p[0] <= hi[0] and lo[2] <= p[2] <= hi[2]  # noqa: E731
+    view = {p: b for p, b in cells.items() if p[1] >= floor - 3 or (inside(p) and p[1] >= lo[1])}
+    imgs = [render.iso(view, view=v) for v in ("se", "sw", "nw", "ne")]
     cols = {}
     for (x, y, z), b in cells.items():
         if not render.skipped(b) and (cols.get((x, z), (-999,))[0] < y):
             cols[(x, z)] = (y, b)
     imgs.append(render.top_down(cols, scale=8))
-    floor = e.get("floor_y", lo[1]) + 1
-    imgs.append(render.plan(cells, floor))
+    r = auditing.audit(cells, (tuple(lo), tuple(hi)))
+    levels = r["stats"]["indoor_levels"] or [floor + 1]
+    levels = levels[:4]
+    imgs += [render.plan(cells, y) for y in levels]
     path = out_path(f"{e['label']}-{e['id']}-shots")
     render.sheet(imgs, path, columns=3)
-    return path, floor
+    return path, levels
 
 
 def cmd_shots(a):
     e = latest_edit(a.id)
-    path, floor = shots(e)
-    print(f"{path}\nlayout: row 1 = views from four corners (SE, SW, NW, NE: the first three), "
-          f"row 2 = NE view, top-down (north up), floor plan at y {floor} (north up)")
+    path, levels = shots(e)
+    print(f"{path}\nlayout, left to right, top to bottom: views from the SE, SW, NW and NE corners; "
+          f"top-down (north up); floor plans (north up) at y {', '.join(map(str, levels))}")
 
 
 def cmd_render(a):

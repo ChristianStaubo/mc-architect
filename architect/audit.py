@@ -200,4 +200,7 @@ def audit(cells, box):
     warns = sum(c["level"] == "warn" for c in checks)
     return {"checks": checks, "fails": fails, "warns": warns,
             "stats": {"blocks": sum(1 for p, b in cells.items() if in_box(p) and not is_air(b)),
-                      "indoor_floor": len(stand_inside), "doors": sum(1 for p in doors if in_box(p)) // 2}}
+                      "indoor_floor": len(stand_inside), "doors": sum(1 for p in doors if in_box(p)) // 2,
+                      # storeys: levels with a real floor (4+ standing spots), not every stair step
+                      "indoor_levels": sorted(y for y in {p[1] for p in stand_inside}
+                                              if sum(1 for p in stand_inside if p[1] == y) >= 4)}}

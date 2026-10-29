@@ -87,6 +87,12 @@ def _place(cells, label, run="", task="", **extra):
     return e
 
 
+def snapshot(e):
+    """The terrain an edit replaced: {(x, y, z): block}."""
+    with gzip.open(DIR / e["snapshot"], "rt") as f:
+        return {(x, y, z): b for x, y, z, b in json.load(f)["cells"]}
+
+
 def _overlap(a, b):
     return all(a["min"][i] <= b["max"][i] and b["min"][i] <= a["max"][i] for i in range(3))
 
@@ -107,10 +113,7 @@ def _undo(eid=None, run=""):
         bridge.undo(e["server_id"])
         how = "worldedit"
     else:  # server restarted, or a newer edit elsewhere: put the snapshot back
-        with gzip.open(DIR / e["snapshot"], "rt") as f:
-            snap = json.load(f)
-        cells = {(x, y, z): b for x, y, z, b in snap["cells"]}
-        bridge.place(payload(cells, label=f"undo {e['id']}"))
+        bridge.place(payload(snapshot(e), label=f"undo {e['id']}"))
         how = "snapshot"
     e = {**e, "undone": time.strftime("%Y-%m-%dT%H:%M:%S"), "undo_via": how}
     _write(e)
