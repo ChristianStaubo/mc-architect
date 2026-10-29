@@ -19,6 +19,9 @@ Look and judge
                                     isometric picture of any region (--surface: no underground)
   mc audit [EDIT] [--friction]      hard checks (floating, doors, beds, sealed rooms, dark floors, panes)
                                     exit 2 on a fail; --friction files a friction report for it
+  mc blueprint PLAN --at X,Z [--y Y] [--no-clear] [--foundation F] [--face west]
+                                    the approval sheet: site + footprint, design x-ray, face before/after,
+                                    floor plans, and the audit of the result. Places nothing.
 When the tools fall short
   mc stuck "<goal> | <what you tried> | <what happened>"   save a friction report, then STOP
   mc friction [--all] | resolve ID "<fix>" --cause C | stats
@@ -366,6 +369,51 @@ def cmd_edits(_):
               f"{e['min']}..{e['max']}")
 
 
+def cmd_blueprint(a):
+    """Everything to approve a build before it exists, on one sheet (nothing is placed): the site with
+    the footprint, x-ray views of the design itself (its blocks only), floor plans, and the face before
+    and after (an elevation looking `--face`)."""
+    build = load_plan(a.plan)
+    at = tuple(ints(a.at))
+    check_blocks(build.blocks)
+    cells, y0 = ground_cells(build, at, a.foundation, a.y, not a.no_clear)
+    xs, ys, zs = zip(*cells)
+    lo, hi = (min(xs) - 6, min(ys) - 3, min(zs) - 6), (max(xs) + 6, max(ys) + 6, max(zs) + 6)
+    before = bridge.region(lo, hi)
+    after = dict(before)
+    after.update(cells)
+    imgs = []
+    # 1. the site from above, the footprint outlined in red
+    cols = bridge.heightmap((lo[0], lo[2]), (hi[0], hi[2]))
+    scale = 4
+    w, h, px = render.top_down(cols, scale=scale)
+    foot = {(x, z) for (x, y, z), b in cells.items() if b != "air" or True}
+    edge = {(x, z) for (x, z) in foot if any((x + dx, z + dz) not in foot for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)))}
+    for (x, z) in edge:
+        for dx in range(scale):
+            for dz in range(scale):
+                i = (((z - lo[2]) * scale + dz) * w + (x - lo[0]) * scale + dx) * 3
+                px[i:i + 3] = bytes((220, 40, 40))
+    imgs.append((w, h, px))
+    # 2. the design itself, its own blocks only (no terrain): x-ray from two corners
+    own = {p: b for p, b in cells.items() if not render.skipped(b)}
+    imgs += [render.iso(own, tile=a.tile, view=v) for v in ("se", "nw")]
+    # 3. the face before and after
+    imgs.append(render.elevation(before, look=a.face, scale=6))
+    imgs.append(render.elevation(after, look=a.face, scale=6))
+    # 4. floor plans of the design at its storeys (from the audit of the result), up to 4
+    r = auditing.audit(after, ((min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs))))
+    levels = r["stats"]["indoor_levels"][:4] or [y0 + 1]
+    imgs += [render.plan(after, y, scale=6) for y in levels]
+    path = out_path(f"{build.name}-blueprint")
+    render.sheet(imgs, path, columns=3)
+    print(f"{path}\norder: site with footprint (red), design x-ray SE and NW, the {a.face}-looking face before "
+          f"and after, floor plans at y {', '.join(map(str, levels))}")
+    print(f"audit of the result: {r['fails']} fail, {r['warns']} warn")
+    for c in r["checks"]:
+        print(f"  {c['level'].upper():<4} {c['check']:<9} {c['msg']}")
+
+
 # ---- look and judge ----
 
 def latest_edit(eid):
@@ -699,6 +747,15 @@ def main():
     f.add_argument("--cause")
     f.add_argument("--repeat-of")
     f.add_argument("--all", action="store_true")
+    bp = sub.add_parser("blueprint")
+    bp.add_argument("plan")
+    bp.add_argument("--at", required=True)
+    bp.add_argument("--y", type=int)
+    bp.add_argument("--foundation", default="cobblestone")
+    bp.add_argument("--no-clear", action="store_true")
+    bp.add_argument("--face", default="west", choices=["west", "east", "north", "south"],
+                    help="the elevation looks this way (west = you stand east of it)")
+    bp.add_argument("--tile", type=int, default=6)
     tw = sub.add_parser("town")
     tw.add_argument("action", choices=["site", "show", "road", "terrace", "brief", "shots", "tidy", "status"])
     tw.add_argument("--tile", type=int, default=5)
