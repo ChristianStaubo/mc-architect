@@ -6,6 +6,28 @@ Facing words are Minecraft's: north = -z, south = +z, west = -x, east = +x.
 OPPOSITE = {"north": "south", "south": "north", "east": "west", "west": "east"}
 
 
+def hip_roof(b, x1, z1, x2, z2, y, stair, top=None, overhang=1):
+    """A roof sloping on all four sides (towers, pavilions): rings of stairs stepping in and up until it
+    closes, capped with `top` (default: the stair's slab). Lakeside's church tower roof was 30 hand lines."""
+    x1, z1, x2, z2 = x1 - overhang, z1 - overhang, x2 + overhang, z2 + overhang
+    level = 0
+    while x1 + level <= x2 - level and z1 + level <= z2 - level:
+        a1, a2, c1, c2 = x1 + level, x2 - level, z1 + level, z2 - level
+        if a1 == a2 or c1 == c2:
+            b.fill(a1, y + level, c1, a2, y + level, c2, top or stair.replace("_stairs", "_slab") + "[type=bottom]")
+            break
+        for x in range(a1, a2 + 1):
+            b.set(x, y + level, c1, f"{stair}[facing=south,half=bottom,shape=straight]")
+            b.set(x, y + level, c2, f"{stair}[facing=north,half=bottom,shape=straight]")
+        for z in range(c1 + 1, c2):
+            b.set(a1, y + level, z, f"{stair}[facing=east,half=bottom,shape=straight]")
+            b.set(a2, y + level, z, f"{stair}[facing=west,half=bottom,shape=straight]")
+        for x, z, shape in ((a1, c1, "outer_left"), (a2, c1, "outer_right"), (a1, c2, "outer_right"), (a2, c2, "outer_left")):
+            facing = "south" if z == c1 else "north"
+            b.set(x, y + level, z, f"{stair}[facing={facing},half=bottom,shape={shape}]")
+        level += 1
+
+
 def floor(b, x1, z1, x2, z2, y, block):
     b.fill(x1, y, z1, x2, y, z2, block)
 
@@ -52,15 +74,17 @@ def door(b, x, y, z, facing, wood="oak"):
     b.set(x, y + 1, z, f"{wood}_door[facing={facing},half=upper,hinge=left,open=false]")
 
 
-def gable_roof(b, x1, z1, x2, z2, y, stair, gable, ridge="x", overhang=1, slab=None):
+def gable_roof(b, x1, z1, x2, z2, y, stair, gable, ridge="x", overhang=1, slab=None, end_overhang=None):
     """A pitched roof over the box x1..x2, z1..z2 starting at height y. Slopes rise toward the ridge,
-    which runs along `ridge`; the triangular gable ends are filled with `gable`."""
+    which runs along `ridge`; the triangular gable ends are filled with `gable`. `overhang` is at the
+    eaves; `end_overhang` (default the same) past the gable ends: 0 keeps a tight plot's ends flush."""
+    end_overhang = overhang if end_overhang is None else end_overhang
     if ridge == "x":
-        lo, hi, a1, a2 = z1, z2, x1 - overhang, x2 + overhang
+        lo, hi, a1, a2 = z1, z2, x1 - end_overhang, x2 + end_overhang
         put = lambda a, c, yy, blk: b.set(a, yy, c, blk)  # noqa: E731
         up_lo, up_hi = "south", "north"  # stairs on the low-z slope rise toward +z (south)
     else:
-        lo, hi, a1, a2 = x1, x2, z1 - overhang, z2 + overhang
+        lo, hi, a1, a2 = x1, x2, z1 - end_overhang, z2 + end_overhang
         put = lambda a, c, yy, blk: b.set(c, yy, a, blk)  # noqa: E731
         up_lo, up_hi = "east", "west"
     lo_o, hi_o = lo - overhang, hi + overhang
@@ -72,7 +96,7 @@ def gable_roof(b, x1, z1, x2, z2, y, stair, gable, ridge="x", overhang=1, slab=N
             put(a, hi_o - level, yy, f"{stair}[facing={up_hi},half=bottom,shape=straight]")
         # gable triangle under this roof row, between the walls
         for c in range(max(lo, lo_o + level + 1), min(hi, hi_o - level - 1) + 1):
-            for a in (a1 + overhang, a2 - overhang):
+            for a in (a1 + end_overhang, a2 - end_overhang):
                 put(a, c, yy, gable)
         level += 1
     if lo_o + level == hi_o - level:  # odd span: a ridge row of slabs
@@ -125,16 +149,18 @@ def straight_stairs(b, x, y, z, direction, steps, stair, width=1, support=None, 
     return x + dx * steps, y + steps, z + dz * steps
 
 
-def spiral_stairs(b, x1, z1, x2, z2, y1, y2, stair, landing, headroom=3, support=None):
+def spiral_stairs(b, x1, z1, x2, z2, y1, y2, stair, landing, headroom=3, support=None, start=0):
     """Stairs climbing around the inside of the rectangle x1..x2, z1..z2 (the shaft, inside the walls)
     from y1 to y2, one block up per step, with a full `landing` block at each corner. Clears headroom.
     `support` (default: the landing block) fills under the first lap, which would otherwise float (r2).
+    `start` skips that many ring cells before the first step, leaving them open at floor level, e.g. in
+    front of a ground-floor door (lakeside: the church and lighthouse both hand-cleared one).
     For towers: the middle of the rectangle stays free (a column, or open)."""
     support = support or landing
     ring = ([(x, z1) for x in range(x1, x2)] + [(x2, z) for z in range(z1, z2)] +
             [(x, z2) for x in range(x2, x1, -1)] + [(x1, z) for z in range(z2, z1, -1)])
     corners = {(x1, z1), (x2, z1), (x2, z2), (x1, z2)}
-    y, i = y1, 0
+    y, i = y1, start
     while y < y2:
         cx, cz = ring[i % len(ring)]
         nx, nz = ring[(i + 1) % len(ring)]
@@ -145,7 +171,7 @@ def spiral_stairs(b, x1, z1, x2, z2, y1, y2, stair, landing, headroom=3, support
             b.set(cx, y, cz, f"{stair}[facing={facing},half=bottom,shape=straight]")
         for h in range(1, headroom + 1):
             b.set(cx, y + h, cz, "air")
-        if i < len(ring):
+        if i < len(ring):  # first lap only: the open start cells stay open
             for yy in range(y1, y):
                 b.set(cx, yy, cz, support)
         y, i = y + 1, i + 1

@@ -10,7 +10,7 @@ N6 = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
 PASSABLE = ("air", "short_grass", "tall_grass", "fern", "flower", "dandelion", "poppy", "tulip", "orchid",
             "allium", "bluet", "oxeye", "cornflower", "lily_of_the_valley", "dead_bush", "torch", "sign",
             "banner", "carpet", "button", "lever", "pressure_plate", "rail", "redstone_wire", "vine",
-            "sugar_cane", "leaf_litter", "bush", "firefly", "moss_carpet")
+            "sugar_cane", "leaf_litter", "bush", "firefly", "moss_carpet", "ladder", "scaffolding")
 # Light passes through these (everything else is treated as a full opaque block).
 TRANSPARENT = PASSABLE + ("glass", "pane", "leaves", "stairs", "slab", "fence", "wall", "door", "trapdoor",
                           "lantern", "bed", "chest", "iron_bars", "ladder", "chain", "campfire", "candle",
@@ -124,7 +124,9 @@ def audit(cells, box):
         d = DIRS[props["facing"]]
         for side, sign in (("outside", 1), ("inside", -1)):
             c = (p[0] + sign * d[0], p[1], p[2] + sign * d[2])
-            if not (passable(cells.get(c)) and passable(cells.get((c[0], c[1] + 1, c[2])))):
+            here, above = cells.get(c), cells.get((c[0], c[1] + 1, c[2]))
+            step = here is not None and ("stairs" in here or "slab[type=bottom" in here)  # a step up is fine
+            if not ((passable(here) or step) and passable(above)):
                 add("door", "fail", f"door at {p} is blocked on its {side} ({cells.get(c)})", [p])
 
     # 3. beds: head and foot together

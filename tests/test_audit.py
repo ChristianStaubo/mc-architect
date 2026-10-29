@@ -85,6 +85,22 @@ class AuditTest(unittest.TestCase):
         floor(b, 0, 0, 4, 2, 3, "red_wool")
         self.assertNotIn("dark", failed(audit(*world(b))))
 
+    def test_step_behind_a_door_is_not_a_block(self):
+        # lakeside lighthouse: a stair right inside the door was reported as blocking it
+        b = hut()
+        b.set(3, 1, 5, "oak_stairs[facing=north,half=bottom,shape=straight]")
+        self.assertNotIn("door", failed(audit(*world(b))))
+
+    def test_ladder_reaches_a_loft(self):
+        # lakeside inn: a loft reached only by a ladder was reported as sealed
+        b = hut()
+        floor(b, 1, 1, 5, 5, 3, "oak_planks")
+        b.fill(1, 1, 1, 1, 3, 1, "ladder[facing=east]")
+        floor(b, 0, 0, 6, 6, 5, "oak_planks")
+        walls(b, 0, 0, 6, 6, 4, 4, "stone_bricks")
+        b.set(3, 4, 3, "lantern[hanging=false]")
+        self.assertNotIn("sealed", failed(audit(*world(b))))
+
     def test_half_bed(self):
         b = hut()
         b.set(1, 1, 1, "red_bed[facing=north,part=head]")
