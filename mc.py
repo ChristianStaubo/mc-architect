@@ -29,6 +29,7 @@ When the tools fall short
                                     requests and commands, the plan as it was, the server log; replay = dry rerun
   mc friction [--all] | resolve ID "<fix>" --cause C | stats
 Evals
+  mc eval gate [--offline]          the regression suite (docs/evals.md): must be 100%; exit 1 on a failure
   mc eval list | brief T --run R | reset T | record T --run R [--critique FILE] | report [R]
 Towns (towns/NAME/town.json + layout.json; docs/town.md)
   mc town site NAME                 the area's height grid, slope classes, terrain and slope maps
@@ -623,6 +624,17 @@ def cmd_town(a):
 # ---- evals ----
 
 def cmd_eval(a):
+    if a.action == "gate":
+        from architect import regression
+        rec = regression.run(offline=a.offline)
+        m = rec["manifest"]
+        print(f"regression @ {m['commit']}{' (dirty)' if m['dirty'] else ''}, Minecraft {m['minecraft']}, "
+              f"Paper {m['paper_build']}, WorldEdit {m['worldedit']}")
+        for r in rec["checks"]:
+            mark = {"pass": "ok  ", "fail": "FAIL", "skipped": "skip"}[r["status"]]
+            print(f"  {mark} {r['group']:<7} {r['check']:<22} {r['seconds']:>5}s  {r['detail'][:90]}")
+        print(f"{rec['passed']} passed, {rec['failed']} failed, {rec['skipped']} skipped")
+        return 1 if rec["failed"] else 0
     if a.action == "list":
         for tid, t in evals.tasks().items():
             print(f"{tid:<18} {t['brief'][:90]}")
@@ -735,7 +747,8 @@ def main():
     tw.add_argument("--dry-run", action="store_true")
     tw.add_argument("--refresh", action="store_true", help="site: re-read the terrain (before any building!)")
     ev = sub.add_parser("eval")
-    ev.add_argument("action", choices=["list", "brief", "reset", "record", "report"])
+    ev.add_argument("action", choices=["gate", "list", "brief", "reset", "record", "report"])
+    ev.add_argument("--offline", action="store_true", help="gate: skip the checks that need the server")
     ev.add_argument("task", nargs="?")
     ev.add_argument("--run")
     ev.add_argument("--critique")
