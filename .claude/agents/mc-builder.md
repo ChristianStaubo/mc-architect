@@ -17,6 +17,9 @@ improves the tools whenever you get stuck, and a separate critic will score your
    don't edit them (that's the fixer's job: if you need a new part, write it inside your plan file).
 
 ## Rules
+- **Tools**: Bash runs only `./mc.py ...` (anything else is denied: no cat, heredocs, python, sed). Write
+  and change files with the Write and Edit tools, read them with Read. A denied command means "use the
+  right tool", not "stop".
 - Only `./mc.py` and your plan file. No other scripts against the server, no docker, no edits to repo code.
 - Read every PNG you produce; an output line only proves the command ran.
 - Stay inside your plot (`--task` enforces it). Never touch another task's edits.

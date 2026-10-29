@@ -57,9 +57,14 @@ def cmd_site(a):
     print(f"map (north up, brighter = higher): {path}")
 
 
-def cmd_place(a):
+def resolve(a):
+    """A place-style command's plan put on the ground: (build, task or plot, at, cells, y0). Shared by place
+    and preview, so a preview and the build placed from it are the same blocks."""
     build = load_plan(a.plan)
     t = evals.task(a.task) if a.task else None
+    if getattr(a, "within", None) and not t:  # an area (a player's selection): fit inside, clear trees only there
+        x0, z0, x1, z1 = ints(a.within)
+        t = {"plot": {"min": [min(x0, x1), min(z0, z1)], "max": [max(x0, x1), max(z0, z1)]}}
     if a.plot:  # a town plot behaves like a task: fit inside it, centred by default, at its floor height
         tname, pid = a.plot.split("/")
         p = towns.plot(tname, pid)
@@ -88,16 +93,27 @@ def cmd_place(a):
     cells, y0 = ground_cells(build, at, a.foundation, a.y, not a.no_clear, a.task or "", journal.run_id())
     if not a.keep_trees:
         cells = clear_trees(cells, (t["plot"]["min"], t["plot"]["max"]) if t else None)
-    if a.dry_run:  # the build drawn over the real terrain, exactly as place would leave it, and audited
-        (x0, y0_, z0), (x1, y1, z1) = bounds(cells)
-        world = bridge.region((x0 - 3, y0_ - 4, z0 - 3), (x1 + 3, y1 + 2, z1 + 3))
-        world.update(cells)
-        path = out_path(f"{build.name}-preview")
-        render.sheet([render.iso(world, view=v) for v in ("se", "nw")], path, columns=2)
-        r = auditing.audit(world, bounds(cells))
-        print(f"dry run at {at[0]},{y0},{at[1]} (--at {at[0]},{at[1]}), nothing placed. "
-              f"preview on the real terrain, two opposite corners: {path}")
-        print(auditing.report(r, "audit of the preview: "))
+    return build, t, at, cells, y0
+
+
+def show_on_terrain(build, at, y0, cells, stem="preview"):
+    """The build drawn over the real terrain, exactly as place would leave it, rendered and audited."""
+    (x0, y0_, z0), (x1, y1, z1) = bounds(cells)
+    world = bridge.region((x0 - 3, y0_ - 4, z0 - 3), (x1 + 3, y1 + 2, z1 + 3))
+    world.update(cells)
+    path = out_path(f"{build.name}-{stem}")
+    render.sheet([render.iso(world, view=v) for v in ("se", "nw")], path, columns=2)
+    r = auditing.audit(world, bounds(cells))
+    print(f"on the real terrain, two opposite corners: {path}")
+    print(auditing.report(r, "audit of the preview: "))
+    return r
+
+
+def cmd_place(a):
+    build, t, at, cells, y0 = resolve(a)
+    if a.dry_run:
+        print(f"dry run at {at[0]},{y0},{at[1]} (--at {at[0]},{at[1]}), nothing placed.")
+        show_on_terrain(build, at, y0, cells)
         return
     t0 = time.time()
     ents = [(at[0] + x, y0 + y, at[1] + z, k) for (x, y, z, k) in build.entities]
@@ -117,6 +133,20 @@ def cmd_place(a):
     render.iso(shot, path)
     print(f"render: {path}")
     print(f"next: mc audit {e['id']} and mc shots {e['id']}. undo: mc undo {e['id']}")
+
+
+def place_args(sp):
+    """The arguments place and preview share."""
+    sp.add_argument("plan")
+    sp.add_argument("--at", help="X,Z of the build's local (0,0) corner")
+    sp.add_argument("--near", help="a player's name: build a few blocks from them")
+    sp.add_argument("--task", help="an eval task: the build must fit its plot")
+    sp.add_argument("--plot", help="TOWN/PLOT: a town plot (must fit; default y = its floor_y)")
+    sp.add_argument("--foundation", default="cobblestone", help="block under the footprint down to the ground, or none")
+    sp.add_argument("--y", type=int, help="world y of the plan's y 0 (default: one above the median ground)")
+    sp.add_argument("--no-clear", action="store_true", help="keep terrain inside the build's box")
+    sp.add_argument("--keep-trees", action="store_true", help="don't remove trees touching the build")
+    sp.add_argument("--within", help="X0,Z0,X1,Z1: an area the build must fit (trees are cleared only inside it)")
 
 
 def cmd_undo(a):
@@ -181,16 +211,8 @@ def register(sub):
     s.add_argument("size", nargs="?", help="W,D (default 48,48)")
     s.set_defaults(fn=cmd_site)
     pl = sub.add_parser("place")
-    pl.add_argument("plan")
-    pl.add_argument("--at", help="X,Z of the build's local (0,0) corner")
-    pl.add_argument("--near", help="a player's name: build a few blocks from them")
-    pl.add_argument("--task", help="an eval task: the build must fit its plot")
-    pl.add_argument("--plot", help="TOWN/PLOT: a town plot (must fit; default y = its floor_y)")
+    place_args(pl)
     pl.add_argument("--dry-run", action="store_true")
-    pl.add_argument("--foundation", default="cobblestone", help="block under the footprint down to the ground, or none")
-    pl.add_argument("--y", type=int, help="world y of the plan's y 0 (default: one above the median ground)")
-    pl.add_argument("--no-clear", action="store_true", help="keep terrain inside the build's box")
-    pl.add_argument("--keep-trees", action="store_true", help="don't remove trees touching the build")
     pl.set_defaults(fn=cmd_place)
     sub.add_parser("undo").add_argument("id", nargs="?")
     sub.choices["undo"].set_defaults(fn=cmd_undo)

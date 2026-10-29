@@ -7,10 +7,10 @@ import sys
 import time
 
 from .. import bridge, incidents, journal
-from . import build, evals, look, recorder, town, world
+from . import assistant, build, evals, look, recorder, town, world
 from .common import Parser
 
-GROUPS = [world, build, look, recorder, town, evals]
+GROUPS = [world, build, look, recorder, town, evals, assistant]
 
 
 def main(doc):
