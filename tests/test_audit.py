@@ -1,0 +1,76 @@
+"""The audit must catch what a player would: run with `python3 -m unittest` from the repo root."""
+
+import unittest
+
+from architect.audit import audit
+from architect.build import Build
+from architect.parts import door, floor, walls
+
+
+def world(build, ground_y=0, size=14):
+    """A flat world: stone up to ground_y, air above, with the build's blocks placed at y = ground_y + 1."""
+    cells = {}
+    for x in range(-3, size):
+        for z in range(-3, size):
+            for y in range(ground_y - 3, ground_y + 12):
+                cells[(x, y, z)] = "stone" if y <= ground_y else "air"
+    for (x, y, z), b in build.blocks.items():
+        cells[(x, y + ground_y + 1, z)] = b
+    lo = tuple(min(p[i] for p in build.blocks) for i in range(3))
+    hi = tuple(max(p[i] for p in build.blocks) for i in range(3))
+    box = ((lo[0], lo[1] + ground_y + 1, lo[2]), (hi[0], hi[1] + ground_y + 1, hi[2]))
+    return cells, box
+
+
+def hut(lit=True, with_door=True, roof=True):
+    b = Build("hut")
+    floor(b, 0, 0, 6, 6, 0, "oak_planks")
+    walls(b, 0, 0, 6, 6, 1, 3, "stone_bricks")
+    if roof:
+        floor(b, 0, 0, 6, 6, 4, "oak_planks")
+    if with_door:
+        door(b, 3, 1, 6, "south")
+    if lit:
+        b.set(3, 1, 3, "lantern[hanging=false]")
+    return b
+
+
+def failed(r):
+    return {c["check"] for c in r["checks"] if c["level"] == "fail"}
+
+
+class AuditTest(unittest.TestCase):
+    def test_good_hut_passes(self):
+        r = audit(*world(hut()))
+        self.assertEqual(failed(r), set())
+        self.assertEqual(r["stats"]["doors"], 1)
+        self.assertGreater(r["stats"]["indoor_floor"], 10)
+
+    def test_dark_hut_fails(self):
+        self.assertIn("dark", failed(audit(*world(hut(lit=False)))))
+
+    def test_no_door_is_sealed(self):
+        self.assertIn("sealed", failed(audit(*world(hut(with_door=False)))))
+
+    def test_floating_block(self):
+        b = hut()
+        b.set(3, 8, 3, "oak_planks")  # hangs in the air above the roof
+        self.assertIn("floating", failed(audit(*world(b))))
+
+    def test_blocked_door(self):
+        b = hut()
+        b.fill(3, 1, 7, 3, 2, 7, "stone")  # a wall right outside the door
+        self.assertIn("door", failed(audit(*world(b))))
+
+    def test_open_roof_warns_no_interior(self):
+        r = audit(*world(hut(roof=False)))
+        self.assertIn("interior", {c["check"] for c in r["checks"]})
+
+    def test_half_bed(self):
+        b = hut()
+        b.set(1, 1, 1, "red_bed[facing=north,part=head]")
+        self.assertIn("bed", failed(audit(*world(b))))
+
+
+if __name__ == "__main__":
+    unittest.main()
