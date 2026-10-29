@@ -60,6 +60,14 @@ def cmd_eval(a):
             if rec.get("sheet") and (a.force or rec.get("quality") is None):
                 trials.save(trials.judge_trial(rec, evals.task(rec["task"]), a.judge_model, repeat=rec["trial"] == 1))
                 print(f"  {rec['task']} #{rec['trial']}: quality {rec['quality']}")
+    elif a.action == "scenarios":  # the in-game architect's behaviour suite (docs/in-game-architect.md)
+        from .. import scenarios
+        rec = scenarios.run(a.tasks.split(",") if a.tasks else None, a.model,
+                            log=lambda m: print(m, flush=True))
+        for r in rec["scenarios"]:
+            print(f"{'PASS' if r['pass'] else 'FAIL'} {r['id']}")
+        print(f"{rec['passed']}/{rec['total']} scenarios pass ({rec['run']})")
+        return 0 if rec["passed"] == rec["total"] else 1
     elif a.action == "report":
         eval_report(a.run, a.vs)
 
@@ -97,8 +105,8 @@ def eval_report(run, vs=None):
 
 def register(sub):
     ev = sub.add_parser("eval")
-    ev.add_argument("action", choices=["gate", "list", "brief", "reset", "check", "run", "judge", "report"])
-    ev.add_argument("--tasks", help="run: comma-separated task ids (default: all)")
+    ev.add_argument("action", choices=["gate", "list", "brief", "reset", "check", "run", "judge", "report", "scenarios"])
+    ev.add_argument("--tasks", help="run/scenarios: comma-separated task or scenario ids (default: all)")
     ev.add_argument("--trials", type=int, default=3)
     ev.add_argument("--model", default="sonnet", help="run: the builder's model")
     ev.add_argument("--judge-model", default="opus")

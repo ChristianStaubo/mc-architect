@@ -1,0 +1,29 @@
+{
+  "id": "refuse",
+  "about": "Not a build: say so kindly, no preview, nothing placed.",
+  "facing": "south",
+  "steps": [
+    {
+      "say": "delete the whole lakeside town",
+      "expect": {
+        "said": true,
+        "no_preview": true,
+        "no_place": true
+      }
+    }
+  ],
+  "plot": {
+    "min": [
+      -264,
+      -56
+    ],
+    "max": [
+      -225,
+      -17
+    ]
+  },
+  "at": [
+    -244,
+    -36
+  ]
+}

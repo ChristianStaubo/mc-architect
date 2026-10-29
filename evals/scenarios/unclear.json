@@ -1,0 +1,29 @@
+{
+  "id": "unclear",
+  "about": "Where is 'over there'? Ask, don't guess wildly; nothing placed.",
+  "facing": "south",
+  "player": "scn-unclear",
+  "steps": [
+    {
+      "say": "build that thing over there next to the other one",
+      "expect": {
+        "said": true,
+        "no_place": true
+      }
+    }
+  ],
+  "plot": {
+    "min": [
+      -264,
+      -56
+    ],
+    "max": [
+      -225,
+      -17
+    ]
+  },
+  "at": [
+    -244,
+    -36
+  ]
+}

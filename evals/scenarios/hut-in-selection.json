@@ -1,0 +1,50 @@
+{
+  "id": "hut-in-selection",
+  "about": "With a WorldEdit selection, the build fits inside it; no drops the preview and places nothing.",
+  "facing": "east",
+  "selection": {
+    "min": [
+      -364,
+      -3,
+      -332
+    ],
+    "max": [
+      -348,
+      20,
+      -316
+    ]
+  },
+  "steps": [
+    {
+      "say": "a little hut that fits my selection",
+      "expect": {
+        "preview": true,
+        "inside_selection": true,
+        "said": true,
+        "no_place": true
+      }
+    },
+    {
+      "say": "no",
+      "expect": {
+        "cleared": true,
+        "no_place": true,
+        "said": true
+      }
+    }
+  ],
+  "plot": {
+    "min": [
+      -376,
+      -344
+    ],
+    "max": [
+      -337,
+      -305
+    ]
+  },
+  "at": [
+    -356,
+    -324
+  ]
+}

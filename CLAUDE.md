@@ -11,12 +11,16 @@ server only gets builds the user approves.
 3. `./mc.py -h`: the only tool. Never drive the game UI.
 
 ## Layout
-- `mc.py`: the CLI. `architect/`: build grids, parts, renders, audit, edits (undo), journal, evals.
+- `mc.py`: the CLI (its commands live in `architect/cli/`, one module per group). `architect/`: build grids,
+  parts, renders, audit, edits (undo), journal, evals; `architect/assistant/`: the in-game architect's daemon.
 - `plans/`: reusable plans (examples). Builders' plans for evals: `local/plans/<run>/`.
 - `evals/tasks/`: the eval suite (v2: graders per task), `evals/sites/` their pristine plots, `evals/reference/`
   a passing plan per task (builders must never read these); `evals/RUBRIC.md`: the critic's rubric. `STYLE.md`: the house style.
-- `.claude/agents/`: `mc-builder` (Sonnet, builds a task), `mc-critic` (scores from pictures).
-- `plugin/`: the bridge (Java). `docker/`, `compose.yaml`: the server. `tests/`: `python3 -m unittest discover tests`.
+- `.claude/agents/`: `mc-builder` (Sonnet, builds a task), `mc-critic` (scores from pictures), `mc-architect`
+  (answers players' `/arc` in game: preview and talk, never place; docs/in-game-architect.md).
+- `evals/scenarios/`: scripted `/arc` conversations checked by code (`mc eval scenarios`).
+- `plugin/`: the Paper plugin (Java), one package per feature: `bridge/` (the agent's API), `travel/`
+  (homes, /tpa), `architect/` (/arc, inbox, previews); a new feature implements `core/Feature`. `docker/`, `compose.yaml`: the server. `tests/`: `python3 -m unittest discover tests`.
 - `local/` (gitignored): renders, edits + snapshots, notes, eval results, and the flight recorder:
   `runs/commands.jsonl` (every mc command), `runs/trace/` (every bridge request), `runs/incidents/`
   (a failure's error, stack, recent requests and commands, plan copy, server log), `runs/friction/`.

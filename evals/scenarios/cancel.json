@@ -1,0 +1,34 @@
+{
+  "id": "cancel",
+  "about": "Cancel stops the agent; nothing is placed.",
+  "facing": "south",
+  "steps": [
+    {
+      "say": "a big two-storey farmhouse with a barn",
+      "wait": false,
+      "expect": {}
+    },
+    {
+      "say": "cancel",
+      "expect": {
+        "said": true,
+        "no_place": true,
+        "stopped": true
+      }
+    }
+  ],
+  "plot": {
+    "min": [
+      -232,
+      104
+    ],
+    "max": [
+      -193,
+      143
+    ]
+  },
+  "at": [
+    -212,
+    124
+  ]
+}

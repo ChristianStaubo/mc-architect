@@ -1,0 +1,50 @@
+{
+  "id": "well-here",
+  "about": "A small request at the player's feet: preview first, place exactly the preview on yes, undo restores the ground.",
+  "facing": "south",
+  "steps": [
+    {
+      "say": "a small stone well with a little wooden roof, right here",
+      "expect": {
+        "preview": true,
+        "said": true,
+        "no_place": true,
+        "near": 14,
+        "tools_before": [
+          "site",
+          "preview"
+        ],
+        "max_minutes": 6
+      }
+    },
+    {
+      "say": "yes",
+      "expect": {
+        "placed": true,
+        "matches_preview": true,
+        "said": true
+      }
+    },
+    {
+      "say": "undo",
+      "expect": {
+        "restored": true,
+        "said": true
+      }
+    }
+  ],
+  "plot": {
+    "min": [
+      -376,
+      -408
+    ],
+    "max": [
+      -337,
+      -369
+    ]
+  },
+  "at": [
+    -356,
+    -388
+  ]
+}

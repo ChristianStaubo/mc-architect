@@ -1,0 +1,29 @@
+{
+  "id": "undo-nothing",
+  "about": "undo with no builds: a clear answer, nothing changes (no model).",
+  "facing": "south",
+  "player": "scn-undo-nothing",
+  "steps": [
+    {
+      "say": "undo",
+      "expect": {
+        "said": true,
+        "no_place": true
+      }
+    }
+  ],
+  "plot": {
+    "min": [
+      -232,
+      104
+    ],
+    "max": [
+      -193,
+      143
+    ]
+  },
+  "at": [
+    -212,
+    124
+  ]
+}

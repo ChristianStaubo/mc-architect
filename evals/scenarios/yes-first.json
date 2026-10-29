@@ -1,0 +1,30 @@
+{
+  "id": "yes-first",
+  "about": "yes with nothing waiting: a clear answer, nothing placed (no model).",
+  "facing": "south",
+  "player": "scn-yes-first",
+  "steps": [
+    {
+      "say": "yes",
+      "expect": {
+        "said": true,
+        "no_place": true,
+        "no_preview": true
+      }
+    }
+  ],
+  "plot": {
+    "min": [
+      -232,
+      104
+    ],
+    "max": [
+      -193,
+      143
+    ]
+  },
+  "at": [
+    -212,
+    124
+  ]
+}

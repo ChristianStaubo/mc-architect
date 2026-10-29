@@ -1,0 +1,46 @@
+{
+  "id": "change-it",
+  "about": "A follow-up changes the same design (resumed conversation) and the change shows in the preview.",
+  "facing": "north",
+  "steps": [
+    {
+      "say": "a small stone watchtower",
+      "expect": {
+        "preview": true,
+        "said": true,
+        "no_place": true
+      }
+    },
+    {
+      "say": "make it three blocks taller",
+      "expect": {
+        "preview": true,
+        "resumed": true,
+        "taller": 3,
+        "said": true,
+        "no_place": true
+      }
+    },
+    {
+      "say": "no",
+      "expect": {
+        "cleared": true,
+        "no_place": true
+      }
+    }
+  ],
+  "plot": {
+    "min": [
+      -312,
+      -408
+    ],
+    "max": [
+      -273,
+      -369
+    ]
+  },
+  "at": [
+    -292,
+    -388
+  ]
+}

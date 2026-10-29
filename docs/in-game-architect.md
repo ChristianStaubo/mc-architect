@@ -4,7 +4,19 @@ Players build *with* the architect from inside Minecraft. You stand somewhere an
 `/arc a little bakery here, facing the road`; the architect answers in chat, shows you a ghost of the
 build that only you can see, and places it when you say yes. `/arc undo` takes it back.
 
-Status: design, 2026-10-30. Nothing built yet.
+Status (2026-10-30): built and working with virtual players; the scenario suite passes. Not yet tried by
+a real player in game (step 5).
+
+## Running it
+```
+./mc.py architect serve          # the daemon: leave it running while people play (Ctrl-C stops it)
+./mc.py architect status         # who it's working for, previews waiting, builds
+./mc.py architect ask "a small well" --as someone --at X,Y,Z --facing south   # a virtual player asks
+./mc.py eval scenarios [--tasks well-here,change-it]                        # the behaviour suite
+```
+In game: `/arc <idea>`, then `/arc yes`, `/arc no`, `/arc undo`, `/arc cancel`, `/arc status`. Operators
+only for now (permission `mcbridge.architect`). Each request's transcript and summary are in
+`local/assistant/<player>/runs/`.
 
 ## What it feels like
 ```
@@ -117,7 +129,7 @@ docs/in-game-architect.md      this file
 Adding a command later = a new folder under `plugin/.../<feature>/` with a `Feature`, its entries in
 `plugin.yml`, and (if the agent needs it) a file in `architect/cli/`.
 
-## Plan
+## Plan (steps 0-4 done 2026-10-30)
 0. **Restructure, no behaviour change**: plugin into `core/ bridge/ travel/`; `mc.py` into
    `architect/cli/`. The gate (30/30) must still pass, plus a live travel test.
 1. **Plugin**: `/arc`, the inbox, player context (with WorldEdit selection), `/say`, fake-block previews.
@@ -133,3 +145,12 @@ Adding a command later = a new folder under `plugin/.../<feature>/` with a `Feat
 - Who: only the owner at first.
 - Model: Sonnet for requests (speed); Opus available for big ones (`/arc big ...`).
 - The daemon runs on this Mac next to the server for now; on the host after deployment.
+
+## What building it taught us
+- A `--disallowedTools` pattern switched off all of Bash in headless runs; deny rules belong in a settings
+  file (`Bash(./mc.py place:*)`).
+- Under `dontAsk`, an agent that writes files with a shell heredoc is refused and may simply stop: both
+  agents now say Bash runs only `./mc.py`, files go through Write/Edit.
+- The scenario runner must count a queued request as busy, or it grades steps that never ran.
+- "Three blocks taller" came out +2 (walls +3, roof lower) until the agent was told to compare the
+  preview's box before saying it's done: the suite caught it.

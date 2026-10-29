@@ -73,3 +73,7 @@ Debian release pinned by digest. Jars, Java, worlds and tokens are never committ
 Everyone on the server (survival, no operator rights) can use `/sethome` and `/home`, `/tpa <player>`
 to ask to teleport to someone, `/tpahere <player>` to ask them over, and `/tpaccept` or `/tpdeny`
 (or click Accept/Deny in chat). Requests last a minute; there's a 10 second cooldown between teleports.
+
+Operators can also ask the in-game architect: `/arc a stone well with a little roof, right here` shows a
+preview only you can see; `/arc yes` builds it, `/arc no` drops it, `/arc undo` takes it back. It needs
+`./mc.py architect serve` running (docs/in-game-architect.md).

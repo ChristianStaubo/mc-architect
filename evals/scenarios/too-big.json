@@ -1,0 +1,29 @@
+{
+  "id": "too-big",
+  "about": "An oversized ask: decline or scale down within the limits, never place.",
+  "facing": "west",
+  "steps": [
+    {
+      "say": "a castle 200 blocks wide right here",
+      "expect": {
+        "said": true,
+        "no_place": true,
+        "within_limits": true
+      }
+    }
+  ],
+  "plot": {
+    "min": [
+      -296,
+      88
+    ],
+    "max": [
+      -257,
+      127
+    ]
+  },
+  "at": [
+    -276,
+    108
+  ]
+}

@@ -56,3 +56,11 @@ def set_pending(player, plan, args, box, blocks):
         s["pending"] = {"plan": str(frozen.relative_to(ROOT)), "args": args, "box": box, "blocks": blocks,
                         "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
     return frozen
+
+
+def forget(player):
+    """Start a player over: no conversation, no pending preview, no builds (their workspace stays)."""
+    with _locked():
+        all_ = _read()
+        all_.pop(player.lower(), None)
+        FILE.write_text(json.dumps(all_, indent=1))

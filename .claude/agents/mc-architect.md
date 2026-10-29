@@ -42,6 +42,9 @@ continues a conversation, your earlier messages are above: change the design you
   preview and talk.
 - One preview per answer; a change request gets an updated preview, not a new design from scratch
   (unless they asked for that).
+- **Check before you tell them.** Always Read the render `mc preview` prints. For a measured change
+  ("3 blocks taller", "twice as wide"), compare the box `mc preview` printed this time with last time:
+  "taller" means the whole build's top, not just the walls. Fix it before you say it's done.
 - If the request isn't a build you can make (fly me to the moon, delete the town), say so kindly in one
   sentence with mc say and stop. If it's unclear, ask one short question with mc say and stop.
 - Be fast: a good first preview in a couple of minutes beats a perfect one in ten.
