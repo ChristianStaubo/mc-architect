@@ -1,11 +1,13 @@
 """Live test of /sethome, /home, the cooldown and the /tpa refusals, run as an online player through the
-bridge's /as (as if they typed it): python3 scripts/test_travel_live.py [player]. It overwrites that
+bridge's /as (as if they typed it): python3 scripts/test_travel_live.py PLAYER. It overwrites that
 player's home with where they stand, and leaves them there. Accepting a /tpa needs two people."""
 import sys, time
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))
 from architect import bridge
 
-P = sys.argv[1] if len(sys.argv) > 1 else "batmanenjoyer1"
+if len(sys.argv) != 2:
+    sys.exit("usage: python3 scripts/test_travel_live.py <player who is online>")
+P = sys.argv[1]
 
 
 def pos():
@@ -34,7 +36,7 @@ results.append(("cooldown holds a second /home", near(pos(), (290.5, 99, -228.5)
 time.sleep(10)
 run("home"); time.sleep(1.5)
 results.append(("home works after the cooldown", near(pos(), start)))
-for c in ("tpa batmanenjoyer1", "tpa NobodyOnline", "tpahere NobodyOnline", "tpaccept", "tpdeny", "tpa"):
+for c in (f"tpa {P}", "tpa NobodyOnline", "tpahere NobodyOnline", "tpaccept", "tpdeny", "tpa"):
     r = run(c)
     results.append((f"{c} answered without error", r.get("ok", False)))
 for name, ok in results:

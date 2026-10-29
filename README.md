@@ -1,79 +1,71 @@
 # mc-architect
 
-A harness that lets Claude Code build things in Minecraft by itself (towns, cathedrals, landscapes) and
-get better at it through evals. It builds on a local Paper test server (Docker) through our own bridge
-plugin and WorldEdit, sees the results as rendered pictures, and never needs the game's UI.
+A self-hosted Minecraft server kit for builders: Paper with WorldEdit, survival homes and `/tpa`, and an
+optional AI architect you can ask for a build from inside the game.
 
-## Setup (macOS with Docker Desktop; Linux works the same)
-```bash
-python3 scripts/deps.py stage linux-aarch64   # Java 25, Paper, WorldEdit: pinned, every hash checked (linux-x64 on Intel)
-docker compose build
-scripts/build-plugin.sh                       # compiles the bridge plugin inside the image
+![A castle on a mountain ridge, built with the architect](docs/images/castle.jpg)
+
+## The architect
+
+Stand somewhere and ask in chat:
+
 ```
-Accept the [Minecraft EULA](https://aka.ms/MinecraftEULA) yourself: put `eula=true` in `server/eula.txt`.
-Add yourself to `server/whitelist.json` and `server/ops.json` (or `./mc.py cmd "whitelist add <name>"`
-once it runs), then:
-```bash
-docker compose up -d
-./mc.py doctor
+/arc a small wooden market stall with a striped awning
 ```
-Join in Minecraft 26.3 at `localhost`. Both ports listen on 127.0.0.1 only.
-`./mc.py eval gate` runs the regression suite and `./mc.py eval run` the capability suite (15 tasks x 3
-headless trials, graded, judged; `mc eval report RUN`) (docs/evals.md); `scripts/install-hooks.sh` adds a
-warn-only pre-push check.
 
-## What it can do
-- **Build from a plan** on real terrain: foundations follow the slope, hills inside the footprint are
-  cleared, trees that touch the build go whole, blocks are checked against the server before placing.
-  Every edit snapshots what it replaced, so undo works after restarts.
-- **Judge a build**: `mc audit` (floating blocks, doors, beds, sealed rooms, dark floors where mobs
-  spawn) and contact sheets (four corners, top-down, floor plans, close-up facades) for a critic agent.
-- **Improve by evals**: builder agents (`mc-builder`) build a fixed task suite (`evals/tasks/`), a
-  separate critic scores the pictures (`evals/RUBRIC.md`), the scoreboard tracks runs (`mc eval report`).
-- **Plan and build towns** on natural terrain: a planner agent lays out roads and plots, roads follow
-  the land and bridge water, plots are terraced, builders work in parallel (`mc town ...`, `docs/town.md`).
-- **Redstone**: contraptions as parts with live tests (a hidden 2x2 piston door with an inside lever).
-- **Blueprints** before building (`mc blueprint`), and a flight recorder after: a trace of every bridge
-  request, automatic incidents for failures (`mc incidents`, `mc incident ID replay`), friction reports.
+About ten seconds later the design appears in front of you as a **preview only you can see**. The world
+hasn't changed yet, and a glowing frame shows exactly where it goes, even from across the valley.
 
-## Use
+| Up close | From afar |
+|---|---|
+| ![The preview up close, inside its glowing frame](docs/images/preview-close.jpg) | ![The glowing frame seen through the trees](docs/images/preview-from-afar.jpg) |
+
+Then:
+- `/arc make the awning blue`: it changes the design and shows it again
+- `/arc yes`: builds exactly what you saw
+- `/arc no`: drops it
+- `/arc undo`: takes your last build back, block for block
+
+![After /arc yes: the build is real, with an Undo button in chat](docs/images/built.jpg)
+
+**How it works.** `/arc` goes from the server plugin to a small program on your machine. That program
+asks Claude to design the build, using a Python building toolkit. The preview is sent to your screen
+only. Yes, no and undo are handled instantly, without AI.
+
+## Also in the box
+- **The server:** Paper 26.3 + WorldEdit in Docker. Every download is pinned and hash-checked, and the
+  ports are private until you open them.
+- **For players (no op needed):** `/sethome`, `/home`, and `/tpa` / `/tpahere` with clickable Accept and Deny.
+- **For tinkerers:** `./mc.py`, a command line to read terrain, place plans, render pictures, audit
+  builds (floating blocks, dark rooms, doors you can't reach) and undo anything.
+- **For AI people:** eval suites that grade builds by code and by judges, plus scripted `/arc` conversations.
+
+## Quick start
+You need Docker, Python 3 and Minecraft Java 26.3.
 ```bash
-./mc.py site --task cottage-meadow  # the terrain of a plot: height grid, water, slope, map
-./mc.py place cottage --dry-run     # preview a plan on the real terrain, audited, nothing placed
-./mc.py place cottage --near <you>  # build it next to you, on the ground
-./mc.py audit && ./mc.py shots      # judge it
-./mc.py undo                        # take it back
+python3 scripts/deps.py stage linux-aarch64   # or linux-x64 on Intel/AMD
+docker compose build && scripts/build-plugin.sh
+echo "eula=true" > server/eula.txt            # after reading the Minecraft EULA: https://aka.ms/MinecraftEULA
+docker compose up -d && ./mc.py doctor
 ```
-Pictures land in `local/renders/`. `./mc.py -h` lists everything. Claude Code: start from `CLAUDE.md`
-and the skills in `.claude/skills/` (`mc-build`, `mc-improve`).
+The whitelist is on, so let yourself in and make yourself an operator, then join `localhost`:
+```bash
+./mc.py cmd "whitelist add <your name>" && ./mc.py cmd "op <your name>"
+```
 
-## Layout
-- `mc.py`: the CLI, the one tool the agents use.
-- `architect/`: the toolkit. `blocks` (what a block string means), `build` and `parts` (plans and the
-  parts they're made of), `placement` (putting a plan on the land), `terrain` (roads, terraces,
-  bridges), `town` (layouts), `redstone`, `audit` (the judge), `render` (pictures, standard library
-  only), `edits` (undo), `evals`, and the recorder: `journal`, `trace`, `incidents`. `bridge` talks to
-  the server.
-- `plans/`: example plans (`parts_sampler.py` uses every part). `towns/`: town briefs, layouts, plans.
-- `evals/`: tasks, rubrics, ratings. `STYLE.md`: the house style. `docs/`: the workflow and the town plan.
-- `.claude/`: agents (builder, critic, planner, town critic) and skills.
-- `plugin/`: the bridge (Java, Paper + WorldEdit): read regions, place and undo through WorldEdit, flip
-  levers, write signs, run commands. JSON over HTTP on 127.0.0.1 with a token.
-- `docker/`, `compose.yaml`: the server image. Non-root, no Linux capabilities, nothing downloaded at start.
-- `config/server.properties`: our server settings, merged into Paper's own file on every start.
-- `tests/`: `python3 -m unittest discover tests`; `scripts/test_door_live.py` tests the door on the server.
+**To turn on the architect** (needs the [Claude Code](https://claude.com/claude-code) CLI, signed in):
+```bash
+./mc.py architect serve
+```
+Leave it running while you play; `/arc` works for operators.
 
-## Dependencies
-`deps.lock.json` pins every download to an official source (Adoptium, PaperMC, Modrinth's EngineHub
-maintainers) and a hash. `python3 scripts/deps.py lock` moves to the newest releases that are
-**at least 7 days old** (the same rule as pnpm's `minimumReleaseAge`). The Docker base image is a dated
-Debian release pinned by digest. Jars, Java, worlds and tokens are never committed.
+## Roadmap
+- **Run it on your own server:** a step-by-step hosting guide (a small VPS, backups, a private link for the
+  architect). The plan is in [docs/hosting.md](docs/hosting.md).
+- **Bigger builds:** whole districts and cities, and terraforming (rivers, hills, forests).
+- **Friends using the architect,** with per-player limits.
+- **More in-game tests:** a bot player that checks previews and builds automatically.
 
-## For players
-Everyone on the server (survival, no operator rights) can use `/sethome` and `/home`, `/tpa <player>`
-to ask to teleport to someone, `/tpahere <player>` to ask them over, and `/tpaccept` or `/tpdeny`
-(or click Accept/Deny in chat). Requests last a minute; there's a 10 second cooldown between teleports.
-
-Operators can also ask the in-game architect: `/arc a stone well with a little roof, right here` shows a
-preview only you can see; `/arc yes` builds it, `/arc no` drops it, `/arc undo` takes it back. It needs
-`./mc.py architect serve` running (docs/in-game-architect.md).
+## More
+[How the architect works](docs/in-game-architect.md) · [Evals](docs/evals.md) ·
+[Town planning](docs/town.md) · [Roadmap](docs/roadmap.md) · [For Claude Code](CLAUDE.md)
