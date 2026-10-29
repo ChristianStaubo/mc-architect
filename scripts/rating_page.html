@@ -1,0 +1,144 @@
+<title>Build Rating Bench</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a single column of build cards, each a contact sheet with its brief and a 1-10 scale under it. */
+:root {
+  --bg: #eef0e8; --panel: #fbfcf7; --ink: #23281f; --muted: #66705c; --line: #d3d8c8;
+  --grass: #4f7a2b; --grass-ink: #ffffff; --dirt: #8a5a35; --sky: #d9e6ee;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #171a15; --panel: #20251d; --ink: #e8ecdf; --muted: #9ba58f; --line: #343b2e;
+  --grass: #7fb04a; --grass-ink: #101408; --dirt: #c48a5a; --sky: #2a3439; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #171a15; --panel: #20251d; --ink: #e8ecdf; --muted: #9ba58f; --line: #343b2e;
+  --grass: #7fb04a; --grass-ink: #101408; --dirt: #c48a5a; --sky: #2a3439; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.5; }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header { display: grid; gap: 8px; margin-bottom: 24px; }
+h1 { font-family: var(--display); font-weight: 800; font-size: clamp(28px, 5vw, 44px); line-height: 1.05; margin: 0; text-wrap: balance; }
+.lede { color: var(--muted); max-width: 62ch; margin: 0; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 10px;
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.meter { flex: 1 1 200px; height: 10px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--grass); transition: width .3s; }
+.count { font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.status { font-size: 13px; color: var(--dirt); }
+.cards { display: grid; gap: 28px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.card figure { margin: 0; background: var(--sky); cursor: zoom-in; }
+.card figure img { display: block; width: 100%; height: auto; }
+.card.zoom figure { cursor: zoom-out; overflow-x: auto; }
+.card.zoom figure img { width: auto; max-width: none; }
+.body { padding: 16px; display: grid; gap: 12px; }
+.id { font-family: var(--mono); font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+.brief { margin: 0; max-width: 70ch; }
+.scale { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+.scale button { font-family: var(--mono); font-size: 15px; padding: 10px 0; border: 1px solid var(--line); background: var(--bg);
+  color: var(--ink); border-radius: 3px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.scale button:hover { border-color: var(--grass); }
+.scale button[aria-pressed="true"] { background: var(--grass); color: var(--grass-ink); border-color: var(--grass); }
+.scale button:focus-visible, textarea:focus-visible { outline: 2px solid var(--dirt); outline-offset: 2px; }
+.anchors { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+textarea { width: 100%; box-sizing: border-box; min-height: 60px; font: inherit; font-size: 15px; padding: 8px 10px;
+  background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 3px; resize: vertical; }
+.saved { font-size: 12px; color: var(--grass); min-height: 1em; }
+@media (prefers-reduced-motion: reduce) { .meter i { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Rate these builds</h1>
+    <p class="lede">Each sheet shows one build from four corners, from above, its floor plans and its four faces. Score it 1 to 10 for its brief: 5 is fine but unremarkable, 8 is a build you'd show a friend. A short note on why helps the judges learn. Builder and model are hidden on purpose.</p>
+  </header>
+  <div class="bar">
+    <div class="meter" aria-hidden="true"><i id="meter"></i></div>
+    <span class="count" id="count">0 rated</span>
+    <span class="status" id="status"></span>
+  </div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<script type="application/json" id="data">__CARDS__</script>
+<script>
+const BATCH = "__BATCH__";
+const cards = JSON.parse(document.getElementById("data").textContent);
+const ratings = {};
+let db = null;
+
+function render() {
+  const root = document.getElementById("cards");
+  root.textContent = "";
+  for (const c of cards) {
+    const el = document.createElement("article");
+    el.className = "card";
+    el.innerHTML = `<figure><img alt="Contact sheet of a build" loading="lazy"></figure>
+      <div class="body"><span class="id"></span><p class="brief"></p>
+      <div class="scale" role="group" aria-label="Score 1 to 10"></div>
+      <div class="anchors"><span>1 poor</span><span>5 fine</span><span>8 show a friend</span><span>10 best</span></div>
+      <label class="id" for="note-${c.id}">Why (optional)</label>
+      <textarea id="note-${c.id}" placeholder="What makes it work, or what's wrong"></textarea>
+      <span class="saved" aria-live="polite"></span></div>`;
+    el.querySelector("img").src = c.img;
+    el.querySelector("figure").addEventListener("click", () => el.classList.toggle("zoom"));
+    el.querySelector(".id").textContent = c.id;
+    el.querySelector(".brief").textContent = c.brief;
+    const scale = el.querySelector(".scale");
+    for (let n = 1; n <= 10; n++) {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = n; b.dataset.n = n;
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", () => save(c.id, { score: n }));
+      scale.append(b);
+    }
+    const note = el.querySelector("textarea");
+    let t;
+    note.addEventListener("input", () => { clearTimeout(t); t = setTimeout(() => save(c.id, { note: note.value }), 700); });
+    el.dataset.id = c.id;
+    root.append(el);
+  }
+  paint();
+}
+
+function paint() {
+  for (const el of document.querySelectorAll(".card")) {
+    const r = ratings[el.dataset.id] || {};
+    for (const b of el.querySelectorAll(".scale button")) b.setAttribute("aria-pressed", String(+b.dataset.n === r.score));
+    const note = el.querySelector("textarea");
+    if (document.activeElement !== note && r.note !== undefined) note.value = r.note;
+  }
+  const done = cards.filter(c => typeof (ratings[c.id] || {}).score === "number").length;
+  document.getElementById("count").textContent = `${done} of ${cards.length} rated`;
+  document.getElementById("meter").style.width = `${(100 * done / cards.length).toFixed(1)}%`;
+}
+
+async function save(id, patch) {
+  ratings[id] = { ...(ratings[id] || {}), ...patch, at: new Date().toISOString(), batch: BATCH };
+  paint();
+  const msg = document.querySelector(`.card[data-id="${id}"] .saved`);
+  if (!db) { msg.textContent = "Not saved: ratings can only be stored when signed in to claude.ai."; return; }
+  try {
+    await db.doc(`ratings/${id}`).set(ratings[id]);
+    msg.textContent = "Saved";
+  } catch (e) {
+    msg.textContent = "Couldn't save this rating. Check your access to this page and try again.";
+  }
+}
+
+render();
+(async () => {
+  db = window.claude ? await window.claude.use("db") : null;
+  const status = document.getElementById("status");
+  if (!db) { status.textContent = "Ratings won't be saved in this view."; return; }
+  db.collection("ratings").onSnapshot(snap => {
+    for (const d of snap.docs) if (d.id.startsWith(BATCH)) ratings[d.id] = { ...d.data(), ...(ratings[d.id] || {}) };
+    paint();
+  });
+})();
+</script>

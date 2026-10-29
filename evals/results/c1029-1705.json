@@ -1,0 +1,367 @@
+{
+ "run": "c1029-1705",
+ "manifest": {
+  "run": "c1029-1705",
+  "suite": "capability",
+  "label": "first v2 capability run",
+  "start": "2026-10-29T17:05:59",
+  "commit": "270c8cb",
+  "dirty": true,
+  "builder_model": "sonnet",
+  "trials": 3,
+  "tasks": [
+   "boathouse-shore",
+   "chapel-slope",
+   "cottage-meadow",
+   "forest-cabin",
+   "library",
+   "lighthouse-point",
+   "market-square",
+   "pond-gazebo",
+   "river-bridge",
+   "stall-row",
+   "steep-house",
+   "tavern-slope",
+   "tight-cottage",
+   "watchtower-hill",
+   "windmill-hill"
+  ],
+  "server": "26.3-211-2d602d6 (MC: 26.3)",
+  "worldedit": null,
+  "hashes": {
+   "harness": "0d0fa51564cb",
+   "tasks": "658ea7b337cc",
+   "rubric": "fe047e4ca790"
+  },
+  "judge_model": "opus",
+  "end": "2026-10-29T17:29:35"
+ },
+ "trials": 45,
+ "pass_rate": 0.8,
+ "pass_at_k": 1.0,
+ "pass_all_k": 0.6,
+ "quality": 5.22,
+ "quality_ci": [
+  5.12,
+  5.33
+ ],
+ "judge_spread": 0.26,
+ "api_usd": 44.04,
+ "tasks": {
+  "boathouse-shore": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 3,
+   "pass_at_k": true,
+   "pass_all_k": true,
+   "quality": 5.0,
+   "quality_ci": [
+    4.79,
+    5.21
+   ],
+   "api_usd": 2.93,
+   "minutes": 1.2,
+   "calls": 11.3,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {}
+  },
+  "chapel-slope": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 1,
+   "pass_at_k": true,
+   "pass_all_k": false,
+   "quality": 4.38,
+   "quality_ci": [
+    4.29,
+    4.46
+   ],
+   "api_usd": 2.91,
+   "minutes": 1.2,
+   "calls": 11.7,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {
+    "door_reaches_outside": 2
+   }
+  },
+  "cottage-meadow": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 3,
+   "pass_at_k": true,
+   "pass_all_k": true,
+   "quality": 5.67,
+   "quality_ci": [
+    5.5,
+    5.84
+   ],
+   "api_usd": 2.83,
+   "minutes": 1.1,
+   "calls": 11.0,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {}
+  },
+  "forest-cabin": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 2,
+   "pass_at_k": true,
+   "pass_all_k": false,
+   "quality": 4.79,
+   "quality_ci": [
+    4.66,
+    4.92
+   ],
+   "api_usd": 2.72,
+   "minutes": 0.9,
+   "calls": 10.7,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {
+    "keeps_trees": 1
+   }
+  },
+  "library": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 3,
+   "pass_at_k": true,
+   "pass_all_k": true,
+   "quality": 5.25,
+   "quality_ci": [
+    5.08,
+    5.42
+   ],
+   "api_usd": 3.05,
+   "minutes": 1.5,
+   "calls": 9.0,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {}
+  },
+  "lighthouse-point": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 2,
+   "pass_at_k": true,
+   "pass_all_k": false,
+   "quality": 5.38,
+   "quality_ci": [
+    5.09,
+    5.67
+   ],
+   "api_usd": 3.13,
+   "minutes": 2.1,
+   "calls": 11.3,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {
+    "door_reaches_outside": 1,
+    "light_near_top": 1
+   }
+  },
+  "market-square": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 3,
+   "pass_at_k": true,
+   "pass_all_k": true,
+   "quality": 5.81,
+   "quality_ci": [
+    5.76,
+    5.86
+   ],
+   "api_usd": 2.94,
+   "minutes": 1.2,
+   "calls": 13.3,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {}
+  },
+  "pond-gazebo": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 1,
+   "pass_at_k": true,
+   "pass_all_k": false,
+   "quality": 5.43,
+   "quality_ci": [
+    5.43,
+    5.43
+   ],
+   "api_usd": 2.8,
+   "minutes": 1.0,
+   "calls": 11.7,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {
+    "water_untouched": 2
+   }
+  },
+  "river-bridge": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 3,
+   "pass_at_k": true,
+   "pass_all_k": true,
+   "quality": 5.52,
+   "quality_ci": [
+    5.33,
+    5.71
+   ],
+   "api_usd": 3.05,
+   "minutes": 1.6,
+   "calls": 16.3,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {}
+  },
+  "stall-row": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 3,
+   "pass_at_k": true,
+   "pass_all_k": true,
+   "quality": 4.96,
+   "quality_ci": [
+    4.79,
+    5.13
+   ],
+   "api_usd": 2.94,
+   "minutes": 1.4,
+   "calls": 12.3,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {}
+  },
+  "steep-house": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 3,
+   "pass_at_k": true,
+   "pass_all_k": true,
+   "quality": 5.21,
+   "quality_ci": [
+    5.08,
+    5.34
+   ],
+   "api_usd": 3.04,
+   "minutes": 1.5,
+   "calls": 12.0,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {}
+  },
+  "tavern-slope": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 1,
+   "pass_at_k": true,
+   "pass_all_k": false,
+   "quality": 5.17,
+   "quality_ci": [
+    5.04,
+    5.29
+   ],
+   "api_usd": 3.21,
+   "minutes": 1.8,
+   "calls": 13.0,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {
+    "door_reaches_outside": 2,
+    "stairs_reach_every_storey": 2
+   }
+  },
+  "tight-cottage": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 3,
+   "pass_at_k": true,
+   "pass_all_k": true,
+   "quality": 4.96,
+   "quality_ci": [
+    4.92,
+    5.0
+   ],
+   "api_usd": 2.79,
+   "minutes": 1.2,
+   "calls": 14.3,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {}
+  },
+  "watchtower-hill": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 2,
+   "pass_at_k": true,
+   "pass_all_k": false,
+   "quality": 5.24,
+   "quality_ci": [
+    5.0,
+    5.47
+   ],
+   "api_usd": 2.9,
+   "minutes": 1.2,
+   "calls": 9.0,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {
+    "door_reaches_outside": 1
+   }
+  },
+  "windmill-hill": {
+   "trials": 3,
+   "errors": 0,
+   "passed": 3,
+   "pass_at_k": true,
+   "pass_all_k": true,
+   "quality": 5.57,
+   "quality_ci": [
+    5.48,
+    5.66
+   ],
+   "api_usd": 2.8,
+   "minutes": 1.1,
+   "calls": 11.0,
+   "stucks": 0,
+   "ends": [
+    "done"
+   ],
+   "grader_fails": {}
+  }
+ },
+ "flags": []
+}

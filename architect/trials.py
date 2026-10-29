@@ -103,6 +103,7 @@ def trial(run, t, i, model, settings, sheet, judge_model=None):
     sites.reset(tid)
     b = t["budget"]
     cmd = ["claude", "-p", prompt(t, run_id, str(plan)), "--agent", "mc-builder", "--model", model,
+           "--permission-mode", "dontAsk",  # the user's default (auto) would approve anything
            "--output-format", "stream-json", "--verbose", "--max-budget-usd", str(b.get("usd", 3.0)),
            "--allowedTools", "Bash(./mc.py *)", "Read", "Write", "Edit", "Glob", "Grep",
            "--settings", str(settings)]

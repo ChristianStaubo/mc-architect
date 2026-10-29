@@ -276,3 +276,20 @@ The report prints actual cost per run so we can trim (fewer trials on stable tas
 3. **Pre-push gate**: warn only, for now.
 4. **Rating page**: an Artifact page for blind ratings is fine.
 5. **Cadence**: capability runs on demand (no nightly runs for now).
+
+## 15. Runs
+
+### c1029-1705: first v2 capability run (15 tasks x 3, Sonnet builders, Opus judges)
+- **Pass**: 80% of trials; pass@3 100% of tasks, pass^3 60%. Quality 5.22 (90% CI 5.12-5.33); the
+  judges' self-spread is 0.26, so the rubric is specific enough to compare runs.
+- **Failures are real** (checked by hand): chapel and tavern doors 3 blocks up a plinth with no steps,
+  pond posts in the water the brief said to leave, a forest cabin that cut most of the grove.
+- **Builders stop at the minimum**: ~11 mc calls of 30-50 allowed, ~1 minute, two placements (the
+  agent's "done" bar), no critique round; the cottage builder copied `plans/cottage.py`. Quality sits
+  below r2 (6.0), which had a critic and a fixer in the loop. The next harness change to A/B: a
+  self-critique round against the rubric before stopping, and a done bar on quality, not placements.
+- **Isolation hole, fixed**: the user's default permission mode (auto) let builders run any Bash
+  (cat, grep, python3). No transcript touched the answers (checked), but trials now run with
+  `--permission-mode dontAsk` (verified: `./mc.py` runs, `cat evals/reference/...` and Read are refused).
+- **Usage**: ~$0.17 of API-equivalent usage per builder trial, ~$0.80 per judged trial (judges are
+  most of the $44); 45 trials in ~10 minutes of wall time at 5 in parallel.

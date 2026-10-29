@@ -74,7 +74,7 @@ def judge_group(task, dims, sheet, model):
     with tempfile.TemporaryDirectory() as tmp:
         img = Path(tmp) / "sheet.png"
         shutil.copy(sheet, img)
-        cmd = ["claude", "-p", prompt(task, dims, img), "--model", model, "--output-format", "json",
+        cmd = ["claude", "-p", prompt(task, dims, img), "--model", model, "--output-format", "json", "--permission-mode", "dontAsk",
                "--allowedTools", "Read", "--disallowedTools", *NO_TOOLS, "--max-budget-usd", "1.0"]
         p = subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=600)
     try:
