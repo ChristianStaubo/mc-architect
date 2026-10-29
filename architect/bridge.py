@@ -2,9 +2,12 @@
 
 import http.client
 import json
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+from . import trace
 
 ROOT = Path(__file__).resolve().parent.parent
 TOKEN_FILE = ROOT / "server" / "plugins" / "MCBridge" / "token"
@@ -16,6 +19,20 @@ class BridgeError(Exception):
 
 
 def call(path, body=None, timeout=180):
+    t0 = time.time()
+    status, err, size = 0, None, 0
+    try:
+        out = _call(path, body, timeout)
+        status, size = 200, len(json.dumps(out)) if isinstance(out, dict) else 0
+        return out
+    except BridgeError as e:
+        status, err = getattr(e, "status", -1), e
+        raise
+    finally:
+        trace.record(path, body, int((time.time() - t0) * 1000), status, err, size)
+
+
+def _call(path, body, timeout):
     if not TOKEN_FILE.exists():
         raise BridgeError(f"no bridge token at {TOKEN_FILE}: is the server running with the plugin?")
     req = urllib.request.Request(
@@ -30,7 +47,9 @@ def call(path, body=None, timeout=180):
             msg = json.load(e).get("error", "")
         except Exception:
             msg = ""
-        raise BridgeError(f"{path}: HTTP {e.code} {msg}") from None
+        err = BridgeError(f"{path}: HTTP {e.code} {msg}")
+        err.status = e.code
+        raise err from None
     except urllib.error.URLError as e:
         raise BridgeError(f"bridge not reachable ({e.reason}): docker compose up -d") from None
     except (http.client.HTTPException, ConnectionError) as e:
