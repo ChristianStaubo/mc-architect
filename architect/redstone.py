@@ -7,16 +7,21 @@ doorway is z = 0..1, y = 0..1 (floor at y = -1). Everything a part doesn't set i
 from .build import Build
 
 DUST = "redstone_wire[east=side,west=side,north=side,south=side,power=0]"
+REPEATER_FACING = "east"  # a repeater's facing points at its input: the signal comes from the east, goes west
 
 
-def piston_door_2x2(rock="stone", door="stone", tunnel_depth=6, face_x=1):
+def piston_door_2x2(rock="stone", door="stone", tunnel_depth=6, face_x=1, inside_lever=True):
     """A hidden 2x2 piston door in a rock face, with a lever on the face to the door's north (-z) side.
     Closed: two door blocks per side are pushed into the doorway by sticky pistons (powered by redstone
     torches). The lever powers the torches' blocks, the torches go out, the pistons retract and pull the
     door blocks into the rock: the doorway opens onto a tunnel. The doorway sits one block back from the
     face (x = face_x) so the rock on either side hides the piston heads.
 
-    Returns (build, info): info has the lever position, the doorway cells and the tunnel cells."""
+    `inside_lever`: a second lever on the tunnel floor two blocks in, on the block right above the
+    wire under the floor, so it opens the door from inside too (either lever opens it; the door closes
+    when both are off). The mountain hall had no way to open the door from inside.
+
+    Returns (build, info): info has the lever positions, the doorway cells and the tunnel cells."""
     b = Build("piston-door-2x2")
     # the rock mass the mechanism is buried in
     b.fill(-tunnel_depth - 2, -4, -7, face_x, 5, 6, rock)
@@ -69,7 +74,13 @@ def piston_door_2x2(rock="stone", door="stone", tunnel_depth=6, face_x=1):
     b.set(0, 3, -5, "air")
     for (x, z) in ((-1, -5), (-2, -5), (-3, -5), (-3, -4), (-3, -3), (-3, -2), (-3, -1), (-3, 0)):
         b.set(x, 3, z, DUST)
-    info = {"lever": lever, "doorway": [(0, y, z) for y in (0, 1) for z in (0, 1)],
+    if inside_lever:
+        b.set(-2, 0, 0, "lever[face=floor,facing=east,powered=false]")  # on (-2,-1,0), over the wire at (-2,-2,0)
+        # From in here the signal climbs the whole trunk to reach the top line and runs out (dust loses
+        # one level a block; found by the test). A repeater on the top feed, pointing toward the top
+        # line, puts it back to full strength; one-way is fine, the top line has no other source.
+        b.set(-2, 3, -5, f"repeater[facing={REPEATER_FACING},delay=1,locked=false,powered=false]")
+    info = {"lever": lever, "inside_lever": (-2, 0, 0) if inside_lever else None, "doorway": [(0, y, z) for y in (0, 1) for z in (0, 1)],
             "tunnel": [(-1, y, z) for y in (0, 1) for z in (0, 1)]}
     return b, info
 

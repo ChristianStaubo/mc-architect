@@ -16,9 +16,16 @@ lo = (O[0] - 1, O[1] - 1, O[2] - 1); hi = (O[0] + 1, O[1] + 2, O[2] + 2)
 def state():
     time.sleep(1.0)
     return redstone.door_state(bridge.region(lo, hi), info, O)[0]
-seq = [("kick", None)] + [("lever", on) for on in (True, False, True, False, True, False)]
+inside = [O[i] + info["inside_lever"][i] for i in range(3)]
 got = [state()]
-for _, on in seq[1:]:
+for on in (True, False, True, False):  # the outside lever
     bridge.call("/use", {"pos": lever, "on": on}); got.append(state())
+for on in (True, False):  # the inside lever
+    bridge.call("/use", {"pos": inside, "on": on}); got.append(state())
+bridge.call("/use", {"pos": lever, "on": True}); got.append(state())   # both: open, and stays open
+bridge.call("/use", {"pos": inside, "on": True}); got.append(state())
+bridge.call("/use", {"pos": lever, "on": False}); got.append(state())  # inside still on: open
+bridge.call("/use", {"pos": inside, "on": False}); got.append(state())  # both off: closed
+want = ["closed", "open", "closed", "open", "closed", "open", "closed", "open", "open", "open", "closed"]
 print(e["id"], got)
-print("PASS" if got == ["closed", "open", "closed", "open", "closed", "open", "closed"] else "FAIL")
+print("PASS" if got == want else f"FAIL (wanted {want})")

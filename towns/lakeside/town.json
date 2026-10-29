@@ -20,7 +20,8 @@
       "plan": "towns/lakeside/plans/mountain_hall.py",
       "place": "--at 300,-190 --y 68 --no-clear --foundation none --keep-trees",
       "what": "secret 2x2 piston door at the end of the high street (lever on the ledge at 302,69,-194), tunnel, pillared great hall with vault, spiral stair to a lookout balcony at 302,81,-205",
-      "built": "2026-10-29, edit e66; door test passed in place (3 cycles)"
+      "built": "2026-10-29, edit e66; door test passed in place (3 cycles)",
+      "inside_lever": "floor lever in the tunnel at 298,68,-190 + repeater at 298,71,-195 (edit e71, test PASS)"
     }
   ]
 }
