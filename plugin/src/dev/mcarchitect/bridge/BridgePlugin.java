@@ -81,6 +81,9 @@ public final class BridgePlugin extends JavaPlugin {
             route("/place", b -> sync(() -> place(b)));
             route("/undo", b -> sync(() -> undo(b)));
             route("/history", b -> sync(() -> map("edits", history.stream().map(Edit::summary).toList())));
+            route("/blocks", b -> map("blocks", java.util.Arrays.stream(org.bukkit.Material.values())
+                    .filter(m -> m.isBlock() && !m.isLegacy()).map(m -> m.getKey().getKey()).sorted().toList()));
+            route("/validate", b -> sync(() -> validate(b)));
             http.start();
             getLogger().info("bridge listening on port " + port);
         } catch (IOException e) {
@@ -251,6 +254,19 @@ public final class BridgePlugin extends JavaPlugin {
         history.push(edit);
         while (history.size() > MAX_HISTORY) history.removeLast();
         return edit.summary();
+    }
+
+    /** Which block-data strings the server can't parse, and why (bad name, bad property, bad value). */
+    private Object validate(JsonObject b) {
+        List<Object> bad = new ArrayList<>();
+        for (JsonElement e : b.getAsJsonArray("blocks")) {
+            try {
+                Bukkit.createBlockData(e.getAsString());
+            } catch (IllegalArgumentException ex) {
+                bad.add(map("block", e.getAsString(), "error", String.valueOf(ex.getMessage())));
+            }
+        }
+        return map("invalid", bad);
     }
 
     private Object undo(JsonObject b) {
