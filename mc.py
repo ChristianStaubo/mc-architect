@@ -305,6 +305,33 @@ def clear_trees(cells, task=None, margin=2, reach=7):
     return out
 
 
+def overflow(build, at, t):
+    """Say exactly what sticks out of the plot: which sides, by how much, and which blocks (in local
+    coordinates, so the plan can be fixed). The inn's builder had to guess from a bare refusal."""
+    (px0, pz0), (px1, pz1) = t["plot"]["min"], t["plot"]["max"]
+    out = {}
+    for (x, y, z), b in build.blocks.items():
+        wx, wz = at[0] + x, at[1] + z
+        sides = [s for s, bad in (("west", wx < px0), ("east", wx > px1), ("north", wz < pz0), ("south", wz > pz1)) if bad]
+        for s in sides:
+            out.setdefault(s, []).append(((x, y, z), b.split("[")[0]))
+    (lx0, _, lz0), (lx1, _, lz1) = build.bounds()
+    lines = [f"refused: the build doesn't fit the plot (x {px0}..{px1}, z {pz0}..{pz1}); placed at --at {at[0]},{at[1]} "
+             f"it covers x {at[0] + lx0}..{at[0] + lx1}, z {at[1] + lz0}..{at[1] + lz1}."]
+    for side, cells in out.items():
+        far = {"west": px0 - min(at[0] + c[0] for c, _ in cells), "east": max(at[0] + c[0] for c, _ in cells) - px1,
+               "north": pz0 - min(at[1] + c[2] for c, _ in cells), "south": max(at[1] + c[2] for c, _ in cells) - pz1}[side]
+        kinds = {}
+        for _, n in cells:
+            kinds[n] = kinds.get(n, 0) + 1
+        sample = sorted(c for c, _ in cells)[:3]
+        lines.append(f"  {side}: {far} block(s) too far, {len(cells)} blocks: "
+                     + ", ".join(f"{k} {v}" for k, v in sorted(kinds.items(), key=lambda kv: -kv[1])[:4])
+                     + f" (local e.g. {sample})")
+    lines.append("  fix: trim those (often a roof overhang: gable_roof end_overhang=0, or overhang=0), or move with --at")
+    return "\n".join(lines)
+
+
 def cmd_place(a):
     build = load_plan(a.plan)
     t = evals.task(a.task) if a.task else None
@@ -331,8 +358,7 @@ def cmd_place(a):
     print(f"{build.name}: {len(build.blocks)} blocks, footprint x {lx0}..{lx1} z {lz0}..{lz1} (local), " +
           ", ".join(f"{k} {v}" for k, v in list(build.counts().items())[:6]))
     if t and not evals.in_plot(t, (at[0] + lx0, 0, at[1] + lz0), (at[0] + lx1, 0, at[1] + lz1)):
-        sys.exit(f"refused: the build would cover x {at[0] + lx0}..{at[0] + lx1}, z {at[1] + lz0}..{at[1] + lz1}; "
-                 f"plot is x {t['plot']['min'][0]}..{t['plot']['max'][0]}, z {t['plot']['min'][1]}..{t['plot']['max'][1]}")
+        sys.exit(overflow(build, at, t))
     check_blocks(build.blocks)
     cells, y0 = ground_cells(build, at, a.foundation, a.y, not a.no_clear, a.task or "", journal.run_id())
     if not a.keep_trees:
@@ -351,8 +377,15 @@ def cmd_place(a):
             print(f"  {c['level'].upper():<4} {c['check']:<9} {c['msg']}" + (f"  e.g. {c['at'][:3]}" if c["at"] else ""))
         return
     t0 = time.time()
+    ents = [(at[0] + x, y0 + y, at[1] + z, k) for (x, y, z, k) in build.entities]
     e = edits.place(cells, label=build.name, run=journal.run_id(), task=a.task or "",
-                    floor_y=y0, at=list(at), plan=str(a.plan))
+                    floor_y=y0, at=list(at), plan=str(a.plan), entities=ents)
+    for (x, y, z, k) in ents:  # after the blocks, so boats sit on water, not inside the old terrain
+        bridge.command(f"summon minecraft:{k} {x}.5 {y} {z}.5")
+    for (x, y, z, lines, side) in build.signs:
+        bridge.call("/sign", {"pos": [at[0] + x, y0 + y, at[1] + z], "lines": lines, "side": side})
+    if ents or build.signs:
+        print(f"  + {len(ents)} entities summoned, {len(build.signs)} signs written")
     print(f"placed {e['id']} at {at[0]},{y0},{at[1]}: {e['changed']} blocks changed in {time.time() - t0:.1f}s, "
           f"box {e['min']}..{e['max']}")
     lo, hi = e["min"], e["max"]
@@ -474,6 +507,15 @@ def shots(e):
     levels = r["stats"]["indoor_levels"] or [floor + 1]
     levels = levels[:4]
     imgs += [render.plan(cells, y) for y in levels]
+    # Facades, straight on and close up: small details (a hoist beam, a round window, a sign, shutters)
+    # vanished at corner-view scale and the critic couldn't credit them (lakeside).
+    box = {p: b for p, b in cells.items() if lo[0] - 1 <= p[0] <= hi[0] + 1 and lo[2] - 1 <= p[2] <= hi[2] + 1
+           and p[1] >= floor - 1}
+    for look in ("north", "west", "south", "east"):  # the south, east, north and west faces
+        try:
+            imgs.append(render.elevation(box, look=look, scale=10))
+        except ValueError:
+            pass
     path = out_path(f"{e['label']}-{e['id']}-shots")
     render.sheet(imgs, path, columns=3)
     return path, levels
@@ -483,7 +525,8 @@ def cmd_shots(a):
     e = latest_edit(a.id)
     path, levels = shots(e)
     print(f"{path}\nlayout, left to right, top to bottom: views from the SE, SW, NW and NE corners; "
-          f"top-down (north up); floor plans (north up) at y {', '.join(map(str, levels))}")
+          f"top-down (north up); floor plans (north up) at y {', '.join(map(str, levels))}; then the facades "
+          f"straight on, close up: south, east, north, west")
 
 
 def cmd_render(a):
