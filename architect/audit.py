@@ -2,7 +2,10 @@
 would notice. fail = the build is broken; warn = worth a look. Pure functions over a region dict
 {(x, y, z): block-data string}, so tests can feed them hand-made grids."""
 
-from collections import deque
+from collections import Counter, deque
+from functools import lru_cache
+
+from .blocks import AIR, PLANTS, is_air, name, parse  # noqa: F401  (parse/name are part of this module's API)
 
 DIRS = {"north": (0, 0, -1), "south": (0, 0, 1), "east": (1, 0, 0), "west": (-1, 0, 0)}
 N6 = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
@@ -11,10 +14,8 @@ N6 = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
 N18 = N6 + [(dx, dy, dz) for dx in (-1, 0, 1) for dy in (-1, 0, 1) for dz in (-1, 0, 1)
             if abs(dx) + abs(dy) + abs(dz) == 2]
 
-PASSABLE = ("air", "short_grass", "tall_grass", "fern", "flower", "dandelion", "poppy", "tulip", "orchid",
-            "allium", "bluet", "oxeye", "cornflower", "lily_of_the_valley", "dead_bush", "torch", "sign",
-            "banner", "carpet", "button", "lever", "pressure_plate", "rail", "redstone_wire", "vine",
-            "sugar_cane", "leaf_litter", "bush", "firefly", "moss_carpet", "ladder", "scaffolding")
+PASSABLE = PLANTS + ("torch", "sign", "banner", "carpet", "button", "lever", "pressure_plate", "rail",
+                     "redstone_wire", "ladder", "scaffolding")
 # Light passes through these (everything else is treated as a full opaque block).
 TRANSPARENT = PASSABLE + ("glass", "pane", "leaves", "stairs", "slab", "fence", "wall", "door", "trapdoor",
                           "lantern", "bed", "chest", "iron_bars", "ladder", "chain", "campfire", "candle",
@@ -29,34 +30,26 @@ NO_SPAWN_FLOOR = ("glass", "pane", "leaves", "slab[type=bottom", "stairs", "fenc
                   "bed", "chest", "barrier", "bedrock", "farmland", "dirt_path")
 
 
-def parse(block):
-    name, _, rest = block.replace("minecraft:", "").partition("[")
-    props = dict(p.split("=", 1) for p in rest.rstrip("]").split(",") if "=" in p)
-    return name, props
-
-
-def name(block):
-    return parse(block)[0]
-
-
-def is_air(b):
-    return b is None or name(b) in ("air", "cave_air", "void_air")
+@lru_cache(maxsize=4096)
+def _passable(b):
+    n = name(b)
+    return n in AIR or any(k in n for k in PASSABLE)
 
 
 def passable(b):
-    if b is None:
-        return True
-    n = name(b)
-    return n in ("air", "cave_air", "void_air") or any(k in n for k in PASSABLE if k != "air")
+    return b is None or _passable(b)
+
+
+@lru_cache(maxsize=4096)
+def _transparent(b):
+    return _passable(b) or any(k in name(b) for k in TRANSPARENT)
 
 
 def transparent(b):
-    if b is None:
-        return True
-    n = name(b)
-    return passable(b) or any(k in n for k in TRANSPARENT)
+    return b is None or _transparent(b)
 
 
+@lru_cache(maxsize=4096)
 def emits(b):
     n, props = parse(b)
     for k, level in LIGHT.items():
@@ -118,7 +111,7 @@ def audit(cells, box):
     for p, b in cells.items():
         if not in_box(p) or not is_door(b):
             continue
-        n, props = parse(b)
+        props = parse(b)[1]
         if props.get("half") != "lower":
             continue
         up = cells.get((p[0], p[1] + 1, p[2]))
@@ -149,8 +142,13 @@ def audit(cells, box):
     doors = [p for p, b in cells.items() if is_door(b)]
     through = flood(cells, list(outside) + doors, lambda b: passable(b) or is_door(b))
 
+    roof = {}  # the highest solid block in each column of the box: one pass, not one scan per spot
+    for (x, y, z), b in cells.items():
+        if in_box((x, y, z)) and not passable(b) and y > roof.get((x, z), -10 ** 9):
+            roof[(x, z)] = y
+
     def covered(p):
-        return any(not passable(cells.get((p[0], y, p[2]))) for y in range(p[1] + 2, y1 + 1))
+        return roof.get((p[0], p[2]), -10 ** 9) >= p[1] + 2
 
     def walled(p):
         for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
@@ -208,5 +206,12 @@ def audit(cells, box):
             "stats": {"blocks": sum(1 for p, b in cells.items() if in_box(p) and not is_air(b)),
                       "indoor_floor": len(stand_inside), "doors": sum(1 for p in doors if in_box(p)) // 2,
                       # storeys: levels with a real floor (4+ standing spots), not every stair step
-                      "indoor_levels": sorted(y for y in {p[1] for p in stand_inside}
-                                              if sum(1 for p in stand_inside if p[1] == y) >= 4)}}
+                      "indoor_levels": sorted(y for y, n in Counter(p[1] for p in stand_inside).items() if n >= 4)}}
+
+
+def report(r, header, detail=""):
+    """The audit as the lines mc prints: a header with the counts (and `detail`), then one line per check."""
+    out = [f"{header}{r['fails']} fail, {r['warns']} warn{detail}"]
+    for c in r["checks"]:
+        out.append(f"  {c['level'].upper():<4} {c['check']:<9} {c['msg']}" + (f"  e.g. {c['at'][:3]}" if c["at"] else ""))
+    return "\n".join(out)

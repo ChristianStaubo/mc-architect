@@ -2,19 +2,16 @@
 bridges where a road meets water. Every function takes the ground as {(x, z): (top_y, top_block)}
 (bridge.heightmap) and returns world cells {(x, y, z): block} for edits.place, so it can be undone."""
 
-import math
 import random
 
-WATER = ("water",)
+from . import blocks
+
 ROAD_MIX = [("dirt_path", 6), ("gravel", 2), ("coarse_dirt", 1), ("cobblestone", 1)]
 
 
-def _name(block):
-    return block.split("[")[0].replace("minecraft:", "")
-
-
 def is_water(top):
-    return _name(top[1]) in WATER
+    """A heightmap column (top_y, top_block) whose top is water."""
+    return blocks.is_water(top[1])
 
 
 def _pick(rng, mix):
@@ -42,7 +39,7 @@ def polyline(points):
     return out
 
 
-def road_profile(path, cols, max_step=1, water_level=None):
+def road_profile(path, cols, max_step=1):
     """A height for every point on the path: the ground smoothed, then limited to `max_step` per block
     (forward and backward passes). Over water the road keeps a deck height (a bridge)."""
     raw = []
@@ -80,6 +77,13 @@ def road_profile(path, cols, max_step=1, water_level=None):
 DIRS = {(1, 0): "east", (-1, 0): "west", (0, 1): "south", (0, -1): "north"}
 
 
+def across(path, k):
+    """The unit step across a path at point k (its width runs this way)."""
+    px, pz = path[max(k - 1, 0)]
+    nx, nz = path[min(k + 1, len(path) - 1)]
+    return (1, 0) if abs(nz - pz) >= abs(nx - px) else (0, 1)
+
+
 def road(points, cols, width=3, seed=1, surface=ROAD_MIX, lamp_every=14, bridge_wood="spruce",
          support="stone_bricks", step="stone_brick_stairs"):
     """A road along `points` (x, z) on the ground. The surface follows the land at a walkable grade, a
@@ -93,14 +97,9 @@ def road(points, cols, width=3, seed=1, surface=ROAD_MIX, lamp_every=14, bridge_
     half = width // 2
     cells = {}
 
-    def across(k):
-        px, pz = path[max(k - 1, 0)]
-        nx, nz = path[min(k + 1, len(path) - 1)]
-        return (1, 0) if abs(nz - pz) >= abs(nx - px) else (0, 1)
-
     lamp_side = 1
     for k, ((x, z), y) in enumerate(zip(path, ys)):
-        ux, uz = across(k)
+        ux, uz = across(path, k)
         for w in range(-half, half + 1):
             cx, cz = x + ux * w, z + uz * w
             g = cols.get((cx, cz), (y - 1, "stone"))[0]
@@ -140,12 +139,11 @@ def road(points, cols, width=3, seed=1, surface=ROAD_MIX, lamp_every=14, bridge_
         d = (path[hi][0] - path[lo][0], path[hi][1] - path[lo][1])
         if d not in DIRS:
             continue
-        ux, uz = across(hi)
+        ux, uz = across(path, hi)
         for w in range(-half, half + 1):
             cx, cz = path[hi][0] + ux * w, path[hi][1] + uz * w
             cells[(cx, ys[hi] - 1, cz)] = f"{step}[facing={DIRS[d]},half=bottom,shape=straight]"
-            cells.setdefault((cx, ys[hi] - 2, cz), support)
-            if cells[(cx, ys[hi] - 2, cz)] == "air":
+            if cells.get((cx, ys[hi] - 2, cz), "air") == "air":
                 cells[(cx, ys[hi] - 2, cz)] = support
     return cells, list(zip(path, ys))
 

@@ -4,6 +4,10 @@ enough for the agent and the judge to see shape, proportion and materials."""
 
 import struct
 import zlib
+from functools import lru_cache
+
+from .blocks import is_air, is_plant
+from .blocks import name as block_name  # noqa: F401  (re-exported: render.block_name)
 
 # First matching substring wins; order specific before general.
 COLORS = [
@@ -20,7 +24,8 @@ COLORS = [
     ("mossy", (100, 118, 80)), ("stone_brick", (122, 121, 122)), ("bricks", (150, 97, 83)),
     ("brick", (150, 97, 83)), ("andesite", (136, 136, 137)), ("diorite", (188, 188, 189)),
     ("granite", (149, 103, 85)), ("tuff", (108, 109, 102)), ("calcite", (223, 224, 220)),
-    ("blackstone", (42, 36, 41)), ("basalt", (80, 81, 86)), ("quartz", (235, 229, 222)),
+    ("blackstone", (42, 36, 41)), ("redstone_wire", (190, 25, 20)), ("redstone_torch", (255, 60, 30)),
+    ("redstone_wall_torch", (255, 60, 30)), ("redstone_lamp", (230, 170, 70)), ("redstone_block", (170, 20, 10)), ("basalt", (80, 81, 86)), ("quartz", (235, 229, 222)),
     # coloured terracotta before the bare word: 'white_terracotta' drew dark brown, and both lakeside
     # critics read the town's plaster as brown (map colours from the game)
     ("white_terracotta", (209, 178, 161)), ("light_gray_terracotta", (135, 107, 98)),
@@ -28,23 +33,12 @@ COLORS = [
     ("red_terracotta", (143, 61, 46)), ("brown_terracotta", (77, 51, 35)), ("cyan_terracotta", (86, 91, 91)),
     ("terracotta", (152, 94, 67)), ("white_concrete", (207, 213, 214)), ("smooth_quartz", (235, 229, 222)), ("white", (234, 236, 236)), ("black", (25, 25, 29)),
     ("red", (160, 39, 34)), ("blue", (53, 57, 157)), ("yellow", (248, 197, 39)),
-    ("green", (84, 109, 27)), ("redstone_wire", (190, 25, 20)), ("redstone_torch", (255, 60, 30)),
-    ("redstone_wall_torch", (255, 60, 30)), ("redstone_lamp", (230, 170, 70)), ("redstone_block", (170, 20, 10)),
-    ("sticky_piston", (120, 170, 80)), ("piston_head", (170, 140, 95)), ("piston", (170, 140, 95)),
+    ("green", (84, 109, 27)), ("sticky_piston", (120, 170, 80)), ("piston_head", (170, 140, 95)), ("piston", (170, 140, 95)),
     ("lever", (90, 70, 50)), ("observer", (90, 90, 95)), ("repeater", (160, 60, 50)), ("lantern", (250, 200, 90)), ("torch", (250, 200, 90)),
     ("coal", (40, 40, 40)), ("iron", (200, 200, 200)), ("copper", (192, 107, 79)),
     ("stone", (125, 125, 125)), ("log", (109, 85, 50)), ("planks", (162, 130, 78)),
 ]
-# Not drawn, and they don't hide what's behind them.
-SKIP = ("short_grass", "tall_grass", "fern", "flower", "dandelion", "poppy", "tulip", "orchid",
-        "allium", "azure_bluet", "oxeye", "cornflower", "lily_of_the_valley", "dead_bush", "seagrass",
-        "kelp", "vine", "bush", "sugar_cane", "moss_carpet", "leaf_litter", "firefly")
-
-
-def block_name(block):
-    return block.split("[")[0].replace("minecraft:", "")
-
-
+@lru_cache(maxsize=4096)
 def color(block):
     name = block_name(block)
     for key, rgb in COLORS:
@@ -55,8 +49,8 @@ def color(block):
 
 
 def skipped(block):
-    name = block_name(block)
-    return name in ("air", "cave_air", "void_air") or any(s in name for s in SKIP)
+    """Not drawn, and doesn't hide what's behind it: air and small plants."""
+    return is_air(block) or is_plant(block)
 
 
 def shade(rgb, f):
@@ -238,8 +232,8 @@ def elevation(cells, look="west", path=None, scale=16, skip=(), background=(244,
         key = (p[other], p[1])
         dist = abs(p[axis] - front)
         if key not in first or dist < first[key][0]:
-            first[key] = (dist, b, dist)
-    for (u, y), (_, b, dist) in first.items():
+            first[key] = (dist, b)
+    for (u, y), (dist, b) in first.items():
         f = max(0.45, 1.0 - 0.07 * dist)
         rgb = bytes(shade(color(b), f))
         cu = (u1 - u) if flip else (u - u0)
