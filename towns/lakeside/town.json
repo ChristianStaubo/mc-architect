@@ -1,27 +1,34 @@
 {
-  "name": "lakeside",
-  "area": {
-    "min": [
-      256,
-      -272
-    ],
-    "max": [
-      399,
-      -129
-    ]
-  },
-  "brief": "A medieval lake town that works with the land: a keep or temple on the western ridge (y 120-127), houses terraced down the slope, a market on the low peninsula between the two lakes (y 62-68), a harbour with piers and boathouses on the east lake, fishing huts on the north shore, fields on the flat southern bench. One main road switchbacks from the keep to the market and crosses the small southern lake on a bridge. Nothing is flattened wholesale: buildings sit on terraces, roads follow the contours.",
-  "phase1": "One street first: the market on the peninsula and the harbour, 6-8 buildings and the roads joining them (with the bridge if the street crosses water). Leave room for the slope districts and the keep, which come next.",
-  "style": "medieval: dark oak and spruce timber frames, white or birch plaster, stone-brick bases with cobble and mossy variants, dark roofs; colourful awnings only in the market",
-  "max_plots_phase1": 8,
-  "features": [
-    {
-      "id": "mountain_hall",
-      "plan": "towns/lakeside/plans/mountain_hall.py",
-      "place": "--at 300,-190 --y 68 --no-clear --foundation none --keep-trees",
-      "what": "secret 2x2 piston door at the end of the high street (lever on the ledge at 302,69,-194), tunnel, pillared great hall with vault, spiral stair to a lookout balcony at 302,81,-205",
-      "built": "2026-10-29, edit e66; door test passed in place (3 cycles)",
-      "inside_lever": "floor lever in the tunnel at 298,68,-190 + repeater at 298,71,-195 (edit e71, test PASS)"
-    }
+ "name": "lakeside",
+ "area": {
+  "min": [
+   256,
+   -272
+  ],
+  "max": [
+   399,
+   -129
   ]
+ },
+ "brief": "A medieval lake town that works with the land: a keep or temple on the western ridge (y 120-127), houses terraced down the slope, a market on the low peninsula between the two lakes (y 62-68), a harbour with piers and boathouses on the east lake, fishing huts on the north shore, fields on the flat southern bench. One main road switchbacks from the keep to the market and crosses the small southern lake on a bridge. Nothing is flattened wholesale: buildings sit on terraces, roads follow the contours.",
+ "phase1": "One street first: the market on the peninsula and the harbour, 6-8 buildings and the roads joining them (with the bridge if the street crosses water). Leave room for the slope districts and the keep, which come next.",
+ "style": "medieval: dark oak and spruce timber frames, white or birch plaster, stone-brick bases with cobble and mossy variants, dark roofs; colourful awnings only in the market",
+ "max_plots_phase1": 8,
+ "features": [
+  {
+   "id": "mountain_hall",
+   "plan": "towns/lakeside/plans/mountain_hall.py",
+   "place": "--at 300,-190 --y 68 --no-clear --foundation none --keep-trees",
+   "what": "secret 2x2 piston door at the end of the high street (lever on the ledge at 302,69,-194), tunnel, pillared great hall with vault, spiral stair to a lookout balcony at 302,81,-205",
+   "built": "2026-10-29, edit e66; door test passed in place (3 cycles)",
+   "inside_lever": "floor lever in the tunnel at 298,68,-190 + repeater at 298,71,-195 (edit e71, test PASS)"
+  },
+  {
+   "id": "castle",
+   "plan": "towns/lakeside/plans/castle.py",
+   "place": "--at 240,-290 --y 125 --no-clear --foundation none",
+   "what": "castle on the western summit: curtain wall with seven towers, gatehouse and stair road toward the upper quarter (ends at 290,98,-229), keep with great hall, princess bedchamber, library and roof walk, princess tower, cherry garden, terraced orchards",
+   "built": "2026-10-29, edit e255; fixes e256 (stray stairs, a lantern) and e257 (two lanterns); audit clean"
+  }
+ ]
 }

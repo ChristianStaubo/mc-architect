@@ -54,6 +54,30 @@ def build(run, refs, per_task):
     return d
 
 
+def reveal(batch):
+    """Rewrite a batch's page with what each build is and the judges' scores beside it (no longer blind:
+    for comparing your rating with the judges' directly)."""
+    d = OUT / batch
+    key = json.loads((d / "key.json").read_text())
+    refs = json.loads((d / "reference_judged.json").read_text()) if (d / "reference_judged.json").exists() else {}
+    cards = []
+    for aid, k in sorted(key.items()):
+        if k["run"] == "reference":
+            j, label = refs.get(aid, {}), "hand-made reference"
+        else:
+            j = json.loads((trials.RESULTS / k["run"] / k["task"] / str(k["trial"]) / "trial.json").read_text())
+            label = f"builder, trial {k['trial']}"
+        scores = {dim: v["score"] for dim, v in (j.get("scores") or {}).items()}
+        overall = (j.get("scores") or {}).get("overall", {})
+        cards.append({"id": aid, "img": f"sheets/{aid}.png", "brief": evals.task(k["task"])["brief"],
+                      "judge": {"task": k["task"], "label": label, "quality": j.get("quality"),
+                                "scores": scores, "why": overall.get("evidence", "")}})
+    page = TEMPLATE.read_text().replace("__BATCH__", batch).replace(
+        "__CARDS__", html.escape(json.dumps(cards), quote=False))
+    (d / "index.html").write_text(page)
+    print(f"{len(cards)} builds with judge scores in {d}/index.html")
+
+
 def pull(batch, dump):
     """dump: the page's `ratings` collection as JSON ({doc id: {score, note, at}} or a list of docs)."""
     key = json.loads((OUT / batch / "key.json").read_text())
@@ -77,8 +101,11 @@ if __name__ == "__main__":
     p.add_argument("--refs", type=int, default=3)
     p.add_argument("--per-task", type=int, default=1, help="trials per task to rate (10-15 builds is a sitting)")
     p.add_argument("--pull", nargs=2, metavar=("BATCH", "DUMP"))
+    p.add_argument("--reveal", metavar="BATCH", help="show what each build is and the judges' scores")
     a = p.parse_args()
     if a.pull:
         pull(*a.pull)
+    elif a.reveal:
+        reveal(a.reveal)
     else:
         build(a.run, a.refs, a.per_task)
