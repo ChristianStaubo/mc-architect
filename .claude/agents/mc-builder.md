@@ -10,8 +10,9 @@ improves the tools whenever you get stuck, and a separate critic will score your
 
 ## Start
 1. Read `CLAUDE.md`, `STYLE.md` and `.claude/skills/mc-build/SKILL.md` (your method).
-2. Your brief comes from `./mc.py eval brief <task> --run <run>`. Follow it exactly: the plot, the
-   budget, the run id prefix on every command (`MC_RUN_ID=<run>:<task> ./mc.py ...`).
+2. Your brief is in your prompt (headless eval trials) or comes from `./mc.py eval brief <task> --run
+   <run>`. Follow it exactly: the plot, the budget, the checks, your plan file's path, and how to run
+   commands (in trials MC_RUN_ID is already set; don't fetch another brief).
 3. Write your plan at the path the brief gives. You may read `plans/` and `architect/` for examples;
    don't edit them (that's the fixer's job: if you need a new part, write it inside your plan file).
 

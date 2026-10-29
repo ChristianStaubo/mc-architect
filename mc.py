@@ -63,7 +63,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from architect import audit as auditing  # noqa: E402
-from architect import blocks, bridge, edits, evals, incidents, journal, render, terrain  # noqa: E402
+from architect import blocks, bridge, edits, evals, graders, incidents, journal, render, sites, terrain  # noqa: E402
 from architect import town as towns  # noqa: E402
 from architect.placement import (bounds, check_blocks, clear_trees, ground_cells, original_ground,  # noqa: E402
                                  overflow, water_depths, whole_trees)
@@ -195,6 +195,7 @@ def load_plan(name):
     b = mod.build()
     if not b.blocks:
         raise SystemExit(f"plan {name} built nothing")
+    b.place_args = getattr(mod, "PLACE", [])  # where a reference plan goes on its task's plot
     return b
 
 
@@ -346,7 +347,7 @@ def cmd_audit(a):
     return 2 if r["fails"] else 0
 
 
-def shots(e):
+def shots(e, path=None):
     """Contact sheet: 4 corner views, top-down, and a floor plan per storey (up to 4)."""
     cells = around(e, margin=2, below=2, above=1)
     lo, hi = e["min"], e["max"]
@@ -373,7 +374,7 @@ def shots(e):
             imgs.append(render.elevation(box, look=look, scale=10))
         except ValueError:
             pass
-    path = out_path(f"{e['label']}-{e['id']}-shots")
+    path = path or out_path(f"{e['label']}-{e['id']}-shots")
     render.sheet(imgs, path, columns=3)
     return path, levels
 
@@ -641,11 +642,42 @@ def cmd_eval(a):
     elif a.action == "brief":
         print(evals.brief(a.task, a.run))
     elif a.action == "reset":
-        live = [e for e in edits.listing() if e.get("task") == a.task]
-        for e in sorted(live, key=edits.seq, reverse=True):
-            edits.undo(e["id"])
-            print(f"undid {e['id']}")
-        print(f"{a.task}: plot back to its terrain ({len(live)} edits undone)")
+        sites.reset(evals.task(a.task)["id"])
+        print(f"{a.task}: site restored from {sites.path(a.task).relative_to(ROOT)}")
+    elif a.action == "check":  # reset the site, build a plan on it, run the task's code graders
+        t = evals.task(a.task)
+        plan = a.plan or t["reference"]
+        args = load_plan(plan).place_args
+        sites.reset(t["id"])
+        r = subprocess.run([sys.executable, str(ROOT / "mc.py"), "place", plan, "--task", t["id"], *args],
+                           capture_output=True, text=True)
+        print(r.stdout.strip() or r.stderr.strip())
+        if r.returncode:
+            raise SystemExit(f"place failed: {r.stderr.strip()[-300:]}")
+        o = sites.outcome(t)
+        res = graders.run(t, o)
+        if not a.plan and o.box:  # the reference's sheet, for the rating page's anchors
+            ref = evals.RESULTS / "references"
+            ref.mkdir(parents=True, exist_ok=True)
+            print(f"sheet: {shots(o.as_edit(t['id']), ref / (t['id'] + '.png'))[0]}")
+        for g in res:
+            print(f"  {'ok  ' if g['pass'] else 'FAIL'} {g['grader']:<26} {g['detail'][:110]}")
+        print(f"{sum(g['pass'] for g in res)}/{len(res)} code graders pass")
+        return 0 if all(g["pass"] for g in res) else 2
+    elif a.action == "run":  # the capability suite, headless (docs/evals.md §7)
+        from architect import trials
+        tids = a.tasks.split(",") if a.tasks else list(evals.tasks())
+        print(f"capability run: {len(tids)} tasks x {a.trials} trials, builder {a.model}, judge {a.judge_model}")
+        run, recs = trials.run(tids, a.trials, a.model, a.label or "", shots, judge_model=a.judge_model,
+                               concurrency=a.concurrency, log=lambda m: print(m, flush=True))
+        print(f"done: {run}. report: mc eval report {run}")
+    elif a.action == "judge":  # (re)judge a run's trials, e.g. after a rubric change
+        from architect import trials
+        for rec in trials.trial_records(a.run):
+            if rec.get("sheet") and (a.force or rec.get("quality") is None):
+                trials.judge_trial(rec, evals.task(rec["task"]), a.judge_model, repeat=rec["trial"] == 1)
+                (trials.RESULTS / a.run / rec["task"] / str(rec["trial"]) / "trial.json").write_text(json.dumps(rec, indent=1))
+                print(f"  {rec['task']} #{rec['trial']}: quality {rec['quality']}")
     elif a.action == "record":
         run_task = f"{a.run}:{a.task}"
         mine = [e for e in edits.listing() if e.get("task") == a.task and e.get("run") == run_task]
@@ -655,6 +687,31 @@ def cmd_eval(a):
         crit = json.loads(Path(a.critique).read_text()) if a.critique else None
         out = evals.record(a.task, a.run, e, r, crit)
         print(json.dumps({k: out[k] for k in ("task", "pass", "quality", "audit", "must_missing", "tools")}, indent=1))
+    elif a.action == "report" and a.run and (evals.RESULTS / a.run / "manifest.json").exists():
+        from architect import scoreboard
+        s = scoreboard.summarise(a.run)
+        m = s["manifest"]
+        print(f"{a.run}: {m.get('label') or '-'} | builder {m['builder_model']}, judge {m.get('judge_model')} | "
+              f"commit {m['commit']}{' (dirty)' if m['dirty'] else ''}")
+        print(f"{'task':<18} {'pass':>5} {'@k':>3} {'^k':>3} {'quality':>8} {'90% CI':>12} {'calls':>6} {'min':>5} {'API $':>6}  failing graders")
+        for tid, t in s["tasks"].items():
+            ci = f"{t['quality_ci'][0]}-{t['quality_ci'][1]}" if t["quality"] is not None else "-"
+            print(f"{tid:<18} {t['passed']:>2}/{t['trials']:<2} {'y' if t['pass_at_k'] else '-':>3} "
+                  f"{'y' if t['pass_all_k'] else '-':>3} {t['quality'] if t['quality'] is not None else '-':>8} {ci:>12} "
+                  f"{t['calls']:>6} {t['minutes']:>5} {t['api_usd']:>6}  "
+                  + ", ".join(f"{g} x{n}" for g, n in t["grader_fails"].items()))
+        print(f"overall: pass {s['pass_rate']:.0%} of trials, pass@k {s['pass_at_k']:.0%} of tasks, pass^k "
+              f"{s['pass_all_k']:.0%}; quality {s['quality']} (90% CI {s['quality_ci'][0]}-{s['quality_ci'][1]}); "
+              f"judge self-spread {s['judge_spread']}; API-equivalent ${s['api_usd']} (subscription usage, not billed)")
+        for f in s["flags"]:
+            print(f"  flag: {f}")
+        if a.vs:
+            c = scoreboard.compare(a.run, a.vs)
+            print(f"vs {a.vs} on {len(c['tasks'])} tasks: quality {c['quality_diff'][0]:+} "
+                  f"(90% CI {c['quality_diff'][1]:+}..{c['quality_diff'][2]:+}), pass rate {c['pass_diff'][0]:+} "
+                  f"(90% CI {c['pass_diff'][1]:+}..{c['pass_diff'][2]:+})")
+            for k, (o, n) in c["grader_fail_changes"].items():
+                print(f"  {k}: failed {o} -> {n}")
     elif a.action == "report":
         runs = [a.run] if a.run else evals.runs()
         print(f"{'run':<14} {'pass':>6} {'quality':>8} {'calls/task':>10} {'failed':>7} {'stops':>6} {'over budget':>11}")
@@ -747,7 +804,16 @@ def main():
     tw.add_argument("--dry-run", action="store_true")
     tw.add_argument("--refresh", action="store_true", help="site: re-read the terrain (before any building!)")
     ev = sub.add_parser("eval")
-    ev.add_argument("action", choices=["gate", "list", "brief", "reset", "record", "report"])
+    ev.add_argument("action", choices=["gate", "list", "brief", "reset", "check", "run", "judge", "record", "report"])
+    ev.add_argument("--tasks", help="run: comma-separated task ids (default: all)")
+    ev.add_argument("--trials", type=int, default=3)
+    ev.add_argument("--model", default="sonnet", help="run: the builder's model")
+    ev.add_argument("--judge-model", default="opus")
+    ev.add_argument("--label", help="run: what changed, for the report")
+    ev.add_argument("--concurrency", type=int, default=5)
+    ev.add_argument("--vs", help="report: compare with this older run")
+    ev.add_argument("--force", action="store_true", help="judge: re-judge trials that already have scores")
+    ev.add_argument("--plan", help="check: the plan to grade (default: the task's reference)")
     ev.add_argument("--offline", action="store_true", help="gate: skip the checks that need the server")
     ev.add_argument("task", nargs="?")
     ev.add_argument("--run")
