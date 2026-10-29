@@ -2,7 +2,7 @@
 would notice. fail = the build is broken; warn = worth a look. Pure functions over a region dict
 {(x, y, z): block-data string}, so tests can feed them hand-made grids."""
 
-from collections import Counter, deque
+from collections import deque
 from functools import lru_cache
 
 from .blocks import AIR, PLANTS, is_air, name, parse  # noqa: F401  (parse/name are part of this module's API)
