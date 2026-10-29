@@ -162,8 +162,10 @@ def ground_cells(build, at, foundation="cobblestone", floor_y=None, clear=True):
         if foundation != "none":
             for y in range(g + 1, y0 + ly0):  # foundation down to the ground
                 cells[(x + fx, y, z + fz)] = foundation
-        if clear:
-            for y in range(y0 + ly0, max(g, y0 + ly1) + 1):  # clear the hill inside the footprint
+        if clear:  # clear the hill inside the footprint, from the ground floor up (never below it:
+            # posts and basements change only where the plan says; r1's boathouse got a flooded-out
+            # air pocket under its floor when clearing started at its lowest post)
+            for y in range(y0, max(g, y0 + ly1) + 1):
                 cells[(x + fx, y, z + fz)] = "air"
     for (bx, by, bz), blk in build.blocks.items():
         cells[(x + bx, y0 + by, z + bz)] = blk

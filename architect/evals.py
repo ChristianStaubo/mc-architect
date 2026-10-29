@@ -84,7 +84,8 @@ def runs():
 
 
 def results(run):
-    return [json.loads(p.read_text()) for p in sorted((RESULTS / run).glob("*.json"))]
+    return [json.loads(p.read_text()) for p in sorted((RESULTS / run).glob("*.json"))
+            if not p.name.endswith(".critique.json")]
 
 
 def summary(run):
