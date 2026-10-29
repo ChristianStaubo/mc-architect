@@ -12,17 +12,16 @@ you fix the tools, the scoreboard says whether it worked. The user is paged only
 1. **Health.** `./mc.py doctor` (Docker Desktop: `open -a Docker`; server: `docker compose up -d`).
    `./mc.py eval gate` (the regression suite: unit tests, every part, plans, block names, place + undo,
    the door test, incident replays) must be 100% before and after every fix.
-2. **Run id.** Next free `rN` (`./mc.py eval report` lists runs). Reset plots: `./mc.py eval reset <task>`
-   for every task you will run.
-3. **Build.** For each task (`./mc.py eval list`), spawn an `mc-builder` agent (Sonnet) with:
-   the task id, the run id, and "follow .claude/agents/mc-builder.md". Plots are separate, so run
-   builders in parallel (up to 5). Never build for them.
-4. **Judge.** For each finished task: `./mc.py shots <edit>` (the builder's last edit for that task:
-   `./mc.py edits`), then spawn an `mc-critic` agent with the brief (`./mc.py eval brief`), the sheet
-   path, and `local/evals/<run>/<task>.critique.json` as its output path. Then
-   `./mc.py eval record <task> --run <run> --critique <that path>`.
-5. **Scoreboard.** `./mc.py eval report <run>` and `./mc.py eval report` (all runs). Look at the
-   sheets yourself too: the critic can be wrong.
+2. **Run.** `./mc.py eval run [--tasks a,b] [--trials 3] --label "<what changed>"` (docs/evals.md §7):
+   it resets each site, runs a headless Sonnet builder per trial with the tools fenced in, grades it
+   with the task's code graders and has Opus judges score its sheet. Never build for the builders.
+3. **Check.** `./mc.py eval check <task> [--plan P]` grades one plan on a reset site (a reference by
+   default), e.g. to see whether a grader is fair.
+4. **Report.** `./mc.py eval report <run> [--vs <older run>]`: pass@k, pass^k, quality with intervals,
+   failing graders, flags. Look at the sheets (`local/evals/<run>/<task>/<trial>/sheet.png`) and read
+   a few transcripts yourself too: graders and judges can be wrong.
+5. **Ratings.** Now and then, `python3 scripts/rating_page.py <run>` makes a rating page for the user to
+   calibrate the judges against (docs/evals.md §10).
 6. **Fix.** Read every friction report (`./mc.py friction`: stuck stops, gaps, auto-filed crashes),
    every incident (`./mc.py incidents`, then `./mc.py incident ID`: the error and stack, the last bridge
    requests and commands, the plan as it was, the server log; `replay` reruns it dry) and each builder's

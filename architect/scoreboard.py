@@ -33,35 +33,45 @@ def summarise(run):
     tasks = {}
     for tid, rs in by_task(recs).items():
         graded = [r for r in rs if r["end"] != "error"]
-        q = [r["quality"] for r in graded if r.get("quality") is not None]
+        qm, *qci = boot([r["quality"] for r in graded if r.get("quality") is not None])
         tasks[tid] = {
             "trials": len(rs), "errors": len(rs) - len(graded),
             "passed": sum(r["pass"] for r in graded),
             "pass_at_k": any(r["pass"] for r in graded), "pass_all_k": bool(graded) and all(r["pass"] for r in graded),
-            "quality": boot(q)[0], "quality_ci": boot(q)[1:],
+            "quality": qm, "quality_ci": qci,
             "api_usd": round(sum(r.get("api_usd") or 0 for r in rs) + sum(r.get("judge_api_usd") or 0 for r in rs), 2),
-            "minutes": round(sum(r.get("minutes") or 0 for r in rs) / max(len(rs), 1), 1),
-            "calls": round(sum((r.get("tools") or {}).get("calls", 0) for r in rs) / max(len(rs), 1), 1),
+            "minutes": round(sum(r.get("minutes") or 0 for r in rs) / len(rs), 1),
+            "calls": round(sum((r.get("tools") or {}).get("calls", 0) for r in rs) / len(rs), 1),
             "stucks": sum((r.get("tools") or {}).get("stucks", 0) for r in rs),
             "ends": sorted({r["end"] for r in rs}),
             "grader_fails": dict(_grader_fails(graded)),
         }
-    allq = [r["quality"] for r in recs if r.get("quality") is not None]
+    qm, *qci = boot([r["quality"] for r in recs if r.get("quality") is not None])
     spread = [abs(a - b) for r in recs for a, b in r.get("judge_repeat", [])]
     s = {
         "run": run, "manifest": json.loads((trials.RESULTS / run / "manifest.json").read_text()),
         "trials": len(recs), "pass_rate": round(sum(r["pass"] for r in recs) / max(len(recs), 1), 2),
         "pass_at_k": round(sum(t["pass_at_k"] for t in tasks.values()) / max(len(tasks), 1), 2),
         "pass_all_k": round(sum(t["pass_all_k"] for t in tasks.values()) / max(len(tasks), 1), 2),
-        "quality": boot(allq)[0], "quality_ci": boot(allq)[1:],
+        "quality": qm, "quality_ci": qci,
         "judge_spread": round(sum(spread) / len(spread), 2) if spread else None,
         "api_usd": round(sum(t["api_usd"] for t in tasks.values()), 2),
         "tasks": tasks,
     }
     s["flags"] = flags(s)
-    COMMITTED.mkdir(parents=True, exist_ok=True)
-    (COMMITTED / f"{run}.json").write_text(json.dumps(s, indent=1))
     return s
+
+
+def save(s):
+    """The summary, committed (small) next to the code it measured."""
+    COMMITTED.mkdir(parents=True, exist_ok=True)
+    (COMMITTED / f"{s['run']}.json").write_text(json.dumps(s, indent=1))
+    return s
+
+
+def runs():
+    """Capability runs, oldest first."""
+    return sorted(p.parent.name for p in trials.RESULTS.glob("*/manifest.json"))
 
 
 def _grader_fails(recs):
@@ -88,8 +98,8 @@ def flags(s):
 
 
 def compare(new, old):
-    """Paired by task: difference in mean quality and pass rate, with a bootstrap interval."""
-    a, b = summarise(new)["tasks"], summarise(old)["tasks"]
+    """Two summaries paired by task: difference in mean quality and pass rate, with a bootstrap interval."""
+    a, b = new["tasks"], old["tasks"]
     common = sorted(set(a) & set(b))
     dq = [a[t]["quality"] - b[t]["quality"] for t in common if a[t]["quality"] is not None and b[t]["quality"] is not None]
     dp = [a[t]["passed"] / a[t]["trials"] - b[t]["passed"] / b[t]["trials"] for t in common if a[t]["trials"] and b[t]["trials"]]

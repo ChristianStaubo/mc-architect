@@ -2,7 +2,9 @@
 the bridge's /place takes. Block names are Minecraft block-data strings ("oak_stairs[facing=north]");
 the "minecraft:" prefix is optional."""
 
+import importlib.util
 from collections import Counter
+from pathlib import Path
 
 from .blocks import name
 
@@ -76,3 +78,14 @@ def payload(cells, label="build"):
                     value, count = v, 1
     rle += [value, count]
     return {"origin": list(lo), "size": list(size), "palette": palette, "rle": rle, "label": label}
+
+
+def load(path):
+    """Run a plan file's build(); its optional PLACE (the `mc place` arguments a reference plan goes on
+    its task's plot with) rides along as build.place_args."""
+    spec = importlib.util.spec_from_file_location(Path(path).stem, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    b = mod.build()
+    b.place_args = getattr(mod, "PLACE", [])
+    return b

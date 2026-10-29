@@ -6,7 +6,6 @@ audited in a flat test world, every example plan audited the same way. Server ch
 server: block names valid on this server, place + undo restoring a scratch plot exactly, the door's
 live test, and replays of past tool-bug incidents (which must pass once fixed)."""
 
-import importlib.util
 import json
 import subprocess
 import sys
@@ -15,6 +14,7 @@ from pathlib import Path
 
 from . import audit, blocks, bridge, edits, incidents, journal, parts
 from .build import Build
+from .build import load as build_load
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = ROOT / "local" / "evals" / "regression"
@@ -141,11 +141,7 @@ def flat_world(build, ground_y=0, margin=3, above=6):
     return cells, box
 
 
-def load_plan(path):
-    spec = importlib.util.spec_from_file_location(path.stem, path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.build()
+load_plan = build_load
 
 
 def example_plans():

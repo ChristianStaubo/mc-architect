@@ -10,13 +10,14 @@ import re
 import shutil
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 RUBRIC = ROOT / "evals" / "RUBRIC.md"
 GROUPS = [("brief", "site", "interior"), ("shape", "depth", "proportion"), ("palette", "detail", "overall")]
-OVERALL = ("overall", "How good is this build for its brief, honestly (not the average of the others)? A single "
-           "serious problem (no interior in a tavern, floating) caps it.")
+OVERALL = ("How good is this build for its brief, honestly (not the average of the others)? A single serious "
+           "problem (no interior in a tavern, floating) caps it.")
 NO_TOOLS = ["Bash", "Write", "Edit", "Glob", "Grep", "WebFetch", "WebSearch", "Agent", "NotebookEdit"]
 
 
@@ -25,7 +26,7 @@ def rows():
     out = {}
     for line in RUBRIC.read_text().splitlines():
         m = re.match(r"^\| (\w+) \| (.+?) \| (.+?) \|$", line)
-        if m and m.group(1) not in ("Criterion",):
+        if m and m.group(1) != "Criterion":
             out[m.group(1)] = (m.group(2), m.group(3))
     return out
 
@@ -43,7 +44,7 @@ def prompt(task, dims, image):
     ]
     for d in dims:
         if d == "overall":
-            lines.append(f"- overall: {OVERALL[1]}")
+            lines.append(f"- overall: {OVERALL}")
         else:
             hi, lo = r[d]
             lines.append(f"- {d}: high = {hi} Low = {lo}")
@@ -87,14 +88,11 @@ def judge_group(task, dims, sheet, model):
 def judge(task, sheet, model):
     """All dimensions the task asks for: {dimension: {score, evidence}}, and the judges' cost."""
     wanted = next((g["dimensions"] for g in task.get("graders", []) if g.get("judge") == "rubric"), [])
-    scores, cost = {}, 0.0
-    for group in GROUPS:
-        dims = [d for d in group if d in wanted or d == "overall"]
-        if dims:
-            s, c = judge_group(task, dims, sheet, model)
-            scores.update(s)
-            cost += c
-    return scores, cost
+    groups = [dims for dims in ([d for d in g if d in wanted or d == "overall"] for g in GROUPS) if dims]
+    with ThreadPoolExecutor(len(groups)) as ex:  # the three judges are independent
+        results = list(ex.map(lambda dims: judge_group(task, dims, sheet, model), groups))
+    scores = {d: v for s, _ in results for d, v in s.items()}
+    return scores, sum(c for _, c in results)
 
 
 def quality(scores):

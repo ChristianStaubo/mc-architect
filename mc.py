@@ -49,7 +49,6 @@ MC_RUN_ID); a failure saves an incident in local/runs/incidents/. Pictures: loca
 
 import argparse
 from collections import Counter
-import importlib.util
 import json
 import os
 import re
@@ -65,6 +64,7 @@ sys.path.insert(0, str(ROOT))
 from architect import audit as auditing  # noqa: E402
 from architect import blocks, bridge, edits, evals, graders, incidents, journal, render, sites, terrain  # noqa: E402
 from architect import town as towns  # noqa: E402
+from architect.build import load as load_build  # noqa: E402
 from architect.placement import (bounds, check_blocks, clear_trees, ground_cells, original_ground,  # noqa: E402
                                  overflow, water_depths, whole_trees)
 
@@ -189,13 +189,9 @@ def load_plan(name):
         path = ROOT / "plans" / f"{name.removesuffix('.py')}.py"
     if not path.exists():
         raise SystemExit(f"no plan {name}")
-    spec = importlib.util.spec_from_file_location(path.stem, path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    b = mod.build()
+    b = load_build(path)
     if not b.blocks:
         raise SystemExit(f"plan {name} built nothing")
-    b.place_args = getattr(mod, "PLACE", [])  # where a reference plan goes on its task's plot
     return b
 
 
@@ -347,10 +343,15 @@ def cmd_audit(a):
     return 2 if r["fails"] else 0
 
 
-def shots(e, path=None):
-    """Contact sheet: 4 corner views, top-down, and a floor plan per storey (up to 4)."""
-    cells = around(e, margin=2, below=2, above=1)
+def shots(e, path=None, cells=None, levels=None):
+    """Contact sheet: 4 corner views, top-down, and a floor plan per storey (up to 4). `cells` and
+    `levels`: a region already read around it and its storeys (eval trials), so nothing is fetched twice."""
     lo, hi = e["min"], e["max"]
+    if cells is None:
+        cells = around(e, margin=2, below=2, above=1)
+    else:
+        cells = {p: b for p, b in cells.items() if lo[0] - 2 <= p[0] <= hi[0] + 2 and lo[2] - 2 <= p[2] <= hi[2] + 2
+                 and lo[1] - 2 <= p[1] <= hi[1] + 1}
     floor = e.get("floor_y", lo[1])
     # Terrain more than 3 below the floor is cut away, except under the build itself (posts, cellars).
     inside = lambda p: lo[0] <= p[0] <= hi[0] and lo[2] <= p[2] <= hi[2]  # noqa: E731
@@ -361,9 +362,9 @@ def shots(e, path=None):
         if not render.skipped(b) and (cols.get((x, z), (-999,))[0] < y):
             cols[(x, z)] = (y, b)
     imgs.append(render.top_down(cols, scale=8))
-    r = auditing.audit(cells, (tuple(lo), tuple(hi)))
-    levels = r["stats"]["indoor_levels"] or [floor + 1]
-    levels = levels[:4]
+    if levels is None:
+        levels = auditing.audit(cells, (tuple(lo), tuple(hi)))["stats"]["indoor_levels"]
+    levels = (levels or [floor + 1])[:4]
     imgs += [render.plan(cells, y) for y in levels]
     # Facades, straight on and close up: small details (a hoist beam, a round window, a sign, shutters)
     # vanished at corner-view scale and the critic couldn't credit them (lakeside).
@@ -648,18 +649,18 @@ def cmd_eval(a):
         t = evals.task(a.task)
         plan = a.plan or t["reference"]
         args = load_plan(plan).place_args
-        sites.reset(t["id"])
-        r = subprocess.run([sys.executable, str(ROOT / "mc.py"), "place", plan, "--task", t["id"], *args],
-                           capture_output=True, text=True)
-        print(r.stdout.strip() or r.stderr.strip())
-        if r.returncode:
-            raise SystemExit(f"place failed: {r.stderr.strip()[-300:]}")
-        o = sites.outcome(t)
+        with sites.still():  # no plants popping off or grass spreading between the reset and the grading
+            sites.reset(t["id"])
+            r = subprocess.run([sys.executable, str(ROOT / "mc.py"), "place", plan, "--task", t["id"], *args],
+                               capture_output=True, text=True)
+            print(r.stdout.strip() or r.stderr.strip())
+            if r.returncode:
+                raise SystemExit(f"place failed: {r.stderr.strip()[-300:]}")
+            o = sites.outcome(t)
         res = graders.run(t, o)
         if not a.plan and o.box:  # the reference's sheet, for the rating page's anchors
-            ref = evals.RESULTS / "references"
-            ref.mkdir(parents=True, exist_ok=True)
-            print(f"sheet: {shots(o.as_edit(t['id']), ref / (t['id'] + '.png'))[0]}")
+            evals.REFERENCES.mkdir(parents=True, exist_ok=True)
+            print(f"sheet: {shots(o.as_edit(t['id']), evals.REFERENCES / (t['id'] + '.png'), cells=o.after, levels=o.audit['stats']['indoor_levels'])[0]}")
         for g in res:
             print(f"  {'ok  ' if g['pass'] else 'FAIL'} {g['grader']:<26} {g['detail'][:110]}")
         print(f"{sum(g['pass'] for g in res)}/{len(res)} code graders pass")
@@ -675,57 +676,41 @@ def cmd_eval(a):
         from architect import trials
         for rec in trials.trial_records(a.run):
             if rec.get("sheet") and (a.force or rec.get("quality") is None):
-                trials.judge_trial(rec, evals.task(rec["task"]), a.judge_model, repeat=rec["trial"] == 1)
-                (trials.RESULTS / a.run / rec["task"] / str(rec["trial"]) / "trial.json").write_text(json.dumps(rec, indent=1))
+                trials.save(trials.judge_trial(rec, evals.task(rec["task"]), a.judge_model, repeat=rec["trial"] == 1))
                 print(f"  {rec['task']} #{rec['trial']}: quality {rec['quality']}")
-    elif a.action == "record":
-        run_task = f"{a.run}:{a.task}"
-        mine = [e for e in edits.listing() if e.get("task") == a.task and e.get("run") == run_task]
-        e = max(mine, key=edits.seq) if mine else None
-        r = run_audit(e) if e else {"fails": 1, "warns": 0, "checks": [{"check": "nothing built", "level": "fail"}],
-                                    "stats": {"doors": 0, "indoor_floor": 0}}
-        crit = json.loads(Path(a.critique).read_text()) if a.critique else None
-        out = evals.record(a.task, a.run, e, r, crit)
-        print(json.dumps({k: out[k] for k in ("task", "pass", "quality", "audit", "must_missing", "tools")}, indent=1))
-    elif a.action == "report" and a.run and (evals.RESULTS / a.run / "manifest.json").exists():
-        from architect import scoreboard
-        s = scoreboard.summarise(a.run)
-        m = s["manifest"]
-        print(f"{a.run}: {m.get('label') or '-'} | builder {m['builder_model']}, judge {m.get('judge_model')} | "
-              f"commit {m['commit']}{' (dirty)' if m['dirty'] else ''}")
-        print(f"{'task':<18} {'pass':>5} {'@k':>3} {'^k':>3} {'quality':>8} {'90% CI':>12} {'calls':>6} {'min':>5} {'API $':>6}  failing graders")
-        for tid, t in s["tasks"].items():
-            ci = f"{t['quality_ci'][0]}-{t['quality_ci'][1]}" if t["quality"] is not None else "-"
-            print(f"{tid:<18} {t['passed']:>2}/{t['trials']:<2} {'y' if t['pass_at_k'] else '-':>3} "
-                  f"{'y' if t['pass_all_k'] else '-':>3} {t['quality'] if t['quality'] is not None else '-':>8} {ci:>12} "
-                  f"{t['calls']:>6} {t['minutes']:>5} {t['api_usd']:>6}  "
-                  + ", ".join(f"{g} x{n}" for g, n in t["grader_fails"].items()))
-        print(f"overall: pass {s['pass_rate']:.0%} of trials, pass@k {s['pass_at_k']:.0%} of tasks, pass^k "
-              f"{s['pass_all_k']:.0%}; quality {s['quality']} (90% CI {s['quality_ci'][0]}-{s['quality_ci'][1]}); "
-              f"judge self-spread {s['judge_spread']}; API-equivalent ${s['api_usd']} (subscription usage, not billed)")
-        for f in s["flags"]:
-            print(f"  flag: {f}")
-        if a.vs:
-            c = scoreboard.compare(a.run, a.vs)
-            print(f"vs {a.vs} on {len(c['tasks'])} tasks: quality {c['quality_diff'][0]:+} "
-                  f"(90% CI {c['quality_diff'][1]:+}..{c['quality_diff'][2]:+}), pass rate {c['pass_diff'][0]:+} "
-                  f"(90% CI {c['pass_diff'][1]:+}..{c['pass_diff'][2]:+})")
-            for k, (o, n) in c["grader_fail_changes"].items():
-                print(f"  {k}: failed {o} -> {n}")
     elif a.action == "report":
-        runs = [a.run] if a.run else evals.runs()
-        print(f"{'run':<14} {'pass':>6} {'quality':>8} {'calls/task':>10} {'failed':>7} {'stops':>6} {'over budget':>11}")
-        for r in runs:
-            s = evals.summary(r)
-            if s:
-                print(f"{r:<14} {s['passed']:>3}/{s['tasks']:<2} {s['quality'] if s['quality'] is not None else '-':>8} "
-                      f"{s['calls']:>10} {s['failed_calls']:>7} {s['stops']:>6} {s['over_budget']:>11}")
-        if a.run:
-            for res in evals.results(a.run):
-                c = res.get("critique") or {}
-                print(f"  {res['task']:<18} {'PASS' if res['pass'] else 'FAIL':<5} q {res['quality'] or '-':<4} "
-                      f"calls {res['tools']['calls']:<3} {', '.join(res['audit']['failed_checks'] + res['must_missing'])} "
-                      f"{('| ' + c.get('summary', '')[:90]) if c else ''}")
+        eval_report(a.run, a.vs)
+
+
+def eval_report(run, vs=None):
+    """The capability report (docs/evals.md §9) of RUN (default: the newest), saved to evals/results/."""
+    from architect import scoreboard
+    run = run or (scoreboard.runs() or [None])[-1]
+    if not run:
+        raise SystemExit("no capability runs yet: mc eval run")
+    s = scoreboard.save(scoreboard.summarise(run))
+    m = s["manifest"]
+    print(f"{run}: {m.get('label') or '-'} | builder {m['builder_model']}, judge {m.get('judge_model')} | "
+          f"commit {m['commit']}{' (dirty)' if m['dirty'] else ''}")
+    print(f"{'task':<18} {'pass':>5} {'@k':>3} {'^k':>3} {'quality':>8} {'90% CI':>12} {'calls':>6} {'min':>5} {'API $':>6}  failing graders")
+    for tid, t in s["tasks"].items():
+        ci = f"{t['quality_ci'][0]}-{t['quality_ci'][1]}" if t["quality"] is not None else "-"
+        print(f"{tid:<18} {t['passed']:>2}/{t['trials']:<2} {'y' if t['pass_at_k'] else '-':>3} "
+              f"{'y' if t['pass_all_k'] else '-':>3} {t['quality'] if t['quality'] is not None else '-':>8} {ci:>12} "
+              f"{t['calls']:>6} {t['minutes']:>5} {t['api_usd']:>6}  "
+              + ", ".join(f"{g} x{n}" for g, n in t["grader_fails"].items()))
+    print(f"overall: pass {s['pass_rate']:.0%} of trials, pass@k {s['pass_at_k']:.0%} of tasks, pass^k "
+          f"{s['pass_all_k']:.0%}; quality {s['quality']} (90% CI {s['quality_ci'][0]}-{s['quality_ci'][1]}); "
+          f"judge self-spread {s['judge_spread']}; API-equivalent ${s['api_usd']} (subscription usage, not billed)")
+    for f in s["flags"]:
+        print(f"  flag: {f}")
+    if vs:
+        c = scoreboard.compare(s, scoreboard.summarise(vs))
+        print(f"vs {vs} on {len(c['tasks'])} tasks: quality {c['quality_diff'][0]:+} "
+              f"(90% CI {c['quality_diff'][1]:+}..{c['quality_diff'][2]:+}), pass rate {c['pass_diff'][0]:+} "
+              f"(90% CI {c['pass_diff'][1]:+}..{c['pass_diff'][2]:+})")
+        for k, (o, n) in c["grader_fail_changes"].items():
+            print(f"  {k}: failed {o} -> {n}")
 
 
 class Parser(argparse.ArgumentParser):
@@ -804,7 +789,7 @@ def main():
     tw.add_argument("--dry-run", action="store_true")
     tw.add_argument("--refresh", action="store_true", help="site: re-read the terrain (before any building!)")
     ev = sub.add_parser("eval")
-    ev.add_argument("action", choices=["gate", "list", "brief", "reset", "check", "run", "judge", "record", "report"])
+    ev.add_argument("action", choices=["gate", "list", "brief", "reset", "check", "run", "judge", "report"])
     ev.add_argument("--tasks", help="run: comma-separated task ids (default: all)")
     ev.add_argument("--trials", type=int, default=3)
     ev.add_argument("--model", default="sonnet", help="run: the builder's model")
@@ -817,7 +802,6 @@ def main():
     ev.add_argument("--offline", action="store_true", help="gate: skip the checks that need the server")
     ev.add_argument("task", nargs="?")
     ev.add_argument("--run")
-    ev.add_argument("--critique")
     a = p.parse_args()
     if a.cmd == "eval" and a.action == "report" and a.task and not a.run:
         a.run = a.task  # `mc eval report RUN`

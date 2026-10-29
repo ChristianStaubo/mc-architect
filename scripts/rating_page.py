@@ -19,7 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from architect import evals, trials  # noqa: E402
+from architect import evals, judges, scoreboard, trials  # noqa: E402
 
 OUT = ROOT / "local" / "rate"
 TEMPLATE = Path(__file__).with_name("rating_page.html")
@@ -27,12 +27,9 @@ TEMPLATE = Path(__file__).with_name("rating_page.html")
 
 def build(run, refs, per_task):
     recs = [r for r in trials.trial_records(run) if r.get("sheet") and Path(r["sheet"]).exists()]
-    by = {}
-    for r in recs:
-        by.setdefault(r["task"], []).append(r)
-    recs = [r for rs in by.values() for r in random.sample(rs, min(per_task, len(rs)))]
+    recs = [r for rs in scoreboard.by_task(recs).values() for r in random.sample(rs, min(per_task, len(rs)))]
     items = [{"run": run, "task": r["task"], "trial": r["trial"], "sheet": r["sheet"]} for r in recs]
-    ref_sheets = sorted((ROOT / "local" / "evals" / "references").glob("*.png"))
+    ref_sheets = sorted(evals.REFERENCES.glob("*.png"))
     for p in random.sample(ref_sheets, min(refs, len(ref_sheets))):
         items.append({"run": "reference", "task": p.stem, "trial": 0, "sheet": str(p)})
     random.shuffle(items)
@@ -47,35 +44,47 @@ def build(run, refs, per_task):
         brief = evals.task(it["task"])["brief"] if it["task"] in evals.tasks() else ""
         cards.append({"id": aid, "img": f"sheets/{aid}.png", "brief": brief})
     (d / "key.json").write_text(json.dumps(key, indent=1))
-    page = TEMPLATE.read_text().replace("__BATCH__", batch).replace(
-        "__CARDS__", html.escape(json.dumps(cards), quote=False))
-    (d / "index.html").write_text(page)
+    write_page(d, batch, cards, LEDE_BLIND)
     print(f"{len(cards)} builds in {d}/index.html (key: {d}/key.json)")
     return d
 
 
 def reveal(batch):
-    """Rewrite a batch's page with what each build is and the judges' scores beside it (no longer blind:
-    for comparing your rating with the judges' directly)."""
+    """Rewrite a batch's page with what each build is and the judges' scores beside it. Not blind any
+    more: the key is marked revealed, and ratings pulled from then on carry blind: false."""
     d = OUT / batch
     key = json.loads((d / "key.json").read_text())
-    refs = json.loads((d / "reference_judged.json").read_text()) if (d / "reference_judged.json").exists() else {}
     cards = []
     for aid, k in sorted(key.items()):
-        if k["run"] == "reference":
-            j, label = refs.get(aid, {}), "hand-made reference"
+        if k["run"] == "reference":  # references have no trial record: judge their sheet now
+            scores, _ = judges.judge(evals.task(k["task"]), evals.REFERENCES / f"{k['task']}.png", "opus")
+            j, label = {"scores": scores, "quality": judges.quality(scores)}, "hand-made reference"
         else:
-            j = json.loads((trials.RESULTS / k["run"] / k["task"] / str(k["trial"]) / "trial.json").read_text())
+            j = json.loads((trials.trial_path(k["run"], k["task"], k["trial"]) / "trial.json").read_text())
             label = f"builder, trial {k['trial']}"
-        scores = {dim: v["score"] for dim, v in (j.get("scores") or {}).items()}
-        overall = (j.get("scores") or {}).get("overall", {})
+        scores = j.get("scores") or {}
         cards.append({"id": aid, "img": f"sheets/{aid}.png", "brief": evals.task(k["task"])["brief"],
                       "judge": {"task": k["task"], "label": label, "quality": j.get("quality"),
-                                "scores": scores, "why": overall.get("evidence", "")}})
-    page = TEMPLATE.read_text().replace("__BATCH__", batch).replace(
-        "__CARDS__", html.escape(json.dumps(cards), quote=False))
-    (d / "index.html").write_text(page)
+                                "scores": {dim: v["score"] for dim, v in scores.items()},
+                                "why": scores.get("overall", {}).get("evidence", "")}})
+        k["revealed"] = True
+    (d / "key.json").write_text(json.dumps(key, indent=1))
+    write_page(d, batch, cards, LEDE_REVEALED)
     print(f"{len(cards)} builds with judge scores in {d}/index.html")
+
+
+LEDE_BLIND = ("Each sheet shows one build from four corners, from above, its floor plans and its four faces. "
+              "Score it 1 to 10 for its brief: 5 is fine but unremarkable, 8 is a build you'd show a friend. A "
+              "short note on why helps the judges learn. Builder and model are hidden on purpose.")
+LEDE_REVEALED = ("Each sheet shows one build from four corners, from above, its floor plans and its four faces, "
+                 "with what the AI judges scored it. Give your own 1 to 10 for its brief (5 is fine but "
+                 "unremarkable, 8 is a build you'd show a friend), and say why where you disagree with the judges.")
+
+
+def write_page(d, batch, cards, lede):
+    page = (TEMPLATE.read_text().replace("__BATCH__", batch).replace("__LEDE__", lede)
+            .replace("__CARDS__", html.escape(json.dumps(cards), quote=False)))
+    (d / "index.html").write_text(page)
 
 
 def pull(batch, dump):
@@ -89,8 +98,10 @@ def pull(batch, dump):
     with open(out, "a") as f:
         for aid, r in rows.items():
             if aid in key and isinstance(r.get("score"), (int, float)):
-                f.write(json.dumps({**key[aid], "rating": r["score"], "note": r.get("note", ""),
-                                    "batch": batch, "at": r.get("at")}) + "\n")
+                k = key[aid]
+                f.write(json.dumps({"run": k["run"], "task": k["task"], "trial": k["trial"], "rating": r["score"],
+                                    "note": r.get("note", ""), "blind": not k.get("revealed"), "batch": batch,
+                                    "at": r.get("at")}) + "\n")
                 n += 1
     print(f"{n} ratings appended to {out}")
 
