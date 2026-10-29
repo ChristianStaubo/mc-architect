@@ -1,0 +1,8 @@
+{
+  "name": "lakeside",
+  "area": {"min": [256, -272], "max": [399, -129]},
+  "brief": "A medieval lake town that works with the land: a keep or temple on the western ridge (y 120-127), houses terraced down the slope, a market on the low peninsula between the two lakes (y 62-68), a harbour with piers and boathouses on the east lake, fishing huts on the north shore, fields on the flat southern bench. One main road switchbacks from the keep to the market and crosses the small southern lake on a bridge. Nothing is flattened wholesale: buildings sit on terraces, roads follow the contours.",
+  "phase1": "One street first: the market on the peninsula and the harbour, 6-8 buildings and the roads joining them (with the bridge if the street crosses water). Leave room for the slope districts and the keep, which come next.",
+  "style": "medieval: dark oak and spruce timber frames, white or birch plaster, stone-brick bases with cobble and mossy variants, dark roofs; colourful awnings only in the market",
+  "max_plots_phase1": 8
+}
