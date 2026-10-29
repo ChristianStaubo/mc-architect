@@ -33,7 +33,10 @@ def record(path, body, ms, status, error=None, resp_bytes=0):
             "path": path, "req": summarise(path, body), "ms": ms, "status": status, "bytes": resp_bytes}
     if error:
         line["error"] = str(error)[:400]
-    with open(DIR / f"{time.strftime('%Y-%m-%d')}.jsonl", "a") as f:
+    day = DIR / f"{time.strftime('%Y-%m-%d')}.jsonl"
+    if not day.exists():
+        prune()  # once a day, when the day's file starts
+    with open(day, "a") as f:
         f.write(json.dumps(line) + "\n")
 
 
@@ -41,7 +44,8 @@ def tail(n=20, run=None):
     """The last n trace lines (of a run, if given), newest last."""
     out = []
     for p in sorted(DIR.glob("*.jsonl"), reverse=True):
-        lines = [json.loads(l) for l in p.read_text().splitlines() if l.strip()]
+        raw = [l for l in p.read_text().splitlines() if l.strip() and (not run or f'"run": "{run}"' in l)]
+        lines = [json.loads(l) for l in raw[-n:]]
         if run:
             lines = [l for l in lines if l.get("run") == run]
         out = lines + out

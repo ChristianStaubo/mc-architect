@@ -34,8 +34,22 @@ def _write(e):
         f.write(json.dumps(e) + "\n")
 
 
-def listing(include_undone=False):
-    return [e for e in _all() if include_undone or not e.get("undone")]
+def listing():
+    """Edits not undone yet."""
+    return [e for e in _all() if not e.get("undone")]
+
+
+def seq(e):
+    """An edit's order (e12 -> 12): ids are handed out in sequence."""
+    return int(e["id"][1:])
+
+
+def newest(run=""):
+    """The newest live edit of `run` (or of all runs when empty)."""
+    mine = [e for e in listing() if not run or e.get("run") == run]
+    if not mine:
+        raise SystemExit("no live edits" + (f" in run {run}" if run else ""))
+    return max(mine, key=seq)
 
 
 def get(eid):
@@ -73,13 +87,12 @@ def _place(cells, label, run="", task="", **extra):
     body = payload(cells, label=label)
     lo = body["origin"]
     hi = [lo[i] + body["size"][i] - 1 for i in range(3)]
-    before = bridge.region(lo, hi)
-    n = len(_all()) + 1
-    eid = f"e{n}"
-    DIR.mkdir(parents=True, exist_ok=True)
+    # the bridge's own compact form (palette + run lengths): undo sends it straight back
+    before = bridge.call("/region", {"min": lo, "max": hi})
+    eid = f"e{len(_all()) + 1}"
     snap = DIR / f"{eid}.json.gz"
     with gzip.open(snap, "wt") as f:
-        json.dump({"min": lo, "max": hi, "cells": [[*k, v] for k, v in before.items()]}, f)
+        json.dump({"min": lo, "max": hi, "region": before}, f)
     r = bridge.place(body)
     e = {"id": eid, "server_id": r["id"], "label": label, "run": run, "task": task, "min": lo, "max": hi,
          "changed": r["changed"], "t": time.strftime("%Y-%m-%dT%H:%M:%S"), "snapshot": snap.name, **extra}
@@ -87,10 +100,26 @@ def _place(cells, label, run="", task="", **extra):
     return e
 
 
+def _snapshot_file(e):
+    with gzip.open(DIR / e["snapshot"], "rt") as f:
+        return json.load(f)
+
+
 def snapshot(e):
     """The terrain an edit replaced: {(x, y, z): block}."""
-    with gzip.open(DIR / e["snapshot"], "rt") as f:
-        return {(x, y, z): b for x, y, z, b in json.load(f)["cells"]}
+    s = _snapshot_file(e)
+    if "region" in s:
+        return bridge.decode(s["region"])
+    return {(x, y, z): b for x, y, z, b in s["cells"]}  # snapshots from before the compact form
+
+
+def _restore_body(e):
+    """The /place body that puts an edit's snapshot back."""
+    s = _snapshot_file(e)
+    if "region" in s:
+        r = s["region"]
+        return {"origin": r["min"], "size": r["size"], "palette": r["palette"], "rle": r["rle"], "label": f"undo {e['id']}"}
+    return payload(snapshot(e), label=f"undo {e['id']}")
 
 
 def _overlap(a, b):
@@ -99,13 +128,10 @@ def _overlap(a, b):
 
 def _undo(eid=None, run=""):
     live = listing()
-    mine = [x for x in live if not run or x.get("run") == run]
-    if not eid and not mine:
-        raise SystemExit("nothing to undo" + (f" in run {run}" if run else ""))
-    e = get(eid) if eid else max(mine, key=lambda x: int(x["id"][1:]))
+    e = get(eid) if eid else newest(run)
     if e.get("undone"):
         raise SystemExit(f"{e['id']} is already undone")
-    later = [x for x in live if int(x["id"][1:]) > int(e["id"][1:]) and _overlap(x, e)]
+    later = [x for x in live if seq(x) > seq(e) and _overlap(x, e)]
     if later:
         raise SystemExit(f"undo {', '.join(x['id'] for x in later)} first: they overlap {e['id']}")
     hist = bridge.history()  # the server's, newest first; empty after a restart
@@ -113,7 +139,7 @@ def _undo(eid=None, run=""):
         bridge.undo(e["server_id"])
         how = "worldedit"
     else:  # server restarted, or a newer edit elsewhere: put the snapshot back
-        bridge.place(payload(snapshot(e), label=f"undo {e['id']}"))
+        bridge.place(_restore_body(e))
         how = "snapshot"
     for (x, y, z, kind) in e.get("entities", []):  # entities the edit summoned (boats)
         bridge.command(f"kill @e[type=minecraft:{kind},x={x}.5,y={y},z={z}.5,distance=..2]")

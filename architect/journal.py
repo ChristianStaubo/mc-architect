@@ -17,14 +17,12 @@ def run_id():
     return os.environ.get("MC_RUN_ID", "")
 
 
-def log(cmd, argv, ms, ok, error=None, extra=None):
+def log(cmd, argv, ms, ok, error=None):
     RUNS.mkdir(parents=True, exist_ok=True)
     line = {"t": time.strftime("%Y-%m-%dT%H:%M:%S"), "run": run_id(), "cmd": cmd, "argv": argv,
             "ms": ms, "ok": ok}
     if error:
         line["error"] = str(error)[:500]
-    if extra:
-        line.update(extra)
     with open(JOURNAL, "a") as f:
         f.write(json.dumps(line) + "\n")
 

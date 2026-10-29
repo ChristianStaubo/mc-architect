@@ -22,8 +22,8 @@ def call(path, body=None, timeout=180):
     t0 = time.time()
     status, err, size = 0, None, 0
     try:
-        out = _call(path, body, timeout)
-        status, size = 200, len(json.dumps(out)) if isinstance(out, dict) else 0
+        out, size = _call(path, body, timeout)
+        status = 200
         return out
     except BridgeError as e:
         status, err = getattr(e, "status", -1), e
@@ -41,7 +41,8 @@ def _call(path, body, timeout):
                  "Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
-            return json.load(r)
+            raw = r.read()
+            return json.loads(raw), len(raw)
     except urllib.error.HTTPError as e:
         try:
             msg = json.load(e).get("error", "")
@@ -65,23 +66,28 @@ def command(cmd):
     return call("/command", {"command": cmd})
 
 
-def region(lo, hi, world=None):
-    """Blocks in the inclusive box lo..hi, decoded to a dict {(x, y, z): block-data string}."""
-    r = call("/region", {"min": list(lo), "max": list(hi), **({"world": world} if world else {})})
-    cells = rle_decode(r["rle"])
-    (x0, y0, z0), (w, h, d) = r["min"], r["size"]
+def region(lo, hi):
+    """Blocks in the inclusive box lo..hi as {(x, y, z): block-data string}."""
+    return decode(call("/region", {"min": list(lo), "max": list(hi)}))
+
+
+def decode(r):
+    """A /region response (min, size, palette, rle in y, z, x order) as {(x, y, z): block}."""
+    (x0, y0, z0), (w, _, d) = r["min"], r["size"]
     out, i = {}, 0
-    for y in range(h):
-        for z in range(d):
-            for x in range(w):
-                out[(x0 + x, y0 + y, z0 + z)] = r["palette"][cells[i]]
-                i += 1
+    for k in range(0, len(r["rle"]), 2):
+        b = r["palette"][r["rle"][k]]
+        for _ in range(r["rle"][k + 1]):
+            y, rest = divmod(i, w * d)
+            z, x = divmod(rest, w)
+            out[(x0 + x, y0 + y, z0 + z)] = b
+            i += 1
     return out
 
 
-def heightmap(lo_xz, hi_xz, world=None):
+def heightmap(lo_xz, hi_xz):
     """{(x, z): (top_y, top_block)} for the inclusive area; top_y is the highest solid non-leaf block."""
-    r = call("/heightmap", {"min": list(lo_xz), "max": list(hi_xz), **({"world": world} if world else {})})
+    r = call("/heightmap", {"min": list(lo_xz), "max": list(hi_xz)})
     (x0, z0), (x1, z1) = r["min"], r["max"]
     out, i = {}, 0
     for z in range(z0, z1 + 1):
@@ -102,9 +108,3 @@ def undo(edit_id=None):
 def history():
     return call("/history")["edits"]
 
-
-def rle_decode(rle):
-    out = []
-    for k in range(0, len(rle), 2):
-        out.extend([rle[k]] * rle[k + 1])
-    return out

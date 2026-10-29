@@ -20,7 +20,6 @@ from . import journal, trace
 ROOT = Path(__file__).resolve().parent.parent
 DIR = ROOT / "local" / "runs" / "incidents"
 KEEP = 50
-KINDS = ("crash", "bridge", "refused", "error")
 
 
 def plan_path(argv):
@@ -47,7 +46,7 @@ def save(cmd, argv, kind, error, exc=None):
             "kind": kind, "error": str(error)[:2000],
             "stack": "".join(traceback.format_exception(exc)) if exc else None}
     (d / "incident.json").write_text(json.dumps(info, indent=2))
-    lines = trace.tail(20, run) if run and trace.tail(1, run) else trace.tail(20)
+    lines = (run and trace.tail(20, run)) or trace.tail(20)
     (d / "trace.jsonl").write_text("".join(json.dumps(l) + "\n" for l in lines))
     (d / "journal.jsonl").write_text("".join(json.dumps(l) + "\n" for l in journal.entries()[-20:]))
     p = plan_path(argv)
