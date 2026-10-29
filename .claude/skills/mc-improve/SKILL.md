@@ -22,7 +22,11 @@ you fix the tools, the scoreboard says whether it worked. The user is paged only
    `./mc.py eval record <task> --run <run> --critique <that path>`.
 5. **Scoreboard.** `./mc.py eval report <run>` and `./mc.py eval report` (all runs). Look at the
    sheets yourself too: the critic can be wrong.
-6. **Fix.** Read every friction report (`./mc.py friction`) and builder report. For each problem,
+6. **Fix.** Read every friction report (`./mc.py friction`: stuck stops, gaps, auto-filed crashes),
+   every incident (`./mc.py incidents`, then `./mc.py incident ID`: the error and stack, the last bridge
+   requests and commands, the plan as it was, the server log; `replay` reruns it dry) and each builder's
+   report (file any gap it mentions that isn't already friction: `MC_RUN_ID=<run> ./mc.py gap "..."`,
+   then it's kind "gap"). Reproduce with replay before fixing; replay again after. For each problem,
    fix the **owning layer**, smallest change that removes the class of problem:
    | Symptom | Layer |
    |---|---|

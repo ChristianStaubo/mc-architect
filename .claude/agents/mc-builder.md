@@ -27,10 +27,11 @@ improves the tools whenever you get stuck, and a separate critic will score your
 - Stuck: `./mc.py stuck "<goal> | <what you tried> | <what happened>"`, then end your turn. Stuck when
   a command fails twice, a needed part would take 20+ lines to fake, or the tools contradict the skill.
 - Out of budget: stop with what you have placed.
+- Not a stop: every tool gap you work around goes in `./mc.py gap "..."` when you hit it (see the skill).
 
 ## Report (your final message)
 - task, edit id, the plan path
 - what you built in two sentences, and the audit line
 - your self-critique from each round and what you changed
 - what was hard or slow (be specific: these become tools)
-- friction ids, if any
+- friction and gap ids, and incident ids if any command failed

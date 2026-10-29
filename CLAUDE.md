@@ -16,7 +16,9 @@ server only gets builds the user approves.
 - `evals/tasks/`: the eval suite; `evals/RUBRIC.md`: the critic's rubric. `STYLE.md`: the house style.
 - `.claude/agents/`: `mc-builder` (Sonnet, builds a task), `mc-critic` (scores from pictures).
 - `plugin/`: the bridge (Java). `docker/`, `compose.yaml`: the server. `tests/`: `python3 -m unittest discover tests`.
-- `local/` (gitignored): renders, edits + snapshots, journal, friction, eval results, notes.
+- `local/` (gitignored): renders, edits + snapshots, notes, eval results, and the flight recorder:
+  `runs/commands.jsonl` (every mc command), `runs/trace/` (every bridge request), `runs/incidents/`
+  (a failure's error, stack, recent requests and commands, plan copy, server log), `runs/friction/`.
 
 ## Rules
 - Read every PNG you produce. An output line only proves the call ran.

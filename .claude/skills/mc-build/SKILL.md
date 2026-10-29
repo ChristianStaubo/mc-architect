@@ -71,6 +71,12 @@ Beams: pass the bare log name (`dark_oak_log`); parts set `[axis=...]` themselve
 - Property values are lowercase strings: `lit=true`, not Python's `True` (the server refuses `True`).
 
 ## When the tools fall short
-If a part you need doesn't exist and would take more than ~20 lines to fake, a command fails twice,
-or something contradicts this skill: `./mc.py stuck "<goal> | <what you tried> | <what happened>"`
-and stop. A clean early stop is worth more than a clever workaround: the fixer turns it into a tool.
+- **A gap you can work around** (a part that doesn't exist, an awkward command, something you had to
+  write by hand in 10+ lines, a confusing message): `./mc.py gap "<what was missing or awkward>"` the
+  moment you hit it, then carry on. One line each; these become the next tools. Don't save them for
+  your final report.
+- **Blocked** (a command fails twice, a part would take 20+ lines to fake, the tools contradict this
+  skill): `./mc.py stuck "<goal> | <what you tried> | <what happened>"` and stop. A clean early stop is
+  worth more than a clever workaround.
+- Failures save themselves: any command that crashes or errors writes an incident (`./mc.py incidents`),
+  with the last bridge requests and commands, your plan as it was and the server log. Mention its id.
