@@ -210,7 +210,7 @@ def cmd_place(a):
 
 
 def cmd_undo(a):
-    e = edits.undo(a.id)
+    e = edits.undo(a.id, journal.run_id())
     print(f"undid {e['id']} ({e['label']}) via {e['undo_via']}")
 
 
@@ -223,11 +223,13 @@ def cmd_edits(_):
 # ---- look and judge ----
 
 def latest_edit(eid):
+    """eid, or the newest live edit of this run (MC_RUN_ID), or the newest overall."""
     if eid:
         return edits.get(eid)
-    live = edits.listing()
+    run = journal.run_id()
+    live = [e for e in edits.listing() if not run or e.get("run") == run]
     if not live:
-        raise SystemExit("no live edits")
+        raise SystemExit("no live edits" + (f" in run {run}" if run else ""))
     return max(live, key=lambda x: int(x["id"][1:]))
 
 

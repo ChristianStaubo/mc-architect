@@ -62,9 +62,10 @@ def place(cells, label, run="", task="", **extra):
         return _place(cells, label, run, task, **extra)
 
 
-def undo(eid=None):
+def undo(eid=None, run=""):
+    """Undo eid, or (no id) the newest live edit of `run` (all edits when run is empty)."""
     with _locked():
-        return _undo(eid)
+        return _undo(eid, run)
 
 
 def _place(cells, label, run="", task="", **extra):
@@ -90,11 +91,12 @@ def _overlap(a, b):
     return all(a["min"][i] <= b["max"][i] and b["min"][i] <= a["max"][i] for i in range(3))
 
 
-def _undo(eid=None):
+def _undo(eid=None, run=""):
     live = listing()
-    if not live:
-        raise SystemExit("nothing to undo")
-    e = get(eid) if eid else max(live, key=lambda x: int(x["id"][1:]))
+    mine = [x for x in live if not run or x.get("run") == run]
+    if not eid and not mine:
+        raise SystemExit("nothing to undo" + (f" in run {run}" if run else ""))
+    e = get(eid) if eid else max(mine, key=lambda x: int(x["id"][1:]))
     if e.get("undone"):
         raise SystemExit(f"{e['id']} is already undone")
     later = [x for x in live if int(x["id"][1:]) > int(e["id"][1:]) and _overlap(x, e)]
