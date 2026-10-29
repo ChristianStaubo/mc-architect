@@ -1,10 +1,12 @@
-package dev.mcarchitect.bridge;
+package dev.mcarchitect.travel;
 
 import com.google.gson.Gson;
+import dev.mcarchitect.MCBridgePlugin;
+import dev.mcarchitect.core.Chat;
+import dev.mcarchitect.core.Feature;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -28,7 +30,7 @@ import java.util.UUID;
  * /tpaccept, /tpdeny (a teleport only happens when the other player accepts). Homes are kept in
  * plugins/MCBridge/homes.json; requests live in memory and expire after a minute.
  */
-final class Travel implements CommandExecutor {
+public final class Travel implements Feature, CommandExecutor {
     static final String[] COMMANDS = {"sethome", "home", "tpa", "tpahere", "tpaccept", "tpdeny"};
     private static final long REQUEST_MS = 60_000;
     private static final long COOLDOWN_MS = 10_000;
@@ -36,14 +38,15 @@ final class Travel implements CommandExecutor {
     /** Asked to go to the target (or, with here, asked the target to come over); keyed by who asked. */
     private record Request(boolean here, long time) {}
 
-    private final JavaPlugin plugin;
-    private final Path homesFile;
+    private JavaPlugin plugin;
+    private Path homesFile;
     private final Gson gson = new Gson();
     private final Map<UUID, JsonObject> homes = new HashMap<>();
     private final Map<UUID, LinkedHashMap<UUID, Request>> requests = new HashMap<>();  // by target
     private final Map<UUID, Long> lastTeleport = new HashMap<>();
 
-    Travel(JavaPlugin plugin) {
+    @Override
+    public void enable(MCBridgePlugin plugin) {
         this.plugin = plugin;
         this.homesFile = plugin.getDataFolder().toPath().resolve("homes.json");
         loadHomes();
@@ -146,11 +149,9 @@ final class Travel implements CommandExecutor {
         String ask = here ? from.getName() + " wants you to teleport to them. "
                 : from.getName() + " wants to teleport to you. ";
         to.sendMessage(Component.text(ask, NamedTextColor.GOLD)
-                .append(Component.text("[Accept]", NamedTextColor.GREEN)
-                        .clickEvent(ClickEvent.runCommand("/tpaccept " + from.getName())))
+                .append(Chat.button("Accept", "/tpaccept " + from.getName(), NamedTextColor.GREEN))
                 .append(Component.text(" "))
-                .append(Component.text("[Deny]", NamedTextColor.RED)
-                        .clickEvent(ClickEvent.runCommand("/tpdeny " + from.getName())))
+                .append(Chat.button("Deny", "/tpdeny " + from.getName(), NamedTextColor.RED))
                 .append(Component.text("  or /tpaccept, /tpdeny", NamedTextColor.GRAY)));
     }
 
@@ -206,10 +207,10 @@ final class Travel implements CommandExecutor {
     }
 
     private static void say(CommandSender s, String text) {
-        s.sendMessage(Component.text(text, NamedTextColor.GREEN));
+        Chat.say(s, text);
     }
 
     private static void warn(CommandSender s, String text) {
-        s.sendMessage(Component.text(text, NamedTextColor.YELLOW));
+        Chat.warn(s, text);
     }
 }

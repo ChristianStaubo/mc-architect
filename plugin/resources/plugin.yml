@@ -1,6 +1,6 @@
 name: MCBridge
 version: 0.1.0
-main: dev.mcarchitect.bridge.BridgePlugin
+main: dev.mcarchitect.MCBridgePlugin
 api-version: '26.3'
 depend: [WorldEdit]
 description: JSON API for the mc-architect agent (read the world, build and undo through WorldEdit)

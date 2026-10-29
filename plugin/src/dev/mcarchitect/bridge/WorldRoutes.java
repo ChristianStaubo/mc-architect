@@ -1,59 +1,41 @@
 package dev.mcarchitect.bridge;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.sk89q.worldedit.EditSession;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.world.block.BlockState;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.HeightMap;
-import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.Plugin;
 
-import java.io.IOException;
-import java.io.OutputStream;
-import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+
+import static dev.mcarchitect.core.Json.ints;
+import static dev.mcarchitect.core.Json.map;
+import static dev.mcarchitect.core.Json.world;
 
 /**
- * The agent's way into the game: a small JSON-over-HTTP API (bearer token) for reading the world and
- * changing it through WorldEdit, so every change can be undone. World access always runs on the main
- * thread. Block grids are sent run-length encoded in y, z, x order (x fastest), with a palette of
- * block-data strings; a null palette entry means "leave this block alone".
+ * Reading and changing the world. Block grids are sent run-length encoded in y, z, x order (x fastest),
+ * with a palette of block-data strings; a null palette entry means "leave this block alone". Every
+ * placement goes through a WorldEdit EditSession, so it can be undone.
  */
-public final class BridgePlugin extends JavaPlugin {
-    private static final int MAX_VOLUME = 4_000_000;
+public final class WorldRoutes {
+    static final int MAX_VOLUME = 4_000_000;
     private static final int MAX_HISTORY = 100;
 
-    private final Gson gson = new Gson();
+    private final Plugin plugin;
     private final Deque<Edit> history = new ArrayDeque<>();
     private int nextEditId = 1;
-    private HttpServer http;
-    private byte[] token;
 
     private record Edit(int id, String label, String world, int[] min, int[] max, int changed, long time,
                         EditSession session) {
@@ -63,128 +45,23 @@ public final class BridgePlugin extends JavaPlugin {
         }
     }
 
-    private interface Handler {
-        Object handle(JsonObject body) throws Exception;
+    public WorldRoutes(Plugin plugin, HttpBridge bridge) {
+        this.plugin = plugin;
+        bridge.route("/region", b -> bridge.sync(() -> region(b)));
+        bridge.route("/heightmap", b -> bridge.sync(() -> heightmap(b)));
+        bridge.route("/place", b -> bridge.sync(() -> place(b)));
+        bridge.route("/undo", b -> bridge.sync(() -> undo(b)));
+        bridge.route("/history", b -> bridge.sync(() -> map("edits", history.stream().map(Edit::summary).toList())));
+        bridge.route("/blocks", b -> map("blocks", java.util.Arrays.stream(org.bukkit.Material.values())
+                .filter(m -> m.isBlock() && !m.isLegacy()).map(m -> m.getKey().getKey()).sorted().toList()));
+        bridge.route("/validate", b -> bridge.sync(() -> validate(b)));
+        bridge.route("/use", b -> bridge.sync(() -> use(b)));
+        bridge.route("/kick", b -> bridge.sync(() -> map("kicked", kick(world(b), ints(b, "min", 3), ints(b, "max", 3)))));
+        bridge.route("/sign", b -> bridge.sync(() -> sign(b)));
     }
 
-    @Override
-    public void onEnable() {
-        try {
-            token = loadToken().getBytes(StandardCharsets.UTF_8);
-            int port = Integer.parseInt(System.getenv().getOrDefault("MC_BRIDGE_PORT", "8765"));
-            http = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
-            http.setExecutor(Executors.newFixedThreadPool(4));
-            route("/status", b -> sync(this::status));
-            route("/command", b -> sync(() -> command(b.get("command").getAsString())));
-            route("/as", b -> sync(() -> asPlayer(b.get("player").getAsString(), b.get("command").getAsString())));
-            route("/region", b -> sync(() -> region(b)));
-            route("/heightmap", b -> sync(() -> heightmap(b)));
-            route("/place", b -> sync(() -> place(b)));
-            route("/undo", b -> sync(() -> undo(b)));
-            route("/history", b -> sync(() -> map("edits", history.stream().map(Edit::summary).toList())));
-            route("/blocks", b -> map("blocks", java.util.Arrays.stream(org.bukkit.Material.values())
-                    .filter(m -> m.isBlock() && !m.isLegacy()).map(m -> m.getKey().getKey()).sorted().toList()));
-            route("/validate", b -> sync(() -> validate(b)));
-            route("/use", b -> sync(() -> use(b)));
-            route("/kick", b -> sync(() -> map("kicked", kick(world(b), ints(b, "min", 3), ints(b, "max", 3)))));
-            route("/sign", b -> sync(() -> sign(b)));
-            http.start();
-            getLogger().info("bridge listening on port " + port);
-            new Travel(this);  // /sethome, /home, /tpa... for every player
-        } catch (IOException e) {
-            throw new RuntimeException("bridge failed to start", e);
-        }
-    }
-
-    @Override
-    public void onDisable() {
-        if (http != null) http.stop(0);
-    }
-
-    private String loadToken() throws IOException {
-        Path file = getDataFolder().toPath().resolve("token");
-        if (Files.exists(file)) return Files.readString(file).trim();
-        Files.createDirectories(file.getParent());
-        byte[] raw = new byte[32];
-        new SecureRandom().nextBytes(raw);
-        String t = HexFormat.of().formatHex(raw);
-        Files.writeString(file, t + "\n");
-        return t;
-    }
-
-    private void route(String path, Handler handler) {
-        http.createContext(path, ex -> {
-            int status = 200;
-            Object result;
-            try {
-                if (!authorized(ex)) {
-                    status = 401;
-                    result = map("error", "unauthorized");
-                } else {
-                    String raw = new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
-                    JsonObject body = raw.isBlank() ? new JsonObject() : JsonParser.parseString(raw).getAsJsonObject();
-                    result = handler.handle(body);
-                }
-            } catch (Exception e) {
-                Throwable cause = e.getCause() != null ? e.getCause() : e;
-                status = cause instanceof IllegalArgumentException ? 400 : 500;
-                result = map("error", String.valueOf(cause.getMessage()), "type", cause.getClass().getSimpleName());
-            }
-            send(ex, status, gson.toJson(result));
-        });
-    }
-
-    private boolean authorized(HttpExchange ex) {
-        String h = ex.getRequestHeaders().getFirst("Authorization");
-        if (h == null || !h.startsWith("Bearer ")) return false;
-        return MessageDigest.isEqual(h.substring(7).trim().getBytes(StandardCharsets.UTF_8), token);
-    }
-
-    private static void send(HttpExchange ex, int status, String json) throws IOException {
-        byte[] out = json.getBytes(StandardCharsets.UTF_8);
-        ex.getResponseHeaders().set("Content-Type", "application/json");
-        ex.sendResponseHeaders(status, out.length);
-        try (OutputStream os = ex.getResponseBody()) {
-            os.write(out);
-        }
-    }
-
-    private <T> T sync(Callable<T> task) throws Exception {
-        return Bukkit.getScheduler().callSyncMethod(this, task).get(120, TimeUnit.SECONDS);
-    }
-
-    // ---- endpoints (main thread) ----
-
-    private Object status() {
-        List<Object> players = new ArrayList<>();
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            Location l = p.getLocation();
-            players.add(map("name", p.getName(), "world", l.getWorld().getName(),
-                    "pos", new double[]{l.getX(), l.getY(), l.getZ()}, "yaw", l.getYaw(),
-                    "gamemode", p.getGameMode().name()));
-        }
-        World w = Bukkit.getWorlds().get(0);
-        Location s = w.getSpawnLocation();
-        return map("minecraft", Bukkit.getMinecraftVersion(), "server", Bukkit.getVersion(),
-                "tps", Bukkit.getTPS()[0], "players", players,
-                "worlds", Bukkit.getWorlds().stream().map(World::getName).toList(),
-                "spawn", new int[]{s.getBlockX(), s.getBlockY(), s.getBlockZ()},
-                "world_height", new int[]{w.getMinHeight(), w.getMaxHeight()}, "edits", history.size());
-    }
-
-    private Object command(String cmd) {
-        List<String> out = new ArrayList<>();
-        var sender = Bukkit.createCommandSender(c -> out.add(PlainTextComponentSerializer.plainText().serialize(c)));
-        boolean ok = Bukkit.dispatchCommand(sender, cmd.startsWith("/") ? cmd.substring(1) : cmd);
-        return map("ok", ok, "output", out);
-    }
-
-    /** Run a command exactly as if the player typed it (plugin commands see the Player; `execute as`
-     * doesn't give them one). Replies go to the player's chat, not back here. */
-    private Object asPlayer(String name, String cmd) {
-        Player p = Bukkit.getPlayerExact(name);
-        if (p == null) throw new IllegalArgumentException(name + " isn't online");
-        return map("ok", Bukkit.dispatchCommand(p, cmd.startsWith("/") ? cmd.substring(1) : cmd));
+    public int historySize() {
+        return history.size();
     }
 
     private Object region(JsonObject b) {
@@ -294,7 +171,7 @@ public final class BridgePlugin extends JavaPlugin {
         if (on && blk.getType().name().endsWith("_BUTTON")) {
             final org.bukkit.block.Block button = blk, base = attached;
             int ticks = b.has("ticks") ? b.get("ticks").getAsInt() : 20;
-            Bukkit.getScheduler().runTaskLater(this, () -> {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (button.getBlockData() instanceof org.bukkit.block.data.Powerable p2) {
                     p2.setPowered(false);
                     button.setBlockData(p2, true);
@@ -385,35 +262,12 @@ public final class BridgePlugin extends JavaPlugin {
         return map("undone", edit.summary());
     }
 
-    // ---- helpers ----
-
-    private static World world(JsonObject b) {
-        String name = b.has("world") ? b.get("world").getAsString() : Bukkit.getWorlds().get(0).getName();
-        World w = Bukkit.getWorld(name);
-        if (w == null) throw new IllegalArgumentException("no world " + name);
-        return w;
-    }
-
-    private static int[] ints(JsonObject b, String key, int n) {
-        JsonArray a = b.getAsJsonArray(key);
-        if (a == null || a.size() != n) throw new IllegalArgumentException(key + " needs " + n + " integers");
-        int[] out = new int[n];
-        for (int i = 0; i < n; i++) out[i] = a.get(i).getAsInt();
-        return out;
-    }
-
-    private static int[] box(int[] min, int[] max) {
+    static int[] box(int[] min, int[] max) {
         int[] size = {max[0] - min[0] + 1, max[1] - min[1] + 1, max[2] - min[2] + 1};
         if (size[0] < 1 || size[1] < 1 || size[2] < 1) throw new IllegalArgumentException("max must be >= min");
         if ((long) size[0] * size[1] * size[2] > MAX_VOLUME)
             throw new IllegalArgumentException("region too large (max " + MAX_VOLUME + " blocks)");
         return size;
-    }
-
-    private static Map<String, Object> map(Object... kv) {
-        Map<String, Object> m = new LinkedHashMap<>();
-        for (int i = 0; i < kv.length; i += 2) m.put((String) kv[i], kv[i + 1]);
-        return m;
     }
 
     /** Run-length pairs [value, count, value, count, ...]. */
