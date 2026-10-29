@@ -205,8 +205,17 @@ def audit(cells, box):
     return {"checks": checks, "fails": fails, "warns": warns,
             "stats": {"blocks": sum(1 for p, b in cells.items() if in_box(p) and not is_air(b)),
                       "indoor_floor": len(stand_inside), "doors": sum(1 for p in doors if in_box(p)) // 2,
-                      # storeys: levels with a real floor (4+ standing spots), not every stair step
-                      "indoor_levels": sorted(y for y, n in Counter(p[1] for p in stand_inside).items() if n >= 4)}}
+                      "indoor_levels": storeys(stand_inside)}}
+
+
+def storeys(spots):
+    """Levels with a real floor: somewhere a 2x2 patch to stand on (a gallery, a tower landing). Not stair steps, nor the tops of
+    partition walls, tie beams, furniture or balcony rails (steep-house reference)."""
+    by = {}
+    for x, y, z in spots:
+        by.setdefault(y, set()).add((x, z))
+    return sorted(y for y, cols in by.items()
+                  if any(all((x + i, z + k) in cols for i in range(2) for k in range(2)) for x, z in cols))
 
 
 def report(r, header, detail=""):

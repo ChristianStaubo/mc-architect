@@ -77,6 +77,9 @@ def ground_cells(build, at, foundation="cobblestone", floor_y=None, clear=True, 
     foot = build.footprint()
     heights = [cols[(x + fx, z + fz)][0] for fx, fz in foot]
     y0 = floor_y if floor_y is not None else int(statistics.median(heights)) + 1
+    lowest = {}
+    for (bx, by, bz) in build.blocks:
+        lowest[(bx, bz)] = min(by, lowest.get((bx, bz), by))
     cells = {}
     for (fx, fz) in foot:
         g = cols[(x + fx, z + fz)][0]
@@ -86,7 +89,9 @@ def ground_cells(build, at, foundation="cobblestone", floor_y=None, clear=True, 
         if clear:  # clear the hill inside the footprint, from the ground floor up (never below it:
             # posts and basements change only where the plan says; r1's boathouse got a flooded-out
             # air pocket under its floor when clearing started at its lowest post)
-            for y in range(y0, max(g, y0 + ly1) + 1):
+            # from the column's lowest planned block: under a windmill's sails, an eave or a bridge
+            # deck the ground stays (windmill reference: holes in the grass under the sails)
+            for y in range(y0 + max(lowest.get((fx, fz), ly0), 0), max(g, y0 + ly1) + 1):
                 cells[(x + fx, y, z + fz)] = "air"
     for (bx, by, bz), blk in build.blocks.items():
         cells[(x + bx, y0 + by, z + bz)] = blk
