@@ -22,7 +22,8 @@ improves the tools whenever you get stuck, and a separate critic will score your
 - Finish with the audit clean. If you can't, say why.
 
 ## Stop
-- Done: the audit has no FAIL and the shots look like the brief.
+- Done: at least two placements, the audit has no FAIL, and the checklist in the skill holds. One
+  placement and stop is a draft, not a finished build.
 - Stuck: `./mc.py stuck "<goal> | <what you tried> | <what happened>"`, then end your turn. Stuck when
   a command fails twice, a needed part would take 20+ lines to fake, or the tools contradict the skill.
 - Out of budget: stop with what you have placed.
@@ -30,5 +31,6 @@ improves the tools whenever you get stuck, and a separate critic will score your
 ## Report (your final message)
 - task, edit id, the plan path
 - what you built in two sentences, and the audit line
+- your self-critique from each round and what you changed
 - what was hard or slow (be specific: these become tools)
 - friction ids, if any
