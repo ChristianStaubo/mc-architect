@@ -6,6 +6,10 @@ from collections import deque
 
 DIRS = {"north": (0, 0, -1), "south": (0, 0, 1), "east": (1, 0, 0), "west": (-1, 0, 0)}
 N6 = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
+# faces and edges: blocks that only touch along an edge (a stepped awning, a stepped roof of full blocks)
+# are held up in Minecraft and read as one piece; corner-only contact doesn't count
+N18 = N6 + [(dx, dy, dz) for dx in (-1, 0, 1) for dy in (-1, 0, 1) for dz in (-1, 0, 1)
+            if abs(dx) + abs(dy) + abs(dz) == 2]
 
 PASSABLE = ("air", "short_grass", "tall_grass", "fern", "flower", "dandelion", "poppy", "tulip", "orchid",
             "allium", "bluet", "oxeye", "cornflower", "lily_of_the_valley", "dead_bush", "torch", "sign",
@@ -77,12 +81,12 @@ def standable(cells, p):
             and below is not None and not passable(below) and not is_door(below))
 
 
-def flood(cells, starts, ok):
+def flood(cells, starts, ok, nbrs=N6):
     seen = set(starts)
     q = deque(starts)
     while q:
         x, y, z = q.popleft()
-        for dx, dy, dz in N6:
+        for dx, dy, dz in nbrs:
             n = (x + dx, y + dy, z + dz)
             if n in cells and n not in seen and ok(cells[n]):
                 seen.add(n)
@@ -105,7 +109,7 @@ def audit(cells, box):
 
     # 1. floating: every non-air block must connect (through other blocks) to the ground below the box
     ground = [p for p, b in cells.items() if p[1] == lo[1] and not is_air(b)]
-    held = flood(cells, ground, lambda b: not is_air(b))
+    held = flood(cells, ground, lambda b: not is_air(b), N18)
     floating = [p for p, b in cells.items() if in_box(p) and not is_air(b) and p not in held]
     if floating:
         add("floating", "fail", f"{len(floating)} blocks float, connected to nothing on the ground", floating)

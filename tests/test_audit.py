@@ -101,6 +101,19 @@ class AuditTest(unittest.TestCase):
         b.set(3, 4, 3, "lantern[hanging=false]")
         self.assertNotIn("sealed", failed(audit(*world(b))))
 
+    def test_stepped_awning_is_not_floating(self):
+        # rows stepping down and out touch only along an edge: held up in the game (sampler awning)
+        b = hut()
+        for x in range(1, 6):
+            b.set(x, 3, -1, "red_wool")
+            b.set(x, 2, -2, "white_wool")
+        self.assertNotIn("floating", failed(audit(*world(b))))
+
+    def test_corner_touch_still_floats(self):
+        b = hut()
+        b.set(-1, 6, -1, "red_wool")  # touches the roof's corner only
+        self.assertIn("floating", failed(audit(*world(b))))
+
     def test_half_bed(self):
         b = hut()
         b.set(1, 1, 1, "red_bed[facing=north,part=head]")
