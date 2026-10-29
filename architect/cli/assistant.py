@@ -2,20 +2,15 @@
 (say, preview). docs/in-game-architect.md."""
 
 import json
-import math
 import os
 import sys
 
 from .. import bridge
-from ..assistant import daemon, sessions
+from ..assistant import daemon, policy, sessions
 from ..build import payload
 from ..placement import bounds
 from .build import place_args, resolve, show_on_terrain
 from .common import ints
-
-RADIUS = 32        # without a selection, a build stays this close to where the player stood
-MAX_SIDE = 48      # ... and this wide
-MAX_HEIGHT = 64
 
 
 def player_of(a):
@@ -25,47 +20,23 @@ def player_of(a):
     return p
 
 
-AHEAD = {"south": (0, 1), "north": (0, -1), "east": (1, 0), "west": (-1, 0)}
-
-
-def limits(player, box, cells):
-    """Refuse a build outside what the player asked for (their selection, or near where they stood) or one
-    that would swallow them: without a selection it goes in front of them, never on their spot."""
-    ctx = sessions.get(player).get("context") or {}
-    (x0, y0, z0), (x1, y1, z1) = box
-    if x1 - x0 + 1 > MAX_SIDE or z1 - z0 + 1 > MAX_SIDE or y1 - y0 + 1 > MAX_HEIGHT:
-        return f"too big: {x1 - x0 + 1}x{y1 - y0 + 1}x{z1 - z0 + 1} (max {MAX_SIDE} wide, {MAX_HEIGHT} tall)"
-    pos = ctx.get("pos")
-    if pos and not ctx.get("selection"):
-        far = max(abs(x - pos[0]) for x in (x0, x1)), max(abs(z - pos[2]) for z in (z0, z1))
-        if max(far) > RADIUS:
-            return f"too far from {player} (at {pos[0]},{pos[2]}): keep the build within {RADIUS} blocks of them"
-        px, pz = math.floor(pos[0]), math.floor(pos[2])
-        foot = {(x, z) for (x, _, z), b in cells.items() if b != "air" and not str(b).endswith(":air")}
-        if any((px + dx, pz + dz) in foot for dx in (-1, 0, 1) for dz in (-1, 0, 1)):
-            dx, dz = AHEAD.get(ctx.get("facing"), (0, 1))
-            return (f"the build covers where {player} stands ({px},{pz}). Put it in front of them: they face "
-                    f"{ctx.get('facing', 'south')}, so its nearest side should be about 3 blocks that way, "
-                    f"at {px + 3 * dx},{pz + 3 * dz} (move --at, not the design)")
-    return None
-
-
 def cmd_preview(a):
     player = player_of(a)
-    sel = (sessions.get(player).get("context") or {}).get("selection")
+    ctx = {"player": player, **(sessions.get(player).get("context") or {})}
+    sel = ctx.get("selection")
     if sel and not a.within:  # the player's WorldEdit selection is the area
         a.within = f"{sel['min'][0]},{sel['min'][2]},{sel['max'][0]},{sel['max'][2]}"
     build, t, at, cells, y0 = resolve(a)
-    box = [list(v) for v in bounds(cells)]
-    why = limits(player, box, cells)
+    box, frame = [list(v) for v in bounds(cells)], policy.build_box(cells)
+    why = policy.limits(ctx, frame, at)
     if why:
         sys.exit(f"refused: {why}")
     r = show_on_terrain(build, at, y0, cells)
-    shown = bridge.preview(player, payload(cells, label=build.name))
+    shown = bridge.preview(player, payload(cells, label=build.name) | {"frame": frame})
     args = ["--at", f"{at[0]},{at[1]}", "--y", str(y0), "--foundation", a.foundation]
     args += ["--no-clear"] * a.no_clear + ["--keep-trees"] * a.keep_trees + (["--within", a.within] if a.within else [])
-    sessions.set_pending(player, a.plan, args, box, shown["blocks"])
-    print(f"previewed for {player}: {shown['blocks']} blocks, box {box[0]}..{box[1]}, "
+    sessions.set_pending(player, a.plan, args, box, frame, shown["blocks"])
+    print(f"previewed for {player}: the build is {frame[0]}..{frame[1]} ({shown['blocks']} blocks changed), "
           f"{'on their screen now' if shown['shown'] else 'they are not online: it shows when they are'}. "
           f"audit {r['fails']} fail. Tell them with mc say; they answer /arc yes, /arc no, or ask for changes.")
 
@@ -80,13 +51,13 @@ def cmd_architect(a):
     if a.action == "serve":
         daemon.serve(model=a.model, log=lambda m: print(m, flush=True))
     elif a.action == "status":
-        print(json.dumps(sessions._read(), indent=1) if a.all else daemon.status())
+        print(json.dumps(sessions.all_players(), indent=1) if a.all else daemon.status())
     elif a.action == "ask":  # a virtual player asks (tests, evals)
         ctx = {"player": a.as_, "world": "world", "pos": ints(a.at), "facing": a.facing, "selection": None}
         if a.selection:
             v = ints(a.selection)
             ctx["selection"] = {"min": v[:3], "max": v[3:]}
-        kind = a.text if a.text in ("yes", "no", "undo", "cancel", "status") else "request"
+        kind = a.text if a.text in daemon.HANDLERS else "request"
         print(f"posted event {bridge.post_event(ctx, '' if kind != 'request' else a.text, kind)}")
 
 
@@ -96,31 +67,25 @@ BENCH = ["a small stone well with a little wooden roof", "a wooden bench with a 
 
 def cmd_bench(a):
     """The same requests, one after another, as virtual players on the scenario sites: how long until the
-    preview, until they're told, and in all (MC_ARC_LEAN=0 for the old way)."""
-    import time
+    preview, until they're told, and in all."""
     from .. import scenarios, sites
-    from ..assistant import agent
     scs = [s for s in scenarios.scenarios() if s["id"] in ("well-here", "change-it", "cancel")]
-    rows = []
+    told = []
     for text, sc in zip(BENCH, scs):
         name = f"bench-{sc['id']}"
         sessions.forget(name)
         sites.reset(scenarios.site_id(sc))
-        x, z = sc["at"]
-        g = bridge.heightmap((x, z), (x, z))[(x, z)][0]
-        ctx = {"player": name, "world": "world", "pos": [x, g + 1, z], "facing": sc["facing"], "selection": None}
-        daemon.on_request({"player": name, "kind": "request", "text": text, "context": ctx}, a.model, lambda m: None)
-        while name in daemon.jobs:
-            time.sleep(1)
-        n = sessions.get(name)["requests"]
-        r = json.loads((sessions.workspace(name) / "runs" / f"{n}.json").read_text())
-        rows.append((text, r["to_preview_s"], r["to_say_s"], round(r["minutes"] * 60), len(r["tools"])))
+        daemon.handle({"player": name, "kind": "request", "text": text, "context": scenarios.context(sc, name)},
+                      a.model, lambda m: None)
+        scenarios.wait(name)
+        r = json.loads((sessions.workspace(name) / "runs" / f"{sessions.get(name)['requests']}.json").read_text())
+        told.append(r["to_say_s"])
         bridge.preview_clear(name)
         sites.reset(scenarios.site_id(sc))
         print(f"  {text[:40]:<40} preview {r['to_preview_s']}s, told {r['to_say_s']}s, all {round(r['minutes'] * 60)}s, "
               f"{len(r['tools'])} tool calls", flush=True)
-    told = sorted(r[2] for r in rows if r[2] is not None)
-    print(f"{'lean' if agent.LEAN else 'old way'}: told after {told} s (median {told[len(told) // 2] if told else '-'})")
+    told = sorted(t for t in told if t is not None)
+    print(f"told after {told} s (median {told[len(told) // 2] if told else '-'})")
 
 
 def register(sub):

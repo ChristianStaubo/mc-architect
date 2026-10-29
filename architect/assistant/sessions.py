@@ -3,42 +3,56 @@ separate process) agree: the Claude session to resume, the preview waiting for a
 and the context of their latest request."""
 
 import contextlib
-import fcntl
 import json
 import shutil
 import time
 from pathlib import Path
+
+from ..lock import locked
 
 ROOT = Path(__file__).resolve().parents[2]
 DIR = ROOT / "local" / "assistant"
 FILE = DIR / "sessions.json"
 
 
-@contextlib.contextmanager
-def _locked():
-    DIR.mkdir(parents=True, exist_ok=True)
-    with open(DIR / ".lock", "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        yield
+def now():
+    return time.strftime("%Y-%m-%dT%H:%M:%S")
 
 
-def _read():
+def all_players():
     return json.loads(FILE.read_text()) if FILE.exists() else {}
 
 
 def get(player):
-    return _read().get(player.lower(), {})
+    return all_players().get(player.lower(), {})
+
+
+def run_id(player, n=None):
+    """A request's id in the journal: arc:<player>:<n> (default: their latest request)."""
+    return f"arc:{player}:{get(player).get('requests', 0) if n is None else n}"
+
+
+@contextlib.contextmanager
+def _all():
+    with locked(DIR):
+        everyone = all_players()
+        yield everyone
+        FILE.write_text(json.dumps(everyone, indent=1))
 
 
 @contextlib.contextmanager
 def edit(player):
     """with edit(player) as s: s["x"] = ... (read, change, write under the lock)."""
-    with _locked():
-        all_ = _read()
-        s = all_.setdefault(player.lower(), {"player": player, "builds": [], "requests": 0})
+    with _all() as everyone:
+        s = everyone.setdefault(player.lower(), {"player": player, "builds": [], "requests": 0})
         yield s
-        s["updated"] = time.strftime("%Y-%m-%dT%H:%M:%S")
-        FILE.write_text(json.dumps(all_, indent=1))
+        s["updated"] = now()
+
+
+def forget(player):
+    """Start a player over: no conversation, no pending preview, no builds (their workspace stays)."""
+    with _all() as everyone:
+        everyone.pop(player.lower(), None)
 
 
 def workspace(player):
@@ -47,20 +61,12 @@ def workspace(player):
     return d
 
 
-def set_pending(player, plan, args, box, blocks):
-    """A preview waiting for a yes: a frozen copy of the plan and the exact place arguments."""
-    n = int(time.time())
-    frozen = workspace(player) / f"preview-{n}.py"
+def set_pending(player, plan, args, box, frame, blocks):
+    """A preview waiting for a yes: a frozen copy of the plan, the exact place arguments, the whole box it
+    changes (`box`, cleared trees included) and the build's own box (`frame`)."""
+    frozen = workspace(player) / f"preview-{int(time.time())}.py"
     shutil.copy(plan, frozen)
     with edit(player) as s:
-        s["pending"] = {"plan": str(frozen.relative_to(ROOT)), "args": args, "box": box, "blocks": blocks,
-                        "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+        s["pending"] = {"plan": str(frozen.relative_to(ROOT)), "args": args, "box": box, "frame": frame,
+                        "blocks": blocks, "at": now()}
     return frozen
-
-
-def forget(player):
-    """Start a player over: no conversation, no pending preview, no builds (their workspace stays)."""
-    with _locked():
-        all_ = _read()
-        all_.pop(player.lower(), None)
-        FILE.write_text(json.dumps(all_, indent=1))

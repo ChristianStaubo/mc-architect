@@ -3,6 +3,7 @@ and points them at their functions (set_defaults(fn=...)); main() parses, runs, 
 the journal (and an incident on a failure)."""
 
 import argparse
+import os
 import sys
 import time
 
@@ -10,6 +11,8 @@ from .. import bridge, incidents, journal
 from . import assistant, build, evals, look, recorder, town, world
 from .common import Parser
 
+# The in-game architect's agent (MC_ROLE=architect) never changes the world itself (docs/in-game-architect.md).
+ARCHITECT_DENIED = {"place", "undo", "cmd", "restart", "eval", "town"}
 GROUPS = [world, build, look, recorder, town, evals, assistant]
 
 
@@ -21,6 +24,8 @@ def main(doc):
     a = p.parse_args()
     if a.cmd == "eval" and a.action == "report" and a.task and not a.run:
         a.run = a.task  # `mc eval report RUN`
+    if os.environ.get("MC_ROLE") == "architect" and a.cmd in ARCHITECT_DENIED:
+        sys.exit(f"refused: the architect previews and talks; mc {a.cmd} is for the player's /arc yes and undo")
     t0 = time.time()
     code, err, kind, exc = 0, None, None, None
     try:

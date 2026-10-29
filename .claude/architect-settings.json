@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(./mc.py place:*)",
+      "Bash(./mc.py undo:*)",
+      "Bash(./mc.py cmd:*)",
+      "Bash(./mc.py restart:*)",
+      "Bash(./mc.py eval:*)",
+      "Bash(./mc.py town:*)"
+    ]
+  }
+}

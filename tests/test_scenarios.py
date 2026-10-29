@@ -8,7 +8,8 @@ from architect import scenarios
 def obs(**kw):
     base = {"pending": None, "pending_before": None, "preview": False, "new_edits": [], "new_edit_records": [],
             "pos": [0, 70, 0], "selection": None, "said": [], "claude": None, "claude_before": None,
-            "cmds": [], "minutes": 1.0, "end": "done", "site_changed": 0}
+            "cmds": [], "minutes": 1.0, "end": "done", "site_changed": 0,
+            "ctx": {"player": "p", "pos": [0, 70, 0], "facing": "south", "selection": None}}
     return base | kw
 
 
