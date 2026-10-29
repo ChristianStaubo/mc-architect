@@ -258,8 +258,10 @@ public final class BridgePlugin extends JavaPlugin {
         String label = b.has("label") ? b.get("label").getAsString() : "build";
         Edit edit = new Edit(nextEditId++, label, w.getName(), origin, max, session.getBlockChangeCount(),
                 System.currentTimeMillis(), session);
-        history.push(edit);
-        while (history.size() > MAX_HISTORY) history.removeLast();
+        if (!b.has("history") || b.get("history").getAsBoolean()) {  // eval site resets keep out: nothing to undo
+            history.push(edit);
+            while (history.size() > MAX_HISTORY) history.removeLast();
+        }
         return edit.summary();
     }
 

@@ -33,8 +33,8 @@ final class Travel implements CommandExecutor {
     private static final long REQUEST_MS = 60_000;
     private static final long COOLDOWN_MS = 10_000;
 
-    /** from asked to go to target (or, with here, asked target to come to them). */
-    private record Request(UUID from, boolean here, long time) {}
+    /** Asked to go to the target (or, with here, asked the target to come over); keyed by who asked. */
+    private record Request(boolean here, long time) {}
 
     private final JavaPlugin plugin;
     private final Path homesFile;
@@ -140,7 +140,7 @@ final class Travel implements CommandExecutor {
             return;
         }
         requests.computeIfAbsent(to.getUniqueId(), k -> new LinkedHashMap<>())
-                .put(from.getUniqueId(), new Request(from.getUniqueId(), here, System.currentTimeMillis()));
+                .put(from.getUniqueId(), new Request(here, System.currentTimeMillis()));
         say(from, "Asked " + to.getName() + (here ? " to come to you." : " if you can teleport to them.")
                 + " The request lasts a minute.");
         String ask = here ? from.getName() + " wants you to teleport to them. "
@@ -157,20 +157,20 @@ final class Travel implements CommandExecutor {
     private void answer(Player target, String fromName, boolean accept) {
         LinkedHashMap<UUID, Request> mine = requests.getOrDefault(target.getUniqueId(), new LinkedHashMap<>());
         long now = System.currentTimeMillis();
-        mine.values().removeIf(r -> now - r.time() > REQUEST_MS || Bukkit.getPlayer(r.from()) == null);
-        Request r = null;
+        mine.entrySet().removeIf(e -> now - e.getValue().time() > REQUEST_MS || Bukkit.getPlayer(e.getKey()) == null);
+        UUID fromId = null;
         if (fromName != null) {
-            Player from = Bukkit.getPlayerExact(fromName);
-            if (from != null) r = mine.get(from.getUniqueId());
+            Player named = Bukkit.getPlayerExact(fromName);
+            if (named != null && mine.containsKey(named.getUniqueId())) fromId = named.getUniqueId();
         } else {
-            for (Request x : mine.values()) r = x;  // the newest
+            for (UUID id : mine.keySet()) fromId = id;  // the newest
         }
-        if (r == null) {
+        if (fromId == null) {
             warn(target, fromName == null ? "You have no teleport requests." : "No request from " + fromName + ".");
             return;
         }
-        mine.remove(r.from());
-        Player from = Bukkit.getPlayer(r.from());
+        Request r = mine.remove(fromId);
+        Player from = Bukkit.getPlayer(fromId);
         if (!accept) {
             say(target, "Denied " + from.getName() + "'s request.");
             warn(from, target.getName() + " said no.");
