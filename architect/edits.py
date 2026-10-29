@@ -2,6 +2,8 @@
 WorldEdit's own history when the edit is the server's latest, and otherwise puts the snapshot back.
 Snapshots keep block states, not container contents (a chest comes back empty)."""
 
+import contextlib
+import fcntl
 import gzip
 import json
 import time
@@ -43,7 +45,29 @@ def get(eid):
     raise SystemExit(f"no edit {eid}")
 
 
+@contextlib.contextmanager
+def _locked():
+    """One place or undo at a time across processes (parallel builders): ids and snapshots stay consistent."""
+    DIR.mkdir(parents=True, exist_ok=True)
+    with open(DIR / ".lock", "w") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
 def place(cells, label, run="", task="", **extra):
+    with _locked():
+        return _place(cells, label, run, task, **extra)
+
+
+def undo(eid=None):
+    with _locked():
+        return _undo(eid)
+
+
+def _place(cells, label, run="", task="", **extra):
     """Snapshot the box, place, record (with any `extra` fields). Returns the edit record."""
     body = payload(cells, label=label)
     lo = body["origin"]
@@ -66,7 +90,7 @@ def _overlap(a, b):
     return all(a["min"][i] <= b["max"][i] and b["min"][i] <= a["max"][i] for i in range(3))
 
 
-def undo(eid=None):
+def _undo(eid=None):
     live = listing()
     if not live:
         raise SystemExit("nothing to undo")
