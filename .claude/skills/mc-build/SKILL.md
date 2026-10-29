@@ -59,7 +59,17 @@ Read `STYLE.md` first: those are the user's rules for what a good build is.
 | `hip_roof(b, x1, z1, x2, z2, y, stair, top=None, overhang=1)` | roof sloping on all four sides (towers, pavilions) |
 | `stamp(b, piece, x, y, z, turns=0)` | copy another Build in, turned 0–3 quarter turns (facings and connections turn too): repeated stalls, houses, towers |
 | `dormer(b, x, y, z, facing, roof_stair, wall, width=3)` | a gabled dormer window out of a roof slope; call after the roof |
+| `roofs(b, spec, spec, ...)` | gable roofs that meet (L, T, cross gable) in proper valleys; each spec = gable_roof's arguments as a dict |
+| `dormer_on(b, roof, at, side, wall)` | a dormer on a roof gable_roof returned (side "front"/"back"): sits on the eave, never floats |
+| `chimney(b, x, z, y_base, y_top, block, width=1, smoke=True)` | stack with a cap or a smoking campfire |
+| `shutters(b, x, y, z, along, width, height, out)` / `flower_box(b, x, y, z, along, width, out)` | either side of / under a window; `out` = the way the wall faces |
+| `outside_stair(b, x, y, z, direction, steps, side=...)` | solid wooden stair up a wall, rail on the open side, landing at the top |
+| `dock(b, x1, z1, x2, z2, y, post_bottom, boats=1)` | deck, posts into the bed (depth from `mc site`), rails, lanterns, mooring posts, real boats |
+| `round_tower(b, cx, cz, y1, y2, radius, wall)` + `cone_roof(b, cx, cz, y, radius, stair)` | round (or octagonal at radius 2) towers and their pointed roofs |
+| `awning(b, x1, x2, z, y, out, colors, depth=2)` | striped, stepped awning off the wall at z |
+| `b.sign(x, y, z, block, ["line 1", ...])` / `b.entity(x, y, z, "spruce_boat")` | sign text and entities, applied after placing (undo removes the entities) |
 Beams: pass the bare log name (`dark_oak_log`); parts set `[axis=...]` themselves.
+`plans/parts_sampler.py` uses every part once (placed and audited clean).
 `plans/cottage.py` is a worked example.
 
 ## Block states (the bridge places exactly what you write)
