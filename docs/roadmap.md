@@ -48,14 +48,28 @@ staging containers, Tailscale for the bridge, restic backups, ~$9-12/month).
 - The agent works on a staging copy and pushes approved builds to the live world.
 
 ## Near term
+0. **Now (2026-10-30): the in-game architect** (docs/in-game-architect.md): `/arc` in chat, ghost
+   previews only you see, yes/no/undo, and the agent-behaviour eval suite. Deployment waits until after.
 1. ~~Evals v2 (docs/evals.md)~~: done 2026-10-29 (first run c1029-1705: 80% pass, quality 5.22).
 2. ~~Survival travel (/sethome, /home, /tpa)~~: done 2026-10-29; the two-player accept/deny check is left.
-3. **Deploy (planned for 2026-10-30), following docs/hosting.md:**
+3. **Deploy (postponed; after the in-game architect), following docs/hosting.md:**
    - the owner picks the host (OVH VPS-2 recommended), backup storage (B2 or R2) and the whitelist, and
      creates those accounts plus Tailscale;
    - we build and test locally first: live + staging compose, `mc` per server, backup/restore scripts,
      `mc promote`, the server setup checklist;
    - then set up the VPS, restore the current world onto it, run a restore drill, invite friends.
-4. A more ambitious build project (the user's choice), iterating on evals and tools as we go; the
-   builders' biggest gap is quitting at the minimum (docs/evals.md §15).
-5. Then: terraforming parts and warps, in the order the projects need them.
+4. Then: terraforming parts and warps, in the order the projects need them.
+
+## Feature ideas (proposed 2026-10-30, not scheduled)
+- **Better builders**: a critique round before "done" (`mc critique`: the judges' notes on its own
+  sheet), the done bar on quality not placements; the castle's tool gaps (steep spires, walls that
+  follow a slope, terraces, spiral-stair landings, choosing blueprint floors, an audit that ignores
+  natural caves); room kits (bedroom, kitchen, tavern bar, library, throne room); palettes with
+  texture variation. Each change A/B tested with `mc eval run --vs`.
+- **Terraforming** (goal 2): raise, lower, smooth, carve a river, plant a forest, make a beach, with
+  previews, undo and naturalness checks.
+- **From town to city** (goal 1): district, road and plot planning; builders by district; a city critic;
+  walls, gates, plazas, harbour, aqueducts. Lakeside and the castle become the old town.
+- **Redstone kits**: piston doors, elevators, hidden stairs, farms, sorters, each tested live by
+  driving inputs and reading outputs.
+- **Warps** (`/warp market`): skipped for now in favour of homes and /tpa; easy to add to travel/.
