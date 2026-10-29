@@ -2,12 +2,14 @@
 """mc: the agent's one tool for the Minecraft test server.
 
 Build
-  mc site X,Z [W,D]                 terrain around X,Z: heights, surface, top-down map
+  mc site --task T | X,Z [W,D]      terrain of a task's plot (or around X,Z): heights grid, slope, map
   mc place PLAN [--at X,Z | --near PLAYER] [--task T] [--dry-run]
-             [--foundation BLOCK|none] [--y Y] [--no-clear]
+             [--foundation BLOCK|none] [--y Y] [--no-clear] [--keep-trees]
                                     build a plan (plans/NAME or a .py path) on the ground there:
                                     local (0,0,0) at X,Z, y 0 one above the median ground; foundation
-                                    fills down to the terrain, the hill inside the box is cleared
+                                    fills down to the terrain, the hill inside the box is cleared,
+                                    trees touching the build removed. With --task and no --at the
+                                    build is centred in the plot. --dry-run previews on the real terrain
   mc undo [EDIT]                    undo the latest edit, or EDIT (e.g. e12); survives restarts
   mc edits                          live edits (id, label, task, box)
 Look and judge
@@ -113,20 +115,45 @@ def player_pos(name):
 
 
 def cmd_site(a):
-    x, z = ints(a.center)
-    w, d = ints(a.size) if a.size else (48, 48)
-    cols = bridge.heightmap((x - w // 2, z - d // 2), (x + w // 2, z + d // 2))
+    if a.task:  # the task's plot exactly, plus a 4-block margin to see what's around it
+        t = evals.task(a.task)
+        (px0, pz0), (px1, pz1) = t["plot"]["min"], t["plot"]["max"]
+        lo, hi = (px0 - 4, pz0 - 4), (px1 + 4, pz1 + 4)
+    elif a.center:
+        x, z = ints(a.center)
+        w, d = ints(a.size) if a.size else (48, 48)
+        lo, hi = (x - w // 2, z - d // 2), (x + w // 2, z + d // 2)
+    else:
+        raise SystemExit("give X,Z [W,D] or --task T")
+    cols = bridge.heightmap(lo, hi)
     ys = [v[0] for v in cols.values()]
     surface = {}
     for _, b in cols.values():
         n = render.block_name(b)
         surface[n] = surface.get(n, 0) + 1
-    path = out_path(f"site-{x}_{z}")
-    render.top_down(cols, path)
-    print(f"site {w}x{d} around {x},{z} (x {x - w // 2}..{x + w // 2}, z {z - d // 2}..{z + d // 2}): "
-          f"ground y {min(ys)}..{max(ys)} (median {statistics.median(ys):.0f}, spread {max(ys) - min(ys)})")
+    w, d = hi[0] - lo[0] + 1, hi[1] - lo[1] + 1
+    path = out_path(f"site-{lo[0]}_{lo[1]}")
+    render.top_down(cols, path, scale=max(4, 480 // max(w, d)))
+    print(f"site x {lo[0]}..{hi[0]}, z {lo[1]}..{hi[1]}: ground y {min(ys)}..{max(ys)} "
+          f"(median {statistics.median(ys):.0f}, spread {max(ys) - min(ys)})")
     print("surface: " + ", ".join(f"{k} {v * 100 // len(ys)}%" for k, v in
                                   sorted(surface.items(), key=lambda kv: -kv[1])[:6]))
+    side = lambda pts: statistics.mean(cols[p][0] for p in pts)  # noqa: E731
+    sides = {"north": side([(x, lo[1]) for x in range(lo[0], hi[0] + 1)]),
+             "south": side([(x, hi[1]) for x in range(lo[0], hi[0] + 1)]),
+             "west": side([(lo[0], z) for z in range(lo[1], hi[1] + 1)]),
+             "east": side([(hi[0], z) for z in range(lo[1], hi[1] + 1)])}
+    print("edges (mean ground y): " + ", ".join(f"{k} {v:.0f}" for k, v in sides.items()) +
+          f"; highest side: {max(sides, key=sides.get)}")
+    step = max(1, max(w, d) // 8)
+    print(f"ground y every {step} blocks (rows = z north→south, cols = x west→east; ~ = water):")
+    print("        " + " ".join(f"{x:>5}" for x in range(lo[0], hi[0] + 1, step)))
+    for z in range(lo[1], hi[1] + 1, step):
+        row = []
+        for x in range(lo[0], hi[0] + 1, step):
+            y, b = cols[(x, z)]
+            row.append(f"{y:>4}{'~' if render.block_name(b) == 'water' else ' '}")
+        print(f"{z:>7} " + " ".join(row))
     print(f"map (north up, brighter = higher): {path}")
 
 
@@ -172,6 +199,26 @@ def ground_cells(build, at, foundation="cobblestone", floor_y=None, clear=True):
     return cells, y0
 
 
+TREE = ("_log", "_leaves", "vine", "bee_nest", "_wood")
+
+
+def clear_trees(cells, task=None, margin=2):
+    """Trees that would touch the build (its box plus `margin`) are removed whole-ish: every log and leaf
+    there that the plan doesn't place itself. No half-trees growing through roofs (STYLE.md: site).
+    Within a task, only inside its plot."""
+    xs, ys, zs = zip(*cells)
+    lo = (min(xs) - margin, min(ys), min(zs) - margin)
+    hi = (max(xs) + margin, max(ys) + 8, max(zs) + margin)
+    out = dict(cells)
+    for p, b in bridge.region(lo, hi).items():
+        if p in cells or not any(k in b for k in TREE):
+            continue
+        if task and not evals.in_plot(task, p, p):
+            continue
+        out[p] = "air"
+    return out
+
+
 def cmd_place(a):
     build = load_plan(a.plan)
     t = evals.task(a.task) if a.task else None
@@ -180,24 +227,31 @@ def cmd_place(a):
         at = (px + 4, pz + 4)
     elif a.at:
         at = tuple(ints(a.at))
-    elif t:
-        at = tuple(t["plot"]["min"])
-    else:
-        s = bridge.status()["spawn"]
-        at = (s[0] + 4, s[2] + 4)
     (lx0, _, lz0), (lx1, _, lz1) = build.bounds()
+    if not (a.near or a.at):
+        if t:  # centre the footprint in the plot
+            (px0, pz0), (px1, pz1) = t["plot"]["min"], t["plot"]["max"]
+            at = ((px0 + px1 - lx0 - lx1) // 2, (pz0 + pz1 - lz0 - lz1) // 2)
+        else:
+            s = bridge.status()["spawn"]
+            at = (s[0] + 4, s[2] + 4)
     print(f"{build.name}: {len(build.blocks)} blocks, footprint x {lx0}..{lx1} z {lz0}..{lz1} (local), " +
           ", ".join(f"{k} {v}" for k, v in list(build.counts().items())[:6]))
     if t and not evals.in_plot(t, (at[0] + lx0, 0, at[1] + lz0), (at[0] + lx1, 0, at[1] + lz1)):
         sys.exit(f"refused: the build would cover x {at[0] + lx0}..{at[0] + lx1}, z {at[1] + lz0}..{at[1] + lz1}; "
                  f"plot is x {t['plot']['min'][0]}..{t['plot']['max'][0]}, z {t['plot']['min'][1]}..{t['plot']['max'][1]}")
-    if a.dry_run:
-        path = out_path(f"{build.name}-preview")
-        imgs = [render.iso(build.blocks, view=v) for v in ("se", "nw")]
-        render.sheet(imgs, path, columns=2)
-        print(f"dry run, nothing placed. preview (two opposite corners): {path}")
-        return
     cells, y0 = ground_cells(build, at, a.foundation, a.y, not a.no_clear)
+    if not a.keep_trees:
+        cells = clear_trees(cells, t)
+    if a.dry_run:  # the build drawn over the real terrain, exactly as place would leave it
+        xs, ys, zs = zip(*cells)
+        world = bridge.region((min(xs) - 3, min(ys) - 2, min(zs) - 3), (max(xs) + 3, max(ys) + 2, max(zs) + 3))
+        world.update(cells)
+        path = out_path(f"{build.name}-preview")
+        render.sheet([render.iso(world, view=v) for v in ("se", "nw")], path, columns=2)
+        print(f"dry run at {at[0]},{y0},{at[1]} (--at {at[0]},{at[1]}), nothing placed. "
+              f"preview on the real terrain, two opposite corners: {path}")
+        return
     t0 = time.time()
     e = edits.place(cells, label=build.name, run=journal.run_id(), task=a.task or "",
                     floor_y=y0, at=list(at), plan=str(a.plan))
@@ -365,7 +419,8 @@ def main():
     c = sub.add_parser("cmd")
     c.add_argument("command")
     s = sub.add_parser("site")
-    s.add_argument("center", help="X,Z")
+    s.add_argument("center", nargs="?", help="X,Z")
+    s.add_argument("--task", help="show exactly this task's plot (with a 4-block margin)")
     s.add_argument("size", nargs="?", help="W,D (default 48,48)")
     pl = sub.add_parser("place")
     pl.add_argument("plan")
@@ -376,6 +431,7 @@ def main():
     pl.add_argument("--foundation", default="cobblestone", help="block under the footprint down to the ground, or none")
     pl.add_argument("--y", type=int, help="world y of the plan's y 0 (default: one above the median ground)")
     pl.add_argument("--no-clear", action="store_true", help="keep terrain inside the build's box")
+    pl.add_argument("--keep-trees", action="store_true", help="don't remove trees touching the build")
     r = sub.add_parser("render")
     r.add_argument("lo")
     r.add_argument("hi")
