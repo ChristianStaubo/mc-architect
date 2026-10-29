@@ -1,0 +1,22 @@
+# Local test server. Both ports are published on 127.0.0.1 only: nothing outside this Mac can connect.
+services:
+  mc:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: mc-architect-server:local
+    container_name: mc-architect
+    ports:
+      - "127.0.0.1:25565:25565"   # the game
+      - "127.0.0.1:8765:8765"     # the bridge (token required)
+    volumes:
+      - ./server:/data                                       # world, logs, Paper's configs
+      - ./config/server.properties:/config/server.properties:ro
+      - ./plugin/build:/plugin:ro                            # our compiled bridge plugin
+    environment:
+      MEMORY: 3G
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 4g
+    stop_grace_period: 60s   # let the world save
+    restart: "no"

@@ -1,0 +1,4 @@
+# The build only needs the staged, verified files and the docker/ folder.
+*
+!.tools/stage/
+!docker/
