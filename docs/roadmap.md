@@ -39,7 +39,8 @@ were left out for now (the user's call).
 - Safety: rate limits, no warps into the redstone mechanisms, spawn protection where needed.
 
 ### 4. Host the server
-Run it somewhere friends can join any time.
+Run it somewhere friends can join any time. **Plan: docs/hosting.md** (2026-10-29: one 8 GB VPS, live +
+staging containers, Tailscale for the bridge, restic backups, ~$9-12/month).
 - Our own Docker image (already built from pinned, hash-checked files) on a small VPS or home box.
 - Public game port only; the bridge stays private (SSH tunnel or a VPN), never on the internet.
 - Backups (world snapshots off-machine on a schedule), whitelist, monitoring, updates under the
