@@ -50,7 +50,9 @@ def tool_stats(run_task):
     """What the builder did, from the journal: run_task is "<run>:<task>" (its MC_RUN_ID)."""
     es = journal.entries(run_task)
     by = lambda c: [e for e in es if e["cmd"] == c]  # noqa: E731
-    return {"calls": len(es), "failed": sum(not e["ok"] for e in es),
+    # An audit that fails is the judge working, not a failed call: counted on its own.
+    return {"calls": len(es), "failed": sum(not e["ok"] and e["cmd"] != "audit" for e in es),
+            "audit_fails": sum(not e["ok"] and e["cmd"] == "audit" for e in es),
             "places": sum(1 for e in by("place") if "--dry-run" not in e["argv"]),
             "dry_runs": sum(1 for e in by("place") if "--dry-run" in e["argv"]),
             "undos": len(by("undo")), "stucks": len(by("stuck")),
