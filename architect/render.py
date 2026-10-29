@@ -85,9 +85,21 @@ def _sprite(t):
     return top, left, right
 
 
-def iso(cells, path, tile=8, background=(205, 222, 235)):
-    """Isometric picture of {(x, y, z): block}, viewed from the south-east (+x, +z) and above."""
-    solid = {p: b for p, b in cells.items() if not skipped(b)}
+ROTATIONS = {"se": 0, "sw": 1, "nw": 2, "ne": 3}  # the corner the camera looks from
+
+
+def _rotate(p, k):
+    x, y, z = p
+    for _ in range(k):
+        x, z = z, -x
+    return x, y, z
+
+
+def iso(cells, path=None, tile=8, background=(205, 222, 235), view="se"):
+    """Isometric picture of {(x, y, z): block} seen from above and the `view` corner. Returns
+    (width, height, pixels) and writes a PNG if `path` is given."""
+    k = ROTATIONS[view]
+    solid = {_rotate(p, k): b for p, b in cells.items() if not skipped(b)}
     if not solid:
         raise ValueError("nothing to draw")
     xs, ys, zs = zip(*solid)
@@ -118,11 +130,56 @@ def iso(cells, path, tile=8, background=(205, 222, 235)):
             for dx, dy in pixels:
                 i = ((oy + dy) * width + ox + dx) * 3
                 px[i:i + 3] = bytes(rgb)
-    write_png(path, width, height, px)
-    return width, height
+    if path:
+        write_png(path, width, height, px)
+    return width, height, px
 
 
-def top_down(columns, path, scale=4):
+def plan(cells, y, path=None, scale=10, background=(250, 250, 245)):
+    """Floor plan: the layer at height y seen from above (walls, doors, furniture), with the floor
+    below it shown faded. North up."""
+    xs = [p[0] for p in cells]
+    zs = [p[2] for p in cells]
+    x0, z0, w, d = min(xs), min(zs), max(xs) - min(xs) + 1, max(zs) - min(zs) + 1
+    px = bytearray(bytes(background) * (w * scale * d * scale))
+    for x in range(x0, x0 + w):
+        for z in range(z0, z0 + d):
+            b, under = cells.get((x, y, z)), cells.get((x, y - 1, z))
+            if b and not skipped(b):
+                rgb = color(b)
+            elif under and not skipped(under):
+                rgb = tuple(int(c * 0.35 + 255 * 0.65) for c in color(under))
+            else:
+                continue
+            for dz in range(scale):
+                row = ((z - z0) * scale + dz) * w * scale
+                for dx in range(scale):
+                    edge = dx == 0 or dz == 0
+                    i = (row + (x - x0) * scale + dx) * 3
+                    px[i:i + 3] = bytes(shade(rgb, 0.85) if edge else rgb)
+    if path:
+        write_png(path, w * scale, d * scale, px)
+    return w * scale, d * scale, px
+
+
+def sheet(images, path, columns=3, gap=12, background=(255, 255, 255)):
+    """Lay (width, height, pixels) images out in a grid, one PNG."""
+    cw = max(i[0] for i in images) + gap
+    ch = max(i[1] for i in images) + gap
+    rows = (len(images) + columns - 1) // columns
+    W, H = cw * min(columns, len(images)) + gap, ch * rows + gap
+    out = bytearray(bytes(background) * (W * H))
+    for n, (w, h, px) in enumerate(images):
+        ox = gap + (n % columns) * cw
+        oy = gap + (n // columns) * ch
+        for y in range(h):
+            dst = ((oy + y) * W + ox) * 3
+            out[dst:dst + w * 3] = px[y * w * 3:(y + 1) * w * 3]
+    write_png(path, W, H, out)
+    return W, H
+
+
+def top_down(columns, path=None, scale=4):
     """Map of {(x, z): (top_y, top_block)}: colour by block, brightness by height, north up."""
     xs, zs = zip(*columns)
     x0, z0 = min(xs), min(zs)
@@ -142,5 +199,6 @@ def top_down(columns, path, scale=4):
             for dx in range(scale):
                 i = (row + (x - x0) * scale + dx) * 3
                 px[i:i + 3] = rgb
-    write_png(path, w * scale, d * scale, px)
-    return w * scale, d * scale
+    if path:
+        write_png(path, w * scale, d * scale, px)
+    return w * scale, d * scale, px
