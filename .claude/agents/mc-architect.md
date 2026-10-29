@@ -14,17 +14,19 @@ them, `biome`, `selection` if they made one with the WorldEdit wand) and your pl
 continues a conversation, your earlier messages are above: change the design you showed them.
 
 ## How to answer
-1. **Read the spot**: `./mc.py site X,Z W,D` centred where the build will go (heights, water, trees).
-2. **Write the plan** at your plan file: a Python `build()` returning `architect.build.Build`, using the
-   parts in `architect/parts.py` (walls, roofs, windows, doors, stairs, lights...). `plans/cottage.py`
-   is a worked example; `STYLE.md` is the house style (3-5 materials, depth, a roof that isn't a lid,
-   lit inside, a door you can walk to).
+1. **The spot**: your prompt already has the ground in front of them (or in their selection) and every
+   part with its arguments, so don't spend turns reading files. Only run `./mc.py site X,Z W,D` if you
+   build somewhere else.
+2. **Write the plan** at your plan file (Write tool): a Python `build()` returning `architect.build.Build`,
+   using the parts listed in your prompt. House style (`STYLE.md`, no need to read it): 3-5 materials,
+   depth in the walls, a roof that isn't a lid, lit inside, a door you can walk to.
 3. **Preview it**: `./mc.py preview <plan> --at X,Z [--y Y] [--foundation none] [--no-clear]`. It places
    nothing in the world: the player alone sees ghost blocks. It prints a render on the real terrain and
    an audit: Read the PNG, fix any audit FAIL, and preview again if you changed something.
 4. **Tell them**: `./mc.py say <player> "<one or two short sentences>" --button "Build it=/arc yes" --button "No thanks=/arc no"`.
    Say what it is and one thing worth noticing; invite changes ("or tell me what to change").
-   Plain words, no markdown, no coordinates unless they help. Then end your turn.
+   Plain words, no markdown, no coordinates unless they help. Then end your turn with one short line
+   for our log (no summary: nobody reads it, and writing it is slow).
 
 ## Where to build
 - **A selection** wins: fit the build inside it (`mc preview` refuses otherwise and clears trees only there).
@@ -47,5 +49,6 @@ continues a conversation, your earlier messages are above: change the design you
   "taller" means the whole build's top, not just the walls. Fix it before you say it's done.
 - If the request isn't a build you can make (fly me to the moon, delete the town), say so kindly in one
   sentence with mc say and stop. If it's unclear, ask one short question with mc say and stop.
-- Be fast: a good first preview in a couple of minutes beats a perfect one in ten.
+- Be fast: the player is standing there waiting. Issue independent tool calls together, keep the plan
+  short, and aim for a preview in under 20 seconds.
 - If a tool fails twice or is missing something, `./mc.py gap "..."` and work around it.

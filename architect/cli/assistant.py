@@ -90,7 +90,41 @@ def cmd_architect(a):
         print(f"posted event {bridge.post_event(ctx, '' if kind != 'request' else a.text, kind)}")
 
 
+BENCH = ["a small stone well with a little wooden roof", "a wooden bench with a lamp post next to it",
+         "a small cosy cottage with a chimney"]
+
+
+def cmd_bench(a):
+    """The same requests, one after another, as virtual players on the scenario sites: how long until the
+    preview, until they're told, and in all (MC_ARC_LEAN=0 for the old way)."""
+    import time
+    from .. import scenarios, sites
+    from ..assistant import agent
+    scs = [s for s in scenarios.scenarios() if s["id"] in ("well-here", "change-it", "cancel")]
+    rows = []
+    for text, sc in zip(BENCH, scs):
+        name = f"bench-{sc['id']}"
+        sessions.forget(name)
+        sites.reset(scenarios.site_id(sc))
+        x, z = sc["at"]
+        g = bridge.heightmap((x, z), (x, z))[(x, z)][0]
+        ctx = {"player": name, "world": "world", "pos": [x, g + 1, z], "facing": sc["facing"], "selection": None}
+        daemon.on_request({"player": name, "kind": "request", "text": text, "context": ctx}, a.model, lambda m: None)
+        while name in daemon.jobs:
+            time.sleep(1)
+        n = sessions.get(name)["requests"]
+        r = json.loads((sessions.workspace(name) / "runs" / f"{n}.json").read_text())
+        rows.append((text, r["to_preview_s"], r["to_say_s"], round(r["minutes"] * 60), len(r["tools"])))
+        bridge.preview_clear(name)
+        sites.reset(scenarios.site_id(sc))
+        print(f"  {text[:40]:<40} preview {r['to_preview_s']}s, told {r['to_say_s']}s, all {round(r['minutes'] * 60)}s, "
+              f"{len(r['tools'])} tool calls", flush=True)
+    told = sorted(r[2] for r in rows if r[2] is not None)
+    print(f"{'lean' if agent.LEAN else 'old way'}: told after {told} s (median {told[len(told) // 2] if told else '-'})")
+
+
 def register(sub):
+    sub.add_parser("bench", help="time the architect on three fixed requests").set_defaults(fn=cmd_bench, model="sonnet")
     pv = sub.add_parser("preview", help="show a plan to one player as ghost blocks (the architect's yes/no step)")
     place_args(pv)
     pv.add_argument("--for", dest="for_", help="the player (default: MC_PLAYER)")

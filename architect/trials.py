@@ -13,6 +13,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from . import evals, graders, journal, judges, regression, sites
+from .assistant.agent import NO_MCP
 
 ROOT = evals.ROOT
 RESULTS = evals.RESULTS
@@ -105,7 +106,7 @@ def trial(run, t, i, model, settings, sheet, judge_model=None):
     plan = (work / "plan.py").relative_to(ROOT)
     sites.reset(tid)
     b = t["budget"]
-    cmd = ["claude", "-p", prompt(t, run_id, str(plan)), "--agent", "mc-builder", "--model", model,
+    cmd = ["claude", "-p", prompt(t, run_id, str(plan)), "--agent", "mc-builder", "--model", model, *NO_MCP,
            "--permission-mode", "dontAsk",  # the user's default (auto) would approve anything
            "--output-format", "stream-json", "--verbose", "--max-budget-usd", str(b.get("usd", 3.0)),
            "--allowedTools", "Bash(./mc.py *)", "Read", "Write", "Edit", "Glob", "Grep",

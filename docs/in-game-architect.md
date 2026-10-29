@@ -164,3 +164,19 @@ Adding a command later = a new folder under `plugin/.../<feature>/` with a `Feat
   focus" off (F3+P), or its menu covers the view.
 - "Three blocks taller" came out +2 (walls +3, roof lower) until the agent was told to compare the
   preview's box before saying it's done: the suite caught it.
+
+## Speed (2026-10-30, the /perf checklist)
+Where a request's ~30 s went: ~24 s the model (7-10 turns), under 1 s the mc commands, ~5 s Claude
+starting up with the user's 19 MCP servers (whose tool definitions also rode along on every turn).
+- **I/O calls / startup**: headless agents (architect, eval builders, judges) start with no MCP servers.
+- **Passes**: the daemon reads the ground in front of the player before Claude starts and puts it in the
+  prompt, with every part's signature (generated from parts.py) and a plan template: no reading files,
+  no `mc site` turn.
+- **Output**: one short final line instead of a summary.
+- **Early exit**: the job is released when the agent's answer arrives, not when the process exits.
+Same three requests (`./mc.py bench`; `MC_ARC_LEAN=0` for the old way): the preview appears after
+10-14 s instead of 21-27 s; tool calls 4-8 instead of 8-11. The player is told 14-23 s in (was 25-38);
+the rest is the agent fixing its own audit fails before it says anything. Every request records
+`to_preview_s` and `to_say_s` in local/assistant/<player>/runs/.
+Next levers if wanted: a faster model for small requests (check with the scenarios), a "first look"
+message at the first preview.

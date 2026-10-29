@@ -13,6 +13,8 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from .assistant.agent import NO_MCP
+
 ROOT = Path(__file__).resolve().parent.parent
 RUBRIC = ROOT / "evals" / "RUBRIC.md"
 GROUPS = [("brief", "site", "interior"), ("shape", "depth", "proportion"), ("palette", "detail", "overall")]
@@ -76,7 +78,7 @@ def judge_group(task, dims, sheet, model):
         img = Path(tmp) / "sheet.png"
         shutil.copy(sheet, img)
         cmd = ["claude", "-p", prompt(task, dims, img), "--model", model, "--output-format", "json", "--permission-mode", "dontAsk",
-               "--allowedTools", "Read", "--disallowedTools", *NO_TOOLS, "--max-budget-usd", "1.0"]
+               "--allowedTools", "Read", "--disallowedTools", *NO_TOOLS, "--max-budget-usd", "1.0", *NO_MCP]
         p = subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=600)
     try:
         res = json.loads(p.stdout)

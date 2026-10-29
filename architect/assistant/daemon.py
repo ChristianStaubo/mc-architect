@@ -106,7 +106,25 @@ def on_status(player):
 
 # ---- requests: the agent ----
 
+AHEAD = {"south": (0, 1), "north": (0, -1), "east": (1, 0), "west": (-1, 0)}
+
+
+def site_ahead(player, ctx):
+    """The ground where a build will most likely go (the selection, or a 16x16 patch just in front of
+    them), read before Claude starts so the agent doesn't spend a turn on it."""
+    sel, pos = ctx.get("selection"), ctx.get("pos") or [0, 0, 0]
+    if sel:
+        lo, hi = sel["min"], sel["max"]
+        cx, cz, w, d = (lo[0] + hi[0]) // 2, (lo[2] + hi[2]) // 2, hi[0] - lo[0] + 5, hi[2] - lo[2] + 5
+    else:
+        dx, dz = AHEAD.get(ctx.get("facing"), (0, 1))
+        cx, cz, w, d = int(pos[0]) + 10 * dx, int(pos[2]) + 10 * dz, 16, 16
+    ok, out = mc(player, "site", f"{cx},{cz}", f"{w},{d}")
+    return out if ok else ""
+
+
 def start(event, model, log):
+    t_req = time.time()  # the player's wait starts here
     player, text, ctx = event["player"], event["text"], event["context"]
     if text.lower().startswith("big "):
         text, model = text[4:], "opus"
@@ -121,10 +139,12 @@ def start(event, model, log):
     plan = sessions.workspace(player) / "plan.py"
     run_id = f"arc:{player}:{n}"
     say(player, "Changing the design..." if talking else f"On it: {text[:80]}", "thinking")
+    site = "" if talking or not agent.LEAN else site_ahead(player, ctx)
     runs = sessions.workspace(player) / "runs"
     runs.mkdir(exist_ok=True)
     run = agent.Run(player, text, ctx, str(plan.relative_to(ROOT)), run_id, model,
-                    resume=s.get("claude") if talking else None, transcript=runs / f"{n}.jsonl")
+                    resume=s.get("claude") if talking else None, transcript=runs / f"{n}.jsonl", site=site)
+    run.t_req = t_req
     with lock:
         jobs[player] = run
     log(f"{player} #{n} ({model}{', resumed' if talking else ''}): {text}")
@@ -133,13 +153,19 @@ def start(event, model, log):
 
 def finish(player, run, run_id, log):
     r = run.wait()
-    (sessions.workspace(player) / "runs" / f"{run_id.rsplit(':', 1)[1]}.json").write_text(json.dumps(r, indent=1))
     with sessions.edit(player) as s:
         if r["session_id"]:
             s["claude"] = r["session_id"]
         s["last_run"] = {k: r[k] for k in ("end", "api_usd", "minutes")} | {"run_id": run_id}
-    said = {e["cmd"] for e in journal.entries(run_id)}
-    log(f"{player}: {r['end']} in {r['minutes']} min, ${r['api_usd'] or 0:.2f}, {len(r['tools'])} tool calls: "
+    es = journal.entries(run_id)
+    said = {e["cmd"] for e in es}
+    t0 = run.t_req
+    at = lambda e: time.mktime(time.strptime(e["t"], "%Y-%m-%dT%H:%M:%S"))  # noqa: E731
+    first = lambda c: next((round(at(e) - t0) for e in es if e["cmd"] == c and e["ok"] and at(e) >= t0 - 1), None)  # noqa: E731
+    r["to_preview_s"], r["to_say_s"] = first("preview"), first("say")  # what the player waits for
+    (sessions.workspace(player) / "runs" / f"{run_id.rsplit(':', 1)[1]}.json").write_text(json.dumps(r, indent=1))
+    log(f"{player}: {r['end']} in {r['minutes']} min (preview at {r['to_preview_s']}s, told at {r['to_say_s']}s), "
+        f"${r['api_usd'] or 0:.2f}, {len(r['tools'])} tool calls: "
         f"{r['result'].strip()[-160:]!r}")
     if r["end"] == "cancelled":
         say(player, "Stopped.", "warn")

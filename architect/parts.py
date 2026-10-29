@@ -3,6 +3,8 @@
 Facing words are Minecraft's: north = -z, south = +z, west = -x, east = +x.
 """
 
+import sys
+
 OPPOSITE = {"north": "south", "south": "north", "east": "west", "west": "east"}
 
 
@@ -415,3 +417,16 @@ def dormer_on(b, roof, at, side, wall, width=3, pane="glass_pane"):
         facing = "west" if side == "front" else "east"
         x = roof["x1"] if side == "front" else roof["x2"]
         dormer(b, x, roof["y"], at, facing, roof["stair"], wall, width, pane)
+
+
+def cheatsheet():
+    """Every part, one line each (signature: first line of its docstring), for an agent's prompt: generated
+    here so it never goes stale."""
+    import inspect
+    out = []
+    for name, f in inspect.getmembers(sys.modules[__name__], inspect.isfunction):
+        if f.__module__ != __name__ or name.startswith("_") or name == "cheatsheet":
+            continue
+        doc = " ".join((inspect.getdoc(f) or "").split("\n\n")[0].split())
+        out.append(f"{name}{inspect.signature(f)}: {doc}")
+    return "\n".join(out)
