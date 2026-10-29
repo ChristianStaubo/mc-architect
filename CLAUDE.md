@@ -1,29 +1,28 @@
 # mc-architect: instructions for Claude
 
-You build things in Minecraft for the user and their friends: houses now, towns, cathedrals and
-landscapes next. Work on the local test server; the friends' server only gets builds the user approves.
+You build things in Minecraft for the user and their friends (houses now; towns, cathedrals and
+landscapes next) and you improve the harness that does it. Work on the local test server; the friends'
+server only gets builds the user approves.
 
 ## Start here
-1. `./mc.py doctor`: container, server and bridge up? (`docker compose up -d` if not; `./mc.py restart`.)
-2. `./mc.py -h`: the only tool. Never drive the game UI.
-3. The method for growing this into an autonomous builder (scoreboard, player → judge → fixer, evals):
-   `~/coding/games/fm26-manager/docs/agent-workflow.md`.
+1. `./mc.py doctor`: Docker, server and bridge up? (`open -a Docker`, `docker compose up -d`.)
+2. Building something → skill **mc-build** (and `STYLE.md`). Improving the harness, running evals,
+   "keep going" → skill **mc-improve** (and `docs/agent-workflow.md`).
+3. `./mc.py -h`: the only tool. Never drive the game UI.
 
-## How a build goes
-1. Look at the site: `./mc.py site X,Z` (heights, surface, a top-down map). Read the picture.
-2. Write a plan in `plans/` with the parts in `architect/parts.py`; add a part when a plan needs one
-   (a part is reusable; a plan is one building).
-3. `./mc.py place PLAN --dry-run` and look at the preview before touching the world.
-4. `./mc.py place PLAN --at X,Z` (or `--near <player>`); look at the render it prints.
-5. Wrong? `./mc.py undo`, fix the plan, place again.
+## Layout
+- `mc.py`: the CLI. `architect/`: build grids, parts, renders, audit, edits (undo), journal, evals.
+- `plans/`: reusable plans (examples). Builders' plans for evals: `local/plans/<run>/`.
+- `evals/tasks/`: the eval suite; `evals/RUBRIC.md`: the critic's rubric. `STYLE.md`: the house style.
+- `.claude/agents/`: `mc-builder` (Sonnet, builds a task), `mc-critic` (scores from pictures).
+- `plugin/`: the bridge (Java). `docker/`, `compose.yaml`: the server. `tests/`: `python3 -m unittest discover tests`.
+- `local/` (gitignored): renders, edits + snapshots, journal, friction, eval results, notes.
 
 ## Rules
-- Look at every render you produce (Read the PNG). An output line only proves the call ran.
-- Every change goes through `place` so it can be undone. Undo history lives in memory: a restart
-  forgets it, so undo before restarting if you might need to.
-- `mc cmd` refuses stop/restart/reload: use `./mc.py restart`.
-- Block states matter: set connections (panes, fences), door halves and bed parts explicitly; the bridge
-  places exactly what you send.
-- Keep worlds, renders, tokens and downloaded jars out of git. Dependencies only through `scripts/deps.py`
-  (official sources, hash-checked, at least 7 days old).
+- Read every PNG you produce. An output line only proves the call ran.
+- Every change goes through `place` (snapshots, undo survives restarts). `mc cmd` refuses
+  stop/restart/reload: use `./mc.py restart`.
+- Block states matter: set connections, door halves and bed parts explicitly.
 - Plugin change: `scripts/build-plugin.sh`, then `./mc.py restart`.
+- Dependencies only through `scripts/deps.py` (official sources, hash-checked, at least 7 days old).
+- Commits: small, no attribution lines, never push without the user.
