@@ -123,9 +123,6 @@ public final class BridgePlugin extends JavaPlugin {
                     JsonObject body = raw.isBlank() ? new JsonObject() : JsonParser.parseString(raw).getAsJsonObject();
                     result = handler.handle(body);
                 }
-            } catch (IllegalArgumentException e) {
-                status = 400;
-                result = map("error", e.getMessage());
             } catch (Exception e) {
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
                 status = cause instanceof IllegalArgumentException ? 400 : 500;
@@ -184,16 +181,14 @@ public final class BridgePlugin extends JavaPlugin {
         World w = world(b);
         int[] min = ints(b, "min", 3), max = ints(b, "max", 3);
         int[] size = box(min, max);
-        Map<String, Integer> palette = new LinkedHashMap<>();
+        Map<org.bukkit.block.data.BlockData, Integer> palette = new LinkedHashMap<>();
         Rle rle = new Rle();
         for (int y = min[1]; y <= max[1]; y++)
             for (int z = min[2]; z <= max[2]; z++)
-                for (int x = min[0]; x <= max[0]; x++) {
-                    String s = w.getBlockAt(x, y, z).getBlockData().getAsString();
-                    rle.add(palette.computeIfAbsent(s, k -> palette.size()));
-                }
-        return map("world", w.getName(), "min", min, "max", max, "size", size,
-                "palette", new ArrayList<>(palette.keySet()), "rle", rle.done());
+                for (int x = min[0]; x <= max[0]; x++)
+                    rle.add(palette.computeIfAbsent(w.getBlockAt(x, y, z).getBlockData(), k -> palette.size()));
+        List<String> names = palette.keySet().stream().map(org.bukkit.block.data.BlockData::getAsString).toList();
+        return map("world", w.getName(), "min", min, "max", max, "size", size, "palette", names, "rle", rle.done());
     }
 
     private Object heightmap(JsonObject b) {
@@ -219,9 +214,8 @@ public final class BridgePlugin extends JavaPlugin {
     private Object place(JsonObject b) throws Exception {
         World w = world(b);
         int[] origin = ints(b, "origin", 3), size = ints(b, "size", 3);
+        box(origin, new int[]{origin[0] + size[0] - 1, origin[1] + size[1] - 1, origin[2] + size[2] - 1});
         long volume = (long) size[0] * size[1] * size[2];
-        if (size[0] < 1 || size[1] < 1 || size[2] < 1 || volume > MAX_VOLUME)
-            throw new IllegalArgumentException("bad size (max volume " + MAX_VOLUME + ")");
         if (origin[1] < w.getMinHeight() || origin[1] + size[1] > w.getMaxHeight())
             throw new IllegalArgumentException("build outside world height " + w.getMinHeight() + ".." + w.getMaxHeight());
 
@@ -284,9 +278,7 @@ public final class BridgePlugin extends JavaPlugin {
         }
         // vanilla also updates everything around the block the lever is on; Bukkit doesn't, so the
         // wires and torches next to it never notice. Re-place them so they recompute.
-        Location c = attached.getLocation();
-        kick(w, new int[]{c.getBlockX() - 1, c.getBlockY() - 1, c.getBlockZ() - 1},
-                new int[]{c.getBlockX() + 1, c.getBlockY() + 1, c.getBlockZ() + 1});
+        kickAround(attached);
         if (on && blk.getType().name().endsWith("_BUTTON")) {
             final org.bukkit.block.Block button = blk, base = attached;
             int ticks = b.has("ticks") ? b.get("ticks").getAsInt() : 20;
@@ -294,9 +286,7 @@ public final class BridgePlugin extends JavaPlugin {
                 if (button.getBlockData() instanceof org.bukkit.block.data.Powerable p2) {
                     p2.setPowered(false);
                     button.setBlockData(p2, true);
-                    Location bc = base.getLocation();
-                    kick(w, new int[]{bc.getBlockX() - 1, bc.getBlockY() - 1, bc.getBlockZ() - 1},
-                            new int[]{bc.getBlockX() + 1, bc.getBlockY() + 1, bc.getBlockZ() + 1});
+                    kickAround(base);
                 }
             }, ticks);
         }
@@ -330,6 +320,11 @@ public final class BridgePlugin extends JavaPlugin {
      * placing it by hand would: wires recompute their power, torches react, pistons extend if powered.
      * Blocks pasted through WorldEdit skip this, so a pasted contraption sits dead until it's kicked.
      */
+    private int kickAround(org.bukkit.block.Block c) {
+        return kick(c.getWorld(), new int[]{c.getX() - 1, c.getY() - 1, c.getZ() - 1},
+                new int[]{c.getX() + 1, c.getY() + 1, c.getZ() + 1});
+    }
+
     private int kick(World w, int[] lo, int[] hi) {
         int n = 0;
         for (int x = lo[0]; x <= hi[0]; x++)
