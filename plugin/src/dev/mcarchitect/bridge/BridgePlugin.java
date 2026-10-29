@@ -86,6 +86,7 @@ public final class BridgePlugin extends JavaPlugin {
             route("/validate", b -> sync(() -> validate(b)));
             route("/use", b -> sync(() -> use(b)));
             route("/kick", b -> sync(() -> map("kicked", kick(world(b), ints(b, "min", 3), ints(b, "max", 3)))));
+            route("/sign", b -> sync(() -> sign(b)));
             http.start();
             getLogger().info("bridge listening on port " + port);
         } catch (IOException e) {
@@ -300,6 +301,23 @@ public final class BridgePlugin extends JavaPlugin {
             }, ticks);
         }
         return map("pos", at, "block", blk.getBlockData().getAsString(), "powered", on);
+    }
+
+    /** Write up to 4 lines of text on a sign (front or back). Block data can't carry text. */
+    private Object sign(JsonObject b) {
+        World w = world(b);
+        int[] at = ints(b, "pos", 3);
+        org.bukkit.block.Block blk = w.getBlockAt(at[0], at[1], at[2]);
+        if (!(blk.getState() instanceof org.bukkit.block.Sign sg))
+            throw new IllegalArgumentException("not a sign: " + blk.getBlockData().getAsString());
+        org.bukkit.block.sign.Side side = org.bukkit.block.sign.Side.valueOf(
+                b.has("side") ? b.get("side").getAsString().toUpperCase() : "FRONT");
+        JsonArray lines = b.getAsJsonArray("lines");
+        var face = sg.getSide(side);
+        for (int i = 0; i < 4; i++)
+            face.line(i, net.kyori.adventure.text.Component.text(i < lines.size() ? lines.get(i).getAsString() : ""));
+        sg.update(true, false);
+        return map("pos", at, "lines", lines.size());
     }
 
     private static final java.util.Set<String> REDSTONE = java.util.Set.of("redstone_wire", "redstone_torch",

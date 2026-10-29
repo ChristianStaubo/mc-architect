@@ -115,6 +115,8 @@ def _undo(eid=None, run=""):
     else:  # server restarted, or a newer edit elsewhere: put the snapshot back
         bridge.place(payload(snapshot(e), label=f"undo {e['id']}"))
         how = "snapshot"
+    for (x, y, z, kind) in e.get("entities", []):  # entities the edit summoned (boats)
+        bridge.command(f"kill @e[type=minecraft:{kind},x={x}.5,y={y},z={z}.5,distance=..2]")
     e = {**e, "undone": time.strftime("%Y-%m-%dT%H:%M:%S"), "undo_via": how}
     _write(e)
     return e
