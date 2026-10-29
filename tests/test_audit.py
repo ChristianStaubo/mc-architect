@@ -66,6 +66,25 @@ class AuditTest(unittest.TestCase):
         r = audit(*world(hut(roof=False)))
         self.assertIn("interior", {c["check"] for c in r["checks"]})
 
+    def test_tower_open_to_its_roof_is_still_indoors(self):
+        # r1 watchtower: the stairwell opens onto the roof platform, so the room connects to the sky.
+        # It must count as indoors (no false "nowhere enclosed" warning) and its floor must be checked
+        # for light (a dark tower floor is a mob spawner).
+        b = hut(lit=False)
+        b.set(1, 4, 1, "air")  # the hatch up to the roof
+        r = audit(*world(b))
+        self.assertNotIn("interior", {c["check"] for c in r["checks"]})
+        self.assertIn("dark", failed(r))
+
+    def test_market_stall_is_not_indoors(self):
+        # an awning on posts, open on three sides: no room, so no dark-floor failure under it
+        b = Build("stall")
+        floor(b, 0, 0, 4, 2, 0, "stone_bricks")
+        for x, z in ((0, 0), (4, 0), (0, 2), (4, 2)):
+            b.fill(x, 1, z, x, 2, z, "oak_fence")
+        floor(b, 0, 0, 4, 2, 3, "red_wool")
+        self.assertNotIn("dark", failed(audit(*world(b))))
+
     def test_half_bed(self):
         b = hut()
         b.set(1, 1, 1, "red_bed[facing=north,part=head]")

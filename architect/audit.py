@@ -136,12 +136,27 @@ def audit(cells, box):
             if not foot or not name(foot).endswith("_bed") or parse(foot)[1].get("part") != "foot":
                 add("bed", "fail", f"bed at {p} is missing its foot", [p])
 
-    # 4. rooms: reachable from outside only through doors = inside; reachable not at all = sealed
+    # 4. rooms. Indoor = a standing spot reachable (through doors) with a roof somewhere above it and a
+    # wall or door in all four directions: a tower with an open stairwell to its roof is indoors, a porch
+    # or a market stall is not. Reachable not at all = sealed.
     outside = flood(cells, [p for p, b in cells.items() if edge(p) and passable(b)], passable)
     doors = [p for p, b in cells.items() if is_door(b)]
     through = flood(cells, list(outside) + doors, lambda b: passable(b) or is_door(b))
-    inside = {p for p in through if p not in outside and in_box(p) and not is_door(cells[p])}
-    stand_inside = [p for p in inside if standable(cells, p)]
+
+    def covered(p):
+        return any(not passable(cells.get((p[0], y, p[2]))) for y in range(p[1] + 2, y1 + 1))
+
+    def walled(p):
+        for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            x, z = p[0] + dx, p[2] + dz
+            while x0 <= x <= x1 and z0 <= z <= z1 and passable(cells.get((x, p[1], z))) \
+                    and not is_door(cells.get((x, p[1], z))):
+                x, z = x + dx, z + dz
+            if not (x0 <= x <= x1 and z0 <= z <= z1):
+                return False
+        return True
+
+    stand_inside = [p for p in through if in_box(p) and standable(cells, p) and covered(p) and walled(p)]
     sealed = [p for p, b in cells.items()
               if in_box(p) and passable(b) and p not in through and standable(cells, p)]
     if sealed:
