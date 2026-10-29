@@ -82,3 +82,71 @@ def gable_roof(b, x1, z1, x2, z2, y, stair, gable, ridge="x", overhang=1, slab=N
 
 def light(b, x, y, z, block="lantern[hanging=false]"):
     b.set(x, y, z, block)
+
+
+FACE_STEP = {"north": (0, -1), "south": (0, 1), "east": (1, 0), "west": (-1, 0)}
+
+
+def timber_frame(b, x1, z1, x2, z2, y1, y2, fill, post="oak_log[axis=y]", beam="oak_log", every=4):
+    """Framed walls: `fill` panels between posts (corners and every `every` blocks) with horizontal beam
+    bands at the bottom (y1) and top (y2). Gives walls depth without hand-written loops."""
+    walls(b, x1, z1, x2, z2, y1, y2, fill)
+    for x in list(range(x1, x2 + 1, every)) + [x2]:
+        b.fill(x, y1, z1, x, y2, z1, post)
+        b.fill(x, y1, z2, x, y2, z2, post)
+    for z in list(range(z1, z2 + 1, every)) + [z2]:
+        b.fill(x1, y1, z, x1, y2, z, post)
+        b.fill(x2, y1, z, x2, y2, z, post)
+    for y in (y1, y2):
+        for x in range(x1 + 1, x2):
+            b.set(x, y, z1, f"{beam}[axis=x]")
+            b.set(x, y, z2, f"{beam}[axis=x]")
+        for z in range(z1 + 1, z2):
+            b.set(x1, y, z, f"{beam}[axis=z]")
+            b.set(x2, y, z, f"{beam}[axis=z]")
+
+
+def straight_stairs(b, x, y, z, direction, steps, stair, width=1, support=None, headroom=3):
+    """A flight going up toward `direction` from (x, y, z): one block up per step. Clears `headroom`
+    blocks above every step, which also cuts the stairwell hole in the floor above. `support` fills
+    under each step (else the flight hangs from its ends). Returns the landing cell at the top."""
+    dx, dz = FACE_STEP[direction]
+    sx, sz = (abs(dz), abs(dx))  # sideways, for width
+    for i in range(steps):
+        for w in range(width):
+            cx, cz = x + dx * i + sx * w, z + dz * i + sz * w
+            b.set(cx, y + i, cz, f"{stair}[facing={direction},half=bottom,shape=straight]")
+            for h in range(1, headroom + 1):
+                b.set(cx, y + i + h, cz, "air")
+            if support:
+                for yy in range(y, y + i):
+                    b.set(cx, yy, cz, support)
+    return x + dx * steps, y + steps, z + dz * steps
+
+
+def spiral_stairs(b, x1, z1, x2, z2, y1, y2, stair, landing, headroom=3):
+    """Stairs climbing around the inside of the rectangle x1..x2, z1..z2 (the shaft, inside the walls)
+    from y1 to y2, one block up per step, with a full `landing` block at each corner. Clears headroom.
+    For towers: the middle of the rectangle stays free (a column, or open)."""
+    ring = ([(x, z1) for x in range(x1, x2)] + [(x2, z) for z in range(z1, z2)] +
+            [(x, z2) for x in range(x2, x1, -1)] + [(x1, z) for z in range(z2, z1, -1)])
+    corners = {(x1, z1), (x2, z1), (x2, z2), (x1, z2)}
+    y, i = y1, 0
+    while y < y2:
+        cx, cz = ring[i % len(ring)]
+        nx, nz = ring[(i + 1) % len(ring)]
+        facing = {(1, 0): "east", (-1, 0): "west", (0, 1): "south", (0, -1): "north"}[(nx - cx, nz - cz)]
+        if (cx, cz) in corners:
+            b.set(cx, y, cz, landing)
+        else:
+            b.set(cx, y, cz, f"{stair}[facing={facing},half=bottom,shape=straight]")
+        for h in range(1, headroom + 1):
+            b.set(cx, y + h, cz, "air")
+        y, i = y + 1, i + 1
+
+
+def posts(b, points, y_top, y_bottom, block="spruce_log[axis=y]"):
+    """Columns from y_top down to y_bottom (inclusive) at each (x, z): stilts, piers, dock posts.
+    Over water, use place --foundation none and reach y_bottom below the waterline."""
+    for x, z in points:
+        b.fill(x, y_bottom, z, x, y_top, z, block)
