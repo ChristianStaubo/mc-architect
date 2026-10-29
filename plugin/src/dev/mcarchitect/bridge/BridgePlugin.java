@@ -84,6 +84,8 @@ public final class BridgePlugin extends JavaPlugin {
             route("/blocks", b -> map("blocks", java.util.Arrays.stream(org.bukkit.Material.values())
                     .filter(m -> m.isBlock() && !m.isLegacy()).map(m -> m.getKey().getKey()).sorted().toList()));
             route("/validate", b -> sync(() -> validate(b)));
+            route("/use", b -> sync(() -> use(b)));
+            route("/kick", b -> sync(() -> map("kicked", kick(world(b), ints(b, "min", 3), ints(b, "max", 3)))));
             http.start();
             getLogger().info("bridge listening on port " + port);
         } catch (IOException e) {
@@ -254,6 +256,75 @@ public final class BridgePlugin extends JavaPlugin {
         history.push(edit);
         while (history.size() > MAX_HISTORY) history.removeLast();
         return edit.summary();
+    }
+
+    /**
+     * What a player's click does to a lever or button: flip / press it with block updates, so redstone
+     * reacts (torches, dust, pistons, lamps). The block it's attached to gets an update too, the way
+     * vanilla does it. Buttons release after `ticks` (default 20). Read the result with /region later.
+     */
+    private Object use(JsonObject b) {
+        World w = world(b);
+        int[] at = ints(b, "pos", 3);
+        org.bukkit.block.Block blk = w.getBlockAt(at[0], at[1], at[2]);
+        if (!(blk.getBlockData() instanceof org.bukkit.block.data.Powerable pw))
+            throw new IllegalArgumentException("not a lever or button: " + blk.getBlockData().getAsString());
+        boolean on = b.has("on") ? b.get("on").getAsBoolean() : !pw.isPowered();
+        pw.setPowered(on);
+        blk.setBlockData(pw, true);
+        org.bukkit.block.Block attached = blk;
+        if (pw instanceof org.bukkit.block.data.type.Switch sw) {
+            org.bukkit.block.BlockFace face = switch (sw.getAttachedFace()) {
+                case FLOOR -> org.bukkit.block.BlockFace.DOWN;
+                case CEILING -> org.bukkit.block.BlockFace.UP;
+                default -> sw.getFacing().getOppositeFace();
+            };
+            attached = blk.getRelative(face);
+        }
+        // vanilla also updates everything around the block the lever is on; Bukkit doesn't, so the
+        // wires and torches next to it never notice. Re-place them so they recompute.
+        Location c = attached.getLocation();
+        kick(w, new int[]{c.getBlockX() - 1, c.getBlockY() - 1, c.getBlockZ() - 1},
+                new int[]{c.getBlockX() + 1, c.getBlockY() + 1, c.getBlockZ() + 1});
+        if (on && blk.getType().name().endsWith("_BUTTON")) {
+            final org.bukkit.block.Block button = blk, base = attached;
+            int ticks = b.has("ticks") ? b.get("ticks").getAsInt() : 20;
+            Bukkit.getScheduler().runTaskLater(this, () -> {
+                if (button.getBlockData() instanceof org.bukkit.block.data.Powerable p2) {
+                    p2.setPowered(false);
+                    button.setBlockData(p2, true);
+                    Location bc = base.getLocation();
+                    kick(w, new int[]{bc.getBlockX() - 1, bc.getBlockY() - 1, bc.getBlockZ() - 1},
+                            new int[]{bc.getBlockX() + 1, bc.getBlockY() + 1, bc.getBlockZ() + 1});
+                }
+            }, ticks);
+        }
+        return map("pos", at, "block", blk.getBlockData().getAsString(), "powered", on);
+    }
+
+    private static final java.util.Set<String> REDSTONE = java.util.Set.of("redstone_wire", "redstone_torch",
+            "redstone_wall_torch", "repeater", "comparator", "piston", "sticky_piston", "redstone_lamp", "observer",
+            "dispenser", "dropper", "hopper", "note_block", "iron_door", "iron_trapdoor", "powered_rail", "activator_rail",
+            "target", "daylight_detector");
+
+    /**
+     * Re-place every redstone component in the box (air, then its own state, with block updates), the way
+     * placing it by hand would: wires recompute their power, torches react, pistons extend if powered.
+     * Blocks pasted through WorldEdit skip this, so a pasted contraption sits dead until it's kicked.
+     */
+    private int kick(World w, int[] lo, int[] hi) {
+        int n = 0;
+        for (int x = lo[0]; x <= hi[0]; x++)
+            for (int y = lo[1]; y <= hi[1]; y++)
+                for (int z = lo[2]; z <= hi[2]; z++) {
+                    org.bukkit.block.Block blk = w.getBlockAt(x, y, z);
+                    if (!REDSTONE.contains(blk.getType().getKey().getKey())) continue;
+                    org.bukkit.block.data.BlockData d = blk.getBlockData();
+                    blk.setType(org.bukkit.Material.AIR, false);
+                    blk.setBlockData(d, true);
+                    n++;
+                }
+        return n;
     }
 
     /** Which block-data strings the server can't parse, and why (bad name, bad property, bad value). */

@@ -28,7 +28,10 @@ COLORS = [
     ("red_terracotta", (143, 61, 46)), ("brown_terracotta", (77, 51, 35)), ("cyan_terracotta", (86, 91, 91)),
     ("terracotta", (152, 94, 67)), ("white_concrete", (207, 213, 214)), ("smooth_quartz", (235, 229, 222)), ("white", (234, 236, 236)), ("black", (25, 25, 29)),
     ("red", (160, 39, 34)), ("blue", (53, 57, 157)), ("yellow", (248, 197, 39)),
-    ("green", (84, 109, 27)), ("lantern", (250, 200, 90)), ("torch", (250, 200, 90)),
+    ("green", (84, 109, 27)), ("redstone_wire", (190, 25, 20)), ("redstone_torch", (255, 60, 30)),
+    ("redstone_wall_torch", (255, 60, 30)), ("redstone_lamp", (230, 170, 70)), ("redstone_block", (170, 20, 10)),
+    ("sticky_piston", (120, 170, 80)), ("piston_head", (170, 140, 95)), ("piston", (170, 140, 95)),
+    ("lever", (90, 70, 50)), ("observer", (90, 90, 95)), ("repeater", (160, 60, 50)), ("lantern", (250, 200, 90)), ("torch", (250, 200, 90)),
     ("coal", (40, 40, 40)), ("iron", (200, 200, 200)), ("copper", (192, 107, 79)),
     ("stone", (125, 125, 125)), ("log", (109, 85, 50)), ("planks", (162, 130, 78)),
 ]
@@ -207,3 +210,45 @@ def top_down(columns, path=None, scale=4):
     if path:
         write_png(path, w * scale, d * scale, px)
     return w * scale, d * scale, px
+
+
+LOOK = {"west": (0, -1), "east": (0, 1), "north": (2, -1), "south": (2, 1)}
+
+
+def elevation(cells, look="west", path=None, scale=16, skip=(), background=(244, 241, 232)):
+    """A flat, straight-on drawing of a face, like an architect's elevation: looking `look`, each cell
+    shows the first visible block along the view, darker the further back it is. `skip` (block names)
+    makes those see-through: skip the rock to get a section through a mechanism. Up is up."""
+    axis, sign = LOOK[look]  # 0 = x, 2 = z; the view runs along this axis in direction `sign`
+    other = 2 if axis == 0 else 0
+    vis = {p: b for p, b in cells.items() if not skipped(b) and block_name(b) not in skip}
+    if not vis:
+        raise ValueError("nothing to draw")
+    us = [p[other] for p in vis]
+    ys = [p[1] for p in vis]
+    ds = [p[axis] for p in vis]
+    u0, u1, y0, y1, d0, d1 = min(us), max(us), min(ys), max(ys), min(ds), max(ds)
+    # looking west (-x) you see north (-z) on your right: flip the horizontal so the drawing isn't mirrored
+    flip = (look in ("west", "south"))
+    w, h = (u1 - u0 + 1) * scale, (y1 - y0 + 1) * scale
+    px = bytearray(bytes(background) * (w * h))
+    first = {}
+    front = d1 if sign < 0 else d0  # the plane nearest the viewer
+    for (p, b) in vis.items():
+        key = (p[other], p[1])
+        dist = abs(p[axis] - front)
+        if key not in first or dist < first[key][0]:
+            first[key] = (dist, b, dist)
+    for (u, y), (_, b, dist) in first.items():
+        f = max(0.45, 1.0 - 0.07 * dist)
+        rgb = bytes(shade(color(b), f))
+        cu = (u1 - u) if flip else (u - u0)
+        for dy in range(scale):
+            row = ((y1 - y) * scale + dy) * w
+            for dx in range(scale):
+                edge = dx == 0 or dy == 0
+                i = (row + cu * scale + dx) * 3
+                px[i:i + 3] = bytes(shade(color(b), f * 0.82)) if edge else rgb
+    if path:
+        write_png(path, w, h, px)
+    return w, h, px
