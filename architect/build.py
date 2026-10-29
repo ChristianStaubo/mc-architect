@@ -5,13 +5,21 @@ the "minecraft:" prefix is optional."""
 AIR = "air"
 
 
+def _states(block):
+    """Python's True/False written into block states (lakeside: spruce_fence[north=False]) become the
+    lowercase the server wants."""
+    if "[" in block and ("=True" in block or "=False" in block):
+        block = block.replace("=True", "=true").replace("=False", "=false")
+    return block
+
+
 class Build:
     def __init__(self, name="build"):
         self.name = name
         self.blocks = {}
 
     def set(self, x, y, z, block):
-        self.blocks[(x, y, z)] = block
+        self.blocks[(x, y, z)] = _states(block)
 
     def get(self, x, y, z):
         return self.blocks.get((x, y, z))
@@ -20,7 +28,7 @@ class Build:
         for x in range(min(x1, x2), max(x1, x2) + 1):
             for y in range(min(y1, y2), max(y1, y2) + 1):
                 for z in range(min(z1, z2), max(z1, z2) + 1):
-                    self.blocks[(x, y, z)] = block
+                    self.blocks[(x, y, z)] = _states(block)
 
     def bounds(self):
         xs, ys, zs = zip(*self.blocks)
