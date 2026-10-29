@@ -1,5 +1,6 @@
 package dev.mcarchitect;
 
+import dev.mcarchitect.architect.Architect;
 import dev.mcarchitect.bridge.HttpBridge;
 import dev.mcarchitect.bridge.PlayerRoutes;
 import dev.mcarchitect.bridge.WorldRoutes;
@@ -24,7 +25,7 @@ public final class MCBridgePlugin extends JavaPlugin {
         }
         WorldRoutes world = new WorldRoutes(this, bridge);
         new PlayerRoutes(bridge, world);
-        features = List.of(new Travel());
+        features = List.of(new Travel(), new Architect());
         features.forEach(f -> f.enable(this));
         bridge.start();
     }

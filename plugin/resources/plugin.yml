@@ -29,7 +29,15 @@ commands:
     description: Deny a teleport request (the newest, or the named player's)
     usage: /tpdeny [player]
     permission: mcbridge.travel
+  arc:
+    description: Ask the architect to build something (or yes, no, undo, cancel, status)
+    usage: /arc <what to build> | yes | no | undo | cancel | status
+    aliases: [architect]
+    permission: mcbridge.architect
 permissions:
   mcbridge.travel:
     description: /sethome, /home, /tpa, /tpahere, /tpaccept, /tpdeny
     default: true
+  mcbridge.architect:
+    description: Talk to the in-game architect (/arc)
+    default: op

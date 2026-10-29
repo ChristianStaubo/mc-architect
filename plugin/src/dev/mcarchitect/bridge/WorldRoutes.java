@@ -271,7 +271,7 @@ public final class WorldRoutes {
     }
 
     /** Run-length pairs [value, count, value, count, ...]. */
-    private static final class Rle {
+    public static final class Rle {
         private final List<Integer> out = new ArrayList<>();
         private int value = -1, count = 0;
 
@@ -298,7 +298,7 @@ public final class WorldRoutes {
             return out;
         }
 
-        static int[] decode(JsonArray rle, long volume, int paletteSize) {
+        public static int[] decode(JsonArray rle, long volume, int paletteSize) {
             int[] cells = new int[(int) volume];
             int i = 0;
             for (int k = 0; k + 1 < rle.size(); k += 2) {

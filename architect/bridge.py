@@ -113,3 +113,37 @@ def undo(edit_id=None):
 def history():
     return call("/history")["edits"]
 
+
+
+# ---- the in-game architect (docs/in-game-architect.md) ----
+
+def inbox(wait=25):
+    """Events from /arc (and virtual players): waits up to `wait` seconds for one."""
+    return call("/inbox", {"wait": wait}, timeout=wait + 15)["events"]
+
+
+def ack(ids):
+    return call("/inbox/ack", {"ids": list(ids)})
+
+
+def post_event(context, text="", kind="request"):
+    """An /arc event from a virtual player (context: player, pos, facing, ... as Context.java makes them)."""
+    return call("/inbox/post", {"context": context, "text": text, "kind": kind})["id"]
+
+
+def say(player, text, tone="info", buttons=()):
+    """A line in the player's chat from the architect; buttons: [(label, command), ...]."""
+    return call("/say", {"player": player, "text": text, "tone": tone, "buttons": [list(b) for b in buttons]})
+
+
+def preview(player, body):
+    """Show a /place body to one player only, as ghost blocks."""
+    return call("/preview", {**body, "player": player})
+
+
+def preview_clear(player):
+    return call("/preview/clear", {"player": player})
+
+
+def preview_get(player):
+    return call("/preview/get", {"player": player})
