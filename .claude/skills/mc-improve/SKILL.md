@@ -10,7 +10,8 @@ you fix the tools, the scoreboard says whether it worked. The user is paged only
 
 ## One round
 1. **Health.** `./mc.py doctor` (Docker Desktop: `open -a Docker`; server: `docker compose up -d`).
-   `python3 -m unittest discover tests` must pass.
+   `./mc.py eval gate` (the regression suite: unit tests, every part, plans, block names, place + undo,
+   the door test, incident replays) must be 100% before and after every fix.
 2. **Run id.** Next free `rN` (`./mc.py eval report` lists runs). Reset plots: `./mc.py eval reset <task>`
    for every task you will run.
 3. **Build.** For each task (`./mc.py eval list`), spawn an `mc-builder` agent (Sonnet) with:

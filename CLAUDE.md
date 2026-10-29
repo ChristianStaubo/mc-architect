@@ -27,4 +27,6 @@ server only gets builds the user approves.
 - Block states matter: set connections, door halves and bed parts explicitly.
 - Plugin change: `scripts/build-plugin.sh`, then `./mc.py restart`.
 - Dependencies only through `scripts/deps.py` (official sources, hash-checked, at least 7 days old).
+- `./mc.py eval gate` (regression, docs/evals.md) passes before a commit; a new part gets a reference
+  plan in `architect/regression.py`. `scripts/install-hooks.sh` adds a warn-only pre-push check.
 - Commits: small, no attribution lines, never push without the user.

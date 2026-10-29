@@ -245,7 +245,9 @@ The report prints actual cost per run so we can trim (fewer trials on stable tas
 
 ## 13. Rollout
 1. **Regression suite + gate** (fast win, no models): parts, placement round trip, audit fixtures,
-   door test, incident replays.
+   door test, incident replays. **Done 2026-10-29**: `architect/regression.py`, `mc eval gate`
+   (15 checks, ~15 s, 100%); the pre-push hook runs its offline half (no world changes while someone
+   plays) and warns.
 2. **Task format v2 + code graders + reference plans** for the 5 existing tasks; graders validated
    against the references and against r2's builds (which should mostly pass).
 3. **Runner** (`claude -p`, isolation, transcripts, manifest) with 1 trial, then 3.
