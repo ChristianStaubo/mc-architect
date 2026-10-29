@@ -31,9 +31,21 @@ public final class Json {
         return b.get(key).getAsString();
     }
 
+    public static String str(JsonObject b, String key, String otherwise) {
+        return b.has(key) && !b.get(key).isJsonNull() ? b.get(key).getAsString() : otherwise;
+    }
+
+    public static int integer(JsonObject b, String key, int otherwise) {
+        return b.has(key) && !b.get(key).isJsonNull() ? b.get(key).getAsInt() : otherwise;
+    }
+
+    public static boolean bool(JsonObject b, String key, boolean otherwise) {
+        return b.has(key) && !b.get(key).isJsonNull() ? b.get(key).getAsBoolean() : otherwise;
+    }
+
     /** The body's "world", or the main world. */
     public static World world(JsonObject b) {
-        String name = b.has("world") ? b.get("world").getAsString() : Bukkit.getWorlds().get(0).getName();
+        String name = str(b, "world", Bukkit.getWorlds().get(0).getName());
         World w = Bukkit.getWorld(name);
         if (w == null) throw new IllegalArgumentException("no world " + name);
         return w;

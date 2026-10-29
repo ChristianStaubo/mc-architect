@@ -20,7 +20,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import static dev.mcarchitect.core.Json.bool;
+import static dev.mcarchitect.core.Json.integer;
 import static dev.mcarchitect.core.Json.ints;
+import static dev.mcarchitect.core.Json.str;
 import static dev.mcarchitect.core.Json.map;
 import static dev.mcarchitect.core.Json.world;
 
@@ -30,7 +33,6 @@ import static dev.mcarchitect.core.Json.world;
  * placement goes through a WorldEdit EditSession, so it can be undone.
  */
 public final class WorldRoutes {
-    static final int MAX_VOLUME = 4_000_000;
     private static final int MAX_HISTORY = 100;
 
     private final Plugin plugin;
@@ -67,7 +69,7 @@ public final class WorldRoutes {
     private Object region(JsonObject b) {
         World w = world(b);
         int[] min = ints(b, "min", 3), max = ints(b, "max", 3);
-        int[] size = box(min, max);
+        int[] size = Body.box(min, max);
         Map<org.bukkit.block.data.BlockData, Integer> palette = new LinkedHashMap<>();
         Rle rle = new Rle();
         for (int y = min[1]; y <= max[1]; y++)
@@ -83,8 +85,8 @@ public final class WorldRoutes {
         int[] min = ints(b, "min", 2), max = ints(b, "max", 2);
         if (max[0] < min[0] || max[1] < min[1]) throw new IllegalArgumentException("max must be >= min");
         long area = (long) (max[0] - min[0] + 1) * (max[1] - min[1] + 1);
-        if (area > MAX_VOLUME) throw new IllegalArgumentException("area too large: " + area);
-        HeightMap type = HeightMap.valueOf(b.has("type") ? b.get("type").getAsString() : "MOTION_BLOCKING_NO_LEAVES");
+        if (area > Body.MAX_VOLUME) throw new IllegalArgumentException("area too large: " + area);
+        HeightMap type = HeightMap.valueOf(str(b, "type", "MOTION_BLOCKING_NO_LEAVES"));
         Map<String, Integer> palette = new LinkedHashMap<>();
         List<Integer> heights = new ArrayList<>(), tops = new ArrayList<>();
         for (int z = min[1]; z <= max[1]; z++)
@@ -98,44 +100,26 @@ public final class WorldRoutes {
                 "heights", heights, "tops", tops, "palette", new ArrayList<>(palette.keySet()));
     }
 
-    private Object place(JsonObject b) throws Exception {
-        World w = world(b);
-        int[] origin = ints(b, "origin", 3), size = ints(b, "size", 3);
-        box(origin, new int[]{origin[0] + size[0] - 1, origin[1] + size[1] - 1, origin[2] + size[2] - 1});
-        long volume = (long) size[0] * size[1] * size[2];
-        if (origin[1] < w.getMinHeight() || origin[1] + size[1] > w.getMaxHeight())
+    private Object place(JsonObject b) {
+        Body body = Body.decode(b);
+        World w = body.world();
+        if (body.origin()[1] < w.getMinHeight() || body.max()[1] >= w.getMaxHeight())
             throw new IllegalArgumentException("build outside world height " + w.getMinHeight() + ".." + w.getMaxHeight());
-
-        JsonArray pal = b.getAsJsonArray("palette");
-        BlockState[] states = new BlockState[pal.size()];
-        for (int i = 0; i < pal.size(); i++) {
-            JsonElement e = pal.get(i);
-            if (e.isJsonNull()) continue;
-            try {
-                states[i] = BukkitAdapter.adapt(Bukkit.createBlockData(e.getAsString()));
-            } catch (IllegalArgumentException ex) {
-                throw new IllegalArgumentException("unknown block: " + e.getAsString());
-            }
-        }
-        int[] cells = Rle.decode(b.getAsJsonArray("rle"), volume, states.length);
-
         EditSession session = WorldEdit.getInstance().newEditSessionBuilder()
                 .world(BukkitAdapter.adapt(w)).maxBlocks(-1).build();
+        java.util.Map<org.bukkit.block.data.BlockData, BlockState> states = new java.util.HashMap<>();
         try (session) {
-            int i = 0;
-            for (int y = 0; y < size[1]; y++)
-                for (int z = 0; z < size[2]; z++)
-                    for (int x = 0; x < size[0]; x++, i++) {
-                        BlockState s = states[cells[i]];
-                        if (s != null)
-                            session.setBlock(BlockVector3.at(origin[0] + x, origin[1] + y, origin[2] + z), s);
-                    }
+            body.forEach((x, y, z, d) -> {
+                try {
+                    session.setBlock(BlockVector3.at(x, y, z), states.computeIfAbsent(d, BukkitAdapter::adapt));
+                } catch (com.sk89q.worldedit.MaxChangedBlocksException ex) {
+                    throw new IllegalStateException(ex);
+                }
+            });
         }
-        int[] max = {origin[0] + size[0] - 1, origin[1] + size[1] - 1, origin[2] + size[2] - 1};
-        String label = b.has("label") ? b.get("label").getAsString() : "build";
-        Edit edit = new Edit(nextEditId++, label, w.getName(), origin, max, session.getBlockChangeCount(),
-                System.currentTimeMillis(), session);
-        if (!b.has("history") || b.get("history").getAsBoolean()) {  // eval site resets keep out: nothing to undo
+        Edit edit = new Edit(nextEditId++, str(b, "label", "build"), w.getName(), body.origin(), body.max(),
+                session.getBlockChangeCount(), System.currentTimeMillis(), session);
+        if (bool(b, "history", true)) {  // eval site resets keep out: nothing to undo
             history.push(edit);
             while (history.size() > MAX_HISTORY) history.removeLast();
         }
@@ -153,7 +137,7 @@ public final class WorldRoutes {
         org.bukkit.block.Block blk = w.getBlockAt(at[0], at[1], at[2]);
         if (!(blk.getBlockData() instanceof org.bukkit.block.data.Powerable pw))
             throw new IllegalArgumentException("not a lever or button: " + blk.getBlockData().getAsString());
-        boolean on = b.has("on") ? b.get("on").getAsBoolean() : !pw.isPowered();
+        boolean on = bool(b, "on", !pw.isPowered());
         pw.setPowered(on);
         blk.setBlockData(pw, true);
         org.bukkit.block.Block attached = blk;
@@ -170,7 +154,7 @@ public final class WorldRoutes {
         kickAround(attached);
         if (on && blk.getType().name().endsWith("_BUTTON")) {
             final org.bukkit.block.Block button = blk, base = attached;
-            int ticks = b.has("ticks") ? b.get("ticks").getAsInt() : 20;
+            int ticks = integer(b, "ticks", 20);
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (button.getBlockData() instanceof org.bukkit.block.data.Powerable p2) {
                     p2.setPowered(false);
@@ -190,7 +174,7 @@ public final class WorldRoutes {
         if (!(blk.getState() instanceof org.bukkit.block.Sign sg))
             throw new IllegalArgumentException("not a sign: " + blk.getBlockData().getAsString());
         org.bukkit.block.sign.Side side = org.bukkit.block.sign.Side.valueOf(
-                b.has("side") ? b.get("side").getAsString().toUpperCase() : "FRONT");
+                str(b, "side", "front").toUpperCase());
         JsonArray lines = b.getAsJsonArray("lines");
         var face = sg.getSide(side);
         for (int i = 0; i < 4; i++)
@@ -260,14 +244,6 @@ public final class WorldRoutes {
         }
         history.remove(edit);
         return map("undone", edit.summary());
-    }
-
-    static int[] box(int[] min, int[] max) {
-        int[] size = {max[0] - min[0] + 1, max[1] - min[1] + 1, max[2] - min[2] + 1};
-        if (size[0] < 1 || size[1] < 1 || size[2] < 1) throw new IllegalArgumentException("max must be >= min");
-        if ((long) size[0] * size[1] * size[2] > MAX_VOLUME)
-            throw new IllegalArgumentException("region too large (max " + MAX_VOLUME + " blocks)");
-        return size;
     }
 
     /** Run-length pairs [value, count, value, count, ...]. */

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import static dev.mcarchitect.core.Json.map;
+import static dev.mcarchitect.core.Json.str;
 
 /**
  * Events for the architect's daemon: every /arc becomes one, with the player's context. The daemon
@@ -20,7 +21,6 @@ final class Inbox {
     private static final long STALE_MS = 60_000;     // handed out but not acknowledged: hand out again
     private final Map<Long, Map<String, Object>> pending = new LinkedHashMap<>();
     private final Map<Long, Long> handedOut = new LinkedHashMap<>();
-    private final Gson gson = new Gson();
     private long nextId = 1;
     private volatile long lastPoll = 0;
 
@@ -74,9 +74,8 @@ final class Inbox {
     /** An event from the bridge, for a player who may not be online (evals' virtual players). */
     long postVirtual(JsonObject b) {
         @SuppressWarnings("unchecked")
-        Map<String, Object> ctx = gson.fromJson(b.getAsJsonObject("context"), Map.class);
+        Map<String, Object> ctx = new Gson().fromJson(b.getAsJsonObject("context"), Map.class);
         if (ctx.get("player") == null) throw new IllegalArgumentException("context.player is needed");
-        String kind = b.has("kind") ? b.get("kind").getAsString() : "request";
-        return post(kind, b.has("text") ? b.get("text").getAsString() : "", ctx);
+        return post(str(b, "kind", "request"), str(b, "text", ""), ctx);
     }
 }

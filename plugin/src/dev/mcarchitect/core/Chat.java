@@ -17,6 +17,16 @@ public final class Chat {
         s.sendMessage(Component.text(text, NamedTextColor.YELLOW));
     }
 
+    /** done = green, warn = yellow, thinking = grey, anything else white. */
+    public static NamedTextColor tone(String tone) {
+        return switch (tone) {
+            case "done" -> NamedTextColor.GREEN;
+            case "warn" -> NamedTextColor.YELLOW;
+            case "thinking" -> NamedTextColor.GRAY;
+            default -> NamedTextColor.WHITE;
+        };
+    }
+
     /** A clickable "[label]" that runs a command for whoever clicks it. */
     public static Component button(String label, String command, NamedTextColor color) {
         return Component.text("[" + label + "]", color).clickEvent(ClickEvent.runCommand(command));

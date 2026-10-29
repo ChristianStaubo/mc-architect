@@ -17,6 +17,7 @@ import org.bukkit.entity.Player;
 import java.util.List;
 import java.util.Set;
 
+import static dev.mcarchitect.core.Json.integer;
 import static dev.mcarchitect.core.Json.map;
 import static dev.mcarchitect.core.Json.str;
 
@@ -39,11 +40,14 @@ public final class Architect implements Feature, TabExecutor {
         plugin.getCommand("arc").setExecutor(this);
         plugin.getCommand("arc").setTabCompleter(this);
         HttpBridge bridge = plugin.bridge();
-        bridge.route("/inbox", b -> map("events", inbox.poll(1000L * Math.min(30, b.has("wait") ? b.get("wait").getAsInt() : 25))));
+        bridge.route("/inbox", b -> map("events", inbox.poll(1000L * Math.min(30, integer(b, "wait", 25)))));
         bridge.route("/inbox/ack", b -> map("acked", inbox.ack(b.getAsJsonArray("ids"))));
         bridge.route("/inbox/post", b -> map("id", inbox.postVirtual(b)));
         bridge.route("/say", b -> bridge.sync(() -> say(b)));
-        bridge.route("/preview", b -> bridge.sync(() -> preview.show(b)));
+        bridge.route("/preview", b -> {
+            Preview.Prepared ready = Preview.prepare(b);  // decoding stays off the main thread
+            return bridge.sync(() -> preview.show(ready));
+        });
         bridge.route("/preview/clear", b -> bridge.sync(() -> map("cleared", preview.clear(str(b, "player")))));
         bridge.route("/preview/get", b -> bridge.sync(() -> preview.describe(str(b, "player"))));
     }
@@ -78,21 +82,13 @@ public final class Architect implements Feature, TabExecutor {
         String name = str(b, "player");
         Player p = Bukkit.getPlayerExact(name);
         if (p == null) return map("player", name, "delivered", false);
-        String tone = b.has("tone") ? b.get("tone").getAsString() : "info";
-        NamedTextColor color = switch (tone) {
-            case "done" -> NamedTextColor.GREEN;
-            case "warn" -> NamedTextColor.YELLOW;
-            case "thinking" -> NamedTextColor.GRAY;
-            default -> NamedTextColor.WHITE;
-        };
-        Component msg = NAME.append(Component.text(str(b, "text"), color));
-        if (b.has("buttons")) {
+        Component msg = NAME.append(Component.text(str(b, "text"), Chat.tone(str(b, "tone", "info"))));
+        if (b.has("buttons"))
             for (var e : b.getAsJsonArray("buttons")) {
                 JsonArray pair = e.getAsJsonArray();
                 msg = msg.append(Component.text(" ")).append(Chat.button(pair.get(0).getAsString(), pair.get(1).getAsString(),
                         NamedTextColor.GOLD));
             }
-        }
         p.sendMessage(msg);
         return map("player", name, "delivered", true);
     }
