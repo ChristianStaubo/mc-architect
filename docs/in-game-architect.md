@@ -57,7 +57,7 @@ arc    Built (edit e270). /arc undo takes it back.
 - **Previews are client-side fake blocks** (Paper's `sendBlockChanges`): exact, cheap (no entities), and
   only the asking player sees them. They look exactly like real blocks, so a preview is also marked: a
   glowing light-blue wireframe round the build (12 vanilla block-display rods, glowing, seen through
-  walls, visible only to that player, never saved) and a line above the hotbar ("Preview: ... /arc yes"). The world doesn't change until "yes". A preview is redrawn when the
+  walls, visible only to that player, never saved) and a bar at the top of the screen ("Preview: ... /arc yes"). The world doesn't change until "yes". A preview is redrawn when the
   player comes back into range and cleared on "no", on timeout, or on a new preview.
 - **"yes" is deterministic**: the daemon keeps the pending preview (plan file + placement args) and runs
   the same `mc place` the preview was drawn from, so what you saw is exactly what you get.
@@ -168,13 +168,14 @@ Adding a command later = a new folder under `plugin/.../<feature>/` with a `Feat
 ## Speed (2026-10-30, the /perf checklist)
 Where a request's ~30 s went: ~24 s the model (7-10 turns), under 1 s the mc commands, ~5 s Claude
 starting up with the user's 19 MCP servers (whose tool definitions also rode along on every turn).
-- **I/O calls / startup**: headless agents (architect, eval builders, judges) start with no MCP servers.
+- **I/O calls / startup**: headless agents (architect, eval builders, judges) start with no MCP servers,
+  skills or slash commands (`architect/claude.py`, the one place a headless run is put together).
 - **Passes**: the daemon reads the ground in front of the player before Claude starts and puts it in the
   prompt, with every part's signature (generated from parts.py) and a plan template: no reading files,
   no `mc site` turn.
 - **Output**: one short final line instead of a summary.
 - **Early exit**: the job is released when the agent's answer arrives, not when the process exits.
-Same three requests (`./mc.py bench`; `MC_ARC_LEAN=0` for the old way): the preview appears after
+Same three requests (`./mc.py bench`; the old way was measured with a switch since removed): the preview appears after
 10-14 s instead of 21-27 s; tool calls 4-8 instead of 8-11. The player is told 14-23 s in (was 25-38);
 the rest is the agent fixing its own audit fails before it says anything. Every request records
 `to_preview_s` and `to_say_s` in local/assistant/<player>/runs/.
