@@ -18,7 +18,6 @@ from . import render, terrain
 ROOT = Path(__file__).resolve().parent.parent
 TOWNS = ROOT / "towns"
 WATER_TYPES = ("boathouse", "pier", "dock", "harbour", "harbor", "lighthouse", "bridge", "fishing")
-SIDES = {"north": (0, -1), "south": (0, 1), "east": (1, 0), "west": (-1, 0)}
 DISTRICT_COLORS = [(230, 60, 50), (190, 80, 220), (250, 140, 30), (250, 215, 60), (250, 250, 250),
                    (80, 200, 230), (120, 210, 80), (240, 120, 170), (160, 160, 160)]
 
@@ -45,16 +44,13 @@ def plot(name, pid):
 
 
 def road_cells(r):
-    """The (x, z) cells a road covers (its width), from its points."""
+    """The (x, z) cells a road covers (its width), the same way terrain.road lays it."""
     half = r.get("width", 3) // 2
-    out = set()
     path = terrain.polyline([tuple(p) for p in r["points"]])
+    out = set()
     for k, (x, z) in enumerate(path):
-        px, pz = path[max(k - 1, 0)]
-        nx, nz = path[min(k + 1, len(path) - 1)]
-        ux, uz = (1, 0) if abs(nz - pz) >= abs(nx - px) else (0, 1)
-        for w in range(-half, half + 1):
-            out.add((x + ux * w, z + uz * w))
+        ux, uz = terrain.across(path, k)
+        out |= {(x + ux * w, z + uz * w) for w in range(-half, half + 1)}
     return out
 
 
@@ -209,7 +205,7 @@ def draw(name, cols, path, scale=5):
         _text(px, w, h, (x0 + 1) * scale - ax0 * scale + 2, (z0 + 1) * scale - az0 * scale + 2, str(n),
               (20, 20, 20), scale=max(2, scale // 2))
     render.write_png(path, w, h, px)
-    return numbering, {d: DISTRICT_COLORS[i % len(DISTRICT_COLORS)] for i, d in enumerate(districts)}
+    return numbering
 
 
 def site_report(name, cols, step=8):
@@ -217,11 +213,12 @@ def site_report(name, cols, step=8):
     and the water level."""
     t = town(name)
     (ax0, az0), (ax1, az1) = t["area"]["min"], t["area"]["max"]
-    sl = terrain.slope_map({k: v for k, v in cols.items() if ax0 <= k[0] <= ax1 and az0 <= k[1] <= az1})
+    area = {k: v for k, v in cols.items() if ax0 <= k[0] <= ax1 and az0 <= k[1] <= az1}
+    sl = terrain.slope_map(area)
     n = len(sl)
     classes = {"gentle (0-1)": sum(v <= 1 for v in sl.values()), "steep (2-3)": sum(2 <= v <= 3 for v in sl.values()),
                "cliff (4+)": sum(v >= 4 for v in sl.values())}
-    water = [v[0] for k, v in cols.items() if ax0 <= k[0] <= ax1 and az0 <= k[1] <= az1 and terrain.is_water(v)]
+    water = [v[0] for v in area.values() if terrain.is_water(v)]
     lines = [f"town {name}: x {ax0}..{ax1}, z {az0}..{az1}",
              f"water level y {statistics.mode(water) if water else '-'}; water {len(water) / n:.0%} of the area",
              "slopes: " + ", ".join(f"{k} {v / n:.0%}" for k, v in classes.items()),

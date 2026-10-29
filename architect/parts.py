@@ -14,7 +14,7 @@ def hip_roof(b, x1, z1, x2, z2, y, stair, top=None, overhang=1):
     while x1 + level <= x2 - level and z1 + level <= z2 - level:
         a1, a2, c1, c2 = x1 + level, x2 - level, z1 + level, z2 - level
         if a1 == a2 or c1 == c2:
-            b.fill(a1, y + level, c1, a2, y + level, c2, top or stair.replace("_stairs", "_slab") + "[type=bottom]")
+            b.fill(a1, y + level, c1, a2, y + level, c2, top or slab_of(stair))
             break
         for x in range(a1, a2 + 1):
             b.set(x, y + level, c1, f"{stair}[facing=south,half=bottom,shape=straight]")
@@ -101,7 +101,7 @@ def gable_roof(b, x1, z1, x2, z2, y, stair, gable, ridge="x", overhang=1, slab=N
         level += 1
     if lo_o + level == hi_o - level:  # odd span: a ridge row of slabs
         for a in range(a1, a2 + 1):
-            put(a, lo_o + level, y + level, slab or f"{stair.replace('_stairs', '_slab')}[type=bottom]")
+            put(a, lo_o + level, y + level, slab or slab_of(stair))
     return {"x1": x1, "z1": z1, "x2": x2, "z2": z2, "y": y, "ridge": ridge, "overhang": overhang,
             "stair": stair, "gable": gable}
 
@@ -111,6 +111,12 @@ def light(b, x, y, z, block="lantern[hanging=false]"):
 
 
 FACE_STEP = {"north": (0, -1), "south": (0, 1), "east": (1, 0), "west": (-1, 0)}
+STEP_FACE = {v: k for k, v in FACE_STEP.items()}
+
+
+def slab_of(stair):
+    """The bottom slab of a stair's material: oak_stairs -> oak_slab[type=bottom]."""
+    return stair.replace("_stairs", "_slab") + "[type=bottom]"
 
 
 def timber_frame(b, x1, z1, x2, z2, y1, y2, fill, post="oak_log[axis=y]", beam="oak_log", every=4):
@@ -166,7 +172,7 @@ def spiral_stairs(b, x1, z1, x2, z2, y1, y2, stair, landing, headroom=3, support
     while y < y2:
         cx, cz = ring[i % len(ring)]
         nx, nz = ring[(i + 1) % len(ring)]
-        facing = {(1, 0): "east", (-1, 0): "west", (0, 1): "south", (0, -1): "north"}[(nx - cx, nz - cz)]
+        facing = STEP_FACE[(nx - cx, nz - cz)]
         if (cx, cz) in corners:
             b.set(cx, y, cz, landing)
         else:
@@ -238,13 +244,10 @@ def dormer(b, x, y, z, facing, roof_stair, wall, width=3, pane="glass_pane"):
             side = ("west" if i < 0 else "east") if sx else ("north" if i < 0 else "south")
             up = OPPOSITE[side]
             b.set(cx, y + 2 + lvl, cz, f"{roof_stair}[facing={up},half=bottom,shape=straight]" if i else
-                  roof_stair.replace("_stairs", "_slab") + "[type=bottom]")
+                  slab_of(roof_stair))
 
 
 # ---- details the lakeside builders wrote by hand (friction: town1) ----
-
-OUT = {"north": (0, -1), "south": (0, 1), "east": (1, 0), "west": (-1, 0)}
-
 
 def chimney(b, x, z, y_base, y_top, block="cobblestone", width=1, smoke=True, cap="stone_brick_slab[type=bottom]"):
     """A chimney stack from y_base to y_top (width 1 or 2 square), finished with a cap or, with smoke, a
@@ -257,14 +260,10 @@ def chimney(b, x, z, y_base, y_top, block="cobblestone", width=1, smoke=True, ca
         b.set(x, y_top + 1, z, "campfire[lit=true,signal_fire=false,facing=north]")
 
 
-def _window_cells(x, y, z, along, width, height):
-    return [((x + i, y + j, z) if along == "x" else (x, y + j, z + i)) for i in range(width) for j in range(height)]
-
-
 def shutters(b, x, y, z, along, width, height, out, wood="spruce"):
     """Open shutters either side of a window (the window's cells: from (x, y, z), `width` along `along`,
     `height` up), on the outside of the wall; `out` is the direction the wall faces (north/south/east/west)."""
-    ox, oz = OUT[out]
+    ox, oz = FACE_STEP[out]
     sides = [(x - 1, z), (x + width, z)] if along == "x" else [(x, z - 1), (x, z + width)]
     for sx, sz in sides:
         for j in range(height):
@@ -275,7 +274,7 @@ def flower_box(b, x, y, z, along, width, out, flowers=("poppy", "dandelion", "az
                front="spruce_trapdoor"):
     """A planter under a window: a row of moss sticking out of the wall one block below the window's
     bottom row (y), flowers on it, and a trapdoor front. `out`: the direction the wall faces."""
-    ox, oz = OUT[out]
+    ox, oz = FACE_STEP[out]
     for i in range(width):
         cx, cz = (x + i, z) if along == "x" else (x, z + i)
         b.set(cx + ox, y - 1, cz + oz, "moss_block")
@@ -294,14 +293,14 @@ def outside_stair(b, x, y, z, direction, steps, wood="spruce", side=None, landin
         for yy in range(y, y + i):
             b.set(cx, yy, cz, f"{wood}_planks")
         if side:
-            sx, sz = OUT[side]
+            sx, sz = FACE_STEP[side]
             b.set(cx + sx, y + i + 1, cz + sz, f"{wood}_fence")
     top = y + steps - 1
     for i in range(steps, steps + landing):
         cx, cz = x + dx * i, z + dz * i
         b.fill(cx, y, cz, cx, top, cz, f"{wood}_planks")
         if side:
-            sx, sz = OUT[side]
+            sx, sz = FACE_STEP[side]
             b.set(cx + sx, top + 1, cz + sz, f"{wood}_fence")
     return x + dx * (steps + landing - 1), top + 1, z + dz * (steps + landing - 1)
 
@@ -370,14 +369,14 @@ def cone_roof(b, cx, cz, y, radius, stair, top=None):
                 elif d < r - 0.5:
                     b.set(x, y + level, z, "air")
         level += 1
-    b.set(cx, y + level, cz, top or stair.replace("_stairs", "_slab") + "[type=bottom]")
+    b.set(cx, y + level, cz, top or slab_of(stair))
 
 
 def awning(b, x1, x2, z, y, out, colors=("red_wool", "white_wool"), depth=2):
     """A striped awning over a stall front from x1..x2 (along x) on the wall at z, starting at height y
     and stepping down one per row outward (`out`: north or south) for `depth` rows: stripes alternate
     `colors` along x. Wool has no slopes, so the slope is stepped (lakeside: flat awnings read as lids)."""
-    oz = OUT[out][1]
+    oz = FACE_STEP[out][1]
     for d in range(depth):
         for x in range(x1, x2 + 1):
             b.set(x, y - d, z + oz * (d + 1), colors[(x - x1) % len(colors)])

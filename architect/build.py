@@ -2,7 +2,9 @@
 the bridge's /place takes. Block names are Minecraft block-data strings ("oak_stairs[facing=north]");
 the "minecraft:" prefix is optional."""
 
-AIR = "air"
+from collections import Counter
+
+from .blocks import name
 
 
 def _states(block):
@@ -48,11 +50,7 @@ class Build:
         return {(x, z) for (x, y, z) in self.blocks}
 
     def counts(self):
-        out = {}
-        for b in self.blocks.values():
-            k = b.split("[")[0]
-            out[k] = out.get(k, 0) + 1
-        return dict(sorted(out.items(), key=lambda kv: -kv[1]))
+        return dict(Counter(name(b) for b in self.blocks.values()).most_common())
 
 
 def payload(cells, label="build"):

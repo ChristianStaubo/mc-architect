@@ -3,7 +3,7 @@ since redstone only runs in ticking chunks). python3 scripts/test_door_live.py -
 import sys, time; sys.path.insert(0, '.')
 from architect import bridge, edits, redstone
 O = (330, 66, 330)
-bridge.command("forceload add 320 320 345 345")
+bridge.command(f"forceload add {O[0] - 10} {O[2] - 10} {O[0] + 5} {O[2] + 10}")  # the door's chunks
 b, info = redstone.piston_door_2x2()
 cells = {(O[0] + x, O[1] + y, O[2] + z): v for (x, y, z), v in b.blocks.items()}
 for e0 in [e for e in edits.listing() if e["label"] == "test-door"]:
