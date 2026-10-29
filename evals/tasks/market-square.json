@@ -1,0 +1,21 @@
+{
+  "id": "market-square",
+  "brief": "A small market square: at least three market stalls with colourful awnings around a central well, a paved floor, lanterns. Open-air, no doors needed.",
+  "style": "colourful village market",
+  "plot": {
+    "min": [
+      88,
+      -152
+    ],
+    "max": [
+      111,
+      -129
+    ]
+  },
+  "must": [],
+  "min_indoor_floor": 0,
+  "budget": {
+    "calls": 40,
+    "minutes": 20
+  }
+}

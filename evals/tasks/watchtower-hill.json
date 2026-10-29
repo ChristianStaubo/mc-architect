@@ -1,0 +1,24 @@
+{
+  "id": "watchtower-hill",
+  "brief": "A stone watchtower on a snowy hilltop: at least 16 blocks tall, a way up inside (stairs or ladders), a lookout platform at the top with crenellations, a door at the base.",
+  "style": "grey stone, dark wood accents",
+  "plot": {
+    "min": [
+      -104,
+      -200
+    ],
+    "max": [
+      -81,
+      -177
+    ]
+  },
+  "must": [
+    "door",
+    "interior"
+  ],
+  "min_indoor_floor": 4,
+  "budget": {
+    "calls": 40,
+    "minutes": 20
+  }
+}

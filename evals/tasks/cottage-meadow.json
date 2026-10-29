@@ -1,0 +1,24 @@
+{
+  "id": "cottage-meadow",
+  "brief": "A cozy one-player cottage on a flat meadow: a bed, storage, a crafting spot, everything lit. It should look charming and lived-in from outside, not like a box.",
+  "style": "medieval timber and stone",
+  "plot": {
+    "min": [
+      -80,
+      -32
+    ],
+    "max": [
+      -57,
+      -9
+    ]
+  },
+  "must": [
+    "door",
+    "interior"
+  ],
+  "min_indoor_floor": 12,
+  "budget": {
+    "calls": 30,
+    "minutes": 15
+  }
+}

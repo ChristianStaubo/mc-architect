@@ -1,0 +1,24 @@
+{
+  "id": "boathouse-shore",
+  "brief": "A timber boathouse on the shoreline: part of it stands over the water on posts, with a dock running out into the water and a small enclosed room for storage.",
+  "style": "weathered spruce and stone",
+  "plot": {
+    "min": [
+      88,
+      136
+    ],
+    "max": [
+      111,
+      159
+    ]
+  },
+  "must": [
+    "door",
+    "interior"
+  ],
+  "min_indoor_floor": 6,
+  "budget": {
+    "calls": 40,
+    "minutes": 20
+  }
+}

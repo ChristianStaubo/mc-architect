@@ -1,0 +1,24 @@
+{
+  "id": "tavern-slope",
+  "brief": "A two-storey tavern set into a grassy hillside: a ground-floor bar room with tables and seats, rooms upstairs reached by stairs, a sign or banner at the entrance. Use the slope rather than flattening it all.",
+  "style": "medieval timber frame",
+  "plot": {
+    "min": [
+      -224,
+      208
+    ],
+    "max": [
+      -201,
+      231
+    ]
+  },
+  "must": [
+    "door",
+    "interior"
+  ],
+  "min_indoor_floor": 30,
+  "budget": {
+    "calls": 45,
+    "minutes": 25
+  }
+}
