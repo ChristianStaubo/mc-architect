@@ -1,0 +1,19 @@
+# Downloaded tools and jars: deps.lock.json pins them, scripts/deps.py fetches and verifies them
+.tools/
+*.jar
+
+# The local test server's runtime state (worlds, logs, caches, Paper's own server.properties with its
+# generated secret). Our settings live in config/server.properties.
+server/*
+!server/plugins/
+server/plugins/*
+!server/plugins/.gitkeep
+
+# Other people's builds: keep the source links in references/README.md, not the files
+references/*
+!references/README.md
+
+local/
+__pycache__/
+.DS_Store
+plugin/build/
