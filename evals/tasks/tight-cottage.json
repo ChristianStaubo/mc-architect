@@ -44,9 +44,6 @@
       ]
     },
     {
-      "code": "untouched_outside"
-    },
-    {
       "judge": "rubric",
       "dimensions": [
         "brief",

@@ -261,7 +261,8 @@ The report prints actual cost per run so we can trim (fewer trials on stable tas
    `evals/sites/` (`architect/sites.py`: capture once, reset before every trial), `mc eval check TASK
    [--plan P]` (reset, place, grade). Every reference passes its graders and the gate checks them
    (group "graders"). Lessons: a reset must retire the task's old edits (placement read them as
-   ground), doors must count as walkable, and plants popping off by themselves aren't the builder's.
+   ground), doors must count as walkable, and the world must hold still (no random ticks) between a reset
+   and the grading; unstable wild mushrooms were dropped from the site snapshots.
 3. **Runner**: `mc eval run [--tasks a,b] [--trials 3]` (`architect/trials.py`).
 4. **Judges** (`architect/judges.py`: three judges per trial, three dimensions each, `unknown`
    allowed, trial 1 of each task judged twice) and **report** (`architect/scoreboard.py`, `mc eval

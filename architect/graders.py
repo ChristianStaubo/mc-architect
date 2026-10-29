@@ -4,10 +4,11 @@ be tested and run on previews. Each returns {"pass": bool, "value": ..., "detail
 
 import builtins
 import fnmatch
+import inspect
 import re
 from collections import Counter, deque
 
-from . import audit, blocks
+from . import audit, blocks, placement
 
 STEP = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 CLIMB = ("ladder", "scaffolding", "vine")
@@ -19,19 +20,12 @@ class Outcome:
 
     def __init__(self, after, before, plot, floor_y=None):
         self.after, self.before, self.plot, self.floor_y = after, before, plot, floor_y
-        self.changed = {p for p in after if after[p] != before.get(p) and not _noise(before.get(p), after[p])}
+        self.changed = {p for p in after if after[p] != before.get(p)}
         built = [p for p in self.changed if not blocks.is_air(after[p])]
-        pts = built or list(self.changed)
-        if pts:
-            self.box = (tuple(min(p[i] for p in pts) for i in range(3)), tuple(max(p[i] for p in pts) for i in range(3)))
-        else:
-            self.box = None
+        self.box = placement.bounds(built or self.changed) if self.changed else None
         self._audit = None
         self._walk = None
-        self.before_top = {}
-        for (x, y, z), b in before.items():
-            if not blocks.is_air(b) and y > self.before_top.get((x, z), (-10 ** 9, ""))[0]:
-                self.before_top[(x, z)] = (y, b)
+        self.before_top = placement.surface(before)  # the ground, not treetops or grass
 
     @property
     def audit(self):
@@ -41,15 +35,27 @@ class Outcome:
                 "indoor_levels": [], "indoor_floor": 0, "doors": 0, "blocks": 0}}
         return self._audit
 
+    @property
+    def ground_y(self):
+        """One above the lowest original ground under the build: where it stands."""
+        ground = [self.before_top[(x, z)][0] for x, _, z in self.built() if (x, z) in self.before_top]
+        return (builtins.min(ground) + 1) if ground else self.box[0][1]
+
     def as_edit(self, name):
         """An edit-shaped record of what was built, for `mc shots` (contact sheets of trials)."""
-        ground = [self.before_top[(x, z)][0] for x, _, z in self.built() if (x, z) in self.before_top]
-        return {"id": name, "label": name, "min": list(self.box[0]), "max": list(self.box[1]),
-                "floor_y": (builtins.min(ground) + 1) if ground else self.box[0][1]}
+        return {"id": name, "label": name, "min": list(self.box[0]), "max": list(self.box[1]), "floor_y": self.ground_y}
 
     def built(self):
         """The non-air blocks the trial placed."""
         return {p: self.after[p] for p in self.changed if not blocks.is_air(self.after[p])}
+
+    def in_box(self, p):
+        (x0, _, z0), (x1, _, z1) = self.box
+        return x0 <= p[0] <= x1 and z0 <= p[2] <= z1
+
+    def on_plot(self, p):
+        (x0, z0), (x1, z1) = self.plot
+        return x0 <= p[0] <= x1 and z0 <= p[2] <= z1
 
     def walk(self):
         """Every spot a player can walk to from the edge of the region: steps up and down by one, doors
@@ -63,42 +69,36 @@ class Outcome:
                 return (_open(cells.get(p)) and _open(cells.get((x, y + 1, z))) and below is not None
                         and not audit.passable(below) and not _door(below))
 
-            lo = [min(p[i] for p in cells) for i in range(3)]
-            hi = [max(p[i] for p in cells) for i in range(3)]
-            starts = [p for p in cells if (p[0] in (lo[0], hi[0]) or p[2] in (lo[2], hi[2])) and stand(p)]
-            seen, q = set(starts), deque(starts)
-            while q:
-                x, y, z = q.popleft()
+            def moves(x, y, z):
                 for dx, dz in STEP:
                     for dy in (0, 1, -1):
                         n = (x + dx, y + dy, z + dz)
-                        if n in seen or n not in cells or not stand(n):
-                            continue
-                        if dy == 1 and not _open(cells.get((x, y + 2, z))):
-                            continue  # no room to step up
-                        seen.add(n)
-                        q.append(n)
-                        break
+                        if n in cells and stand(n) and (dy != 1 or _open(cells.get((x, y + 2, z)))):
+                            yield n  # (stepping up needs headroom)
+                            break
                 for dy in (1, -1):  # ladders
                     n = (x, y + dy, z)
-                    if n not in seen and n in cells and any(k in blocks.name(cells[n] or "air") for k in CLIMB):
-                        seen.add(n)
-                        q.append(n)
-            self._walk = seen
+                    if n in cells and any(k in blocks.name(cells[n] or "air") for k in CLIMB):
+                        yield n
+
+            lo, hi = placement.bounds(cells)
+            self._walk = _bfs([p for p in cells if (p[0] in (lo[0], hi[0]) or p[2] in (lo[2], hi[2])) and stand(p)], moves)
         return self._walk
 
 
-WILD = ("brown_mushroom", "red_mushroom", "snow")
-
-
-def _noise(was, now):
-    """The world changing by itself, not the builder: small plants popping off or snow melting."""
-    return (was is not None and blocks.is_air(now)
-            and (blocks.is_plant(was) or blocks.name(was) in WILD))
+def _bfs(starts, moves):
+    """Everything reachable from `starts` through `moves(x, y, z)` -> next positions."""
+    seen, q = set(starts), deque(starts)
+    while q:
+        for n in moves(*q.popleft()):
+            if n not in seen:
+                seen.add(n)
+                q.append(n)
+    return seen
 
 
 def _door(b):
-    return b is not None and (blocks.name(b).endswith("_door") or blocks.name(b).endswith("_fence_gate"))
+    return b is not None and (audit.is_door(b) or blocks.name(b).endswith("_fence_gate"))
 
 
 def _open(b):
@@ -131,12 +131,8 @@ def audit_clean(o):
 
 
 def inside_plot(o):
-    (x0, z0), (x1, z1) = o.plot
-    out = [p for p in o.changed if not (x0 <= p[0] <= x1 and z0 <= p[2] <= z1)]
+    out = [p for p in o.changed if not o.on_plot(p)]
     return _res(not out, len(out), f"{len(out)} blocks changed outside the plot" + (f", e.g. {sorted(out)[:3]}" if out else ""))
-
-
-untouched_outside = inside_plot
 
 
 def storeys(o, min=1):
@@ -167,9 +163,7 @@ def stairs_reach_every_storey(o):
     levels = o.audit["stats"]["indoor_levels"]
     if not levels:
         return _res(False, 0, "no storeys")
-    walk = o.walk()
-    (x0, _, z0), (x1, _, z1) = o.box
-    reached = [y for y in levels if any(p[1] == y and x0 <= p[0] <= x1 and z0 <= p[2] <= z1 for p in walk)]
+    reached = [y for y in levels if any(p[1] == y and o.in_box(p) for p in o.walk())]
     return _res(len(reached) == len(levels), f"{len(reached)}/{len(levels)}",
                 f"storeys at y {levels}: reachable on foot {reached}")
 
@@ -178,12 +172,7 @@ def height(o, min=1):
     """From the ground it stands on (the lowest original ground under it, or the plan's floor) to its top."""
     if not o.box:
         return _res(False, 0, "nothing built")
-    if o.floor_y is not None:
-        base = o.floor_y
-    else:
-        ground = [o.before_top[(x, z)][0] for x, _, z in o.built() if (x, z) in o.before_top]
-        base = (builtins.min(ground) + 1) if ground else o.box[0][1]
-    h = o.box[1][1] - base + 1
+    h = o.box[1][1] - (o.floor_y if o.floor_y is not None else o.ground_y) + 1
     return _res(h >= min, h, f"{h} blocks tall above the ground (need {min})")
 
 
@@ -201,16 +190,10 @@ def spans_water(o, frm, to):
     if not a or not b:
         return _res(False, 0, f"no standing spot at {frm if not a else to}")
     # walk() floods from the region edge; check frm and to are in one connected piece of it
-    start = a[0]
-    seen, q = {start}, deque([start])
-    while q:
-        x, y, z = q.popleft()
-        for dx, dz in STEP:
-            for dy in (0, 1, -1):
-                n = (x + dx, y + dy, z + dz)
-                if n in walk and n not in seen:
-                    seen.add(n)
-                    q.append(n)
+    near = lambda x, y, z: (n for n in ((x + dx, y + dy, z + dz) for dx, dz in STEP for dy in (0, 1, -1))  # noqa: E731
+                            if n in walk)
+    ladder = lambda x, y, z: (n for n in ((x, y + 1, z), (x, y - 1, z)) if n in walk)  # noqa: E731
+    seen = _bfs([a[0]], lambda *p: [*near(*p), *ladder(*p)])
     ok = any(p in seen for p in b)
     return _res(ok, ok, f"{'a' if ok else 'no'} walkable way from {frm} to {to}")
 
@@ -233,8 +216,7 @@ def floor_levels(o, min=2):
     """Distinct heights people stand at on and in the build (split levels, terraces, storeys)."""
     if not o.box:
         return _res(False, 0, "nothing built")
-    (x0, _, z0), (x1, _, z1) = o.box
-    ys = Counter(p[1] for p in o.walk() if x0 <= p[0] <= x1 and z0 <= p[2] <= z1)
+    ys = Counter(p[1] for p in o.walk() if o.in_box(p))
     levels = sorted(y for y, n in ys.items() if n >= 6)
     return _res(len(levels) >= min, len(levels), f"{len(levels)} levels people stand at, y {levels} (need {min})")
 
@@ -266,8 +248,7 @@ def water_untouched(o):
 
 def keeps_trees(o, min_share=0.6):
     """Of the logs on the plot before, the share still standing."""
-    (x0, z0), (x1, z1) = o.plot
-    logs = [p for p, b in o.before.items() if blocks.name(b).endswith("_log") and x0 <= p[0] <= x1 and z0 <= p[2] <= z1]
+    logs = [p for p, b in o.before.items() if blocks.name(b).endswith("_log") and o.on_plot(p)]
     if not logs:
         return _res(True, 1.0, "no trees on the plot")
     kept = sum(1 for p in logs if o.after.get(p) == o.before[p]) / len(logs)
@@ -286,7 +267,36 @@ CATALOGUE = {f.__name__: f for f in (audit_clean, inside_plot, storeys, indoor_f
                                     door_reaches_outside, stairs_reach_every_storey, height, over_water,
                                     spans_water, contains, contains_not, floor_levels, not_symmetric,
                                     materials, water_untouched, keeps_trees, light_near_top)}
-CATALOGUE["untouched_outside"] = untouched_outside
+
+# The checks in words, for the builder's brief; {arg} is filled from the task, else the grader's default.
+TEXT = {
+    "audit_clean": "`mc audit` shows no FAIL",
+    "inside_plot": "nothing changes outside the plot (tree clearing and foundations included)",
+    "door_reaches_outside": "every door can be walked to from outside",
+    "indoor_floor": "at least {min} indoor floor spots",
+    "lit_indoors": "every indoor floor is lit",
+    "storeys": "at least {min} storeys",
+    "stairs_reach_every_storey": "every storey can be walked to (stairs or ladders)",
+    "height": "at least {min} blocks tall above the ground",
+    "over_water": "at least {min} columns of the build stand over water",
+    "spans_water": "walkable without swimming from {frm} to {to} (x, z)",
+    "contains": "at least {min} of {any}",
+    "contains_not": "none of {any}",
+    "floor_levels": "people stand at {min}+ different heights (split levels, terraces)",
+    "not_symmetric": "not a mirror image of itself",
+    "materials": "{min}-{max} main materials",
+    "water_untouched": "no water block changes",
+    "keeps_trees": "at least {min_share:.0%} of the plot's tree logs still standing",
+    "light_near_top": "a light in the top {within} blocks",
+}
+
+
+def describe(g):
+    """A task's grader entry ({"code": ..., args}) in words."""
+    f = CATALOGUE[g["code"]]
+    args = {k: v.default for k, v in inspect.signature(f).parameters.items() if v.default is not inspect.Parameter.empty}
+    args.update({k: v for k, v in g.items() if k != "code"})
+    return TEXT[g["code"]].format(**args) + (" on an indoor floor" if args.get("on_floor") else "")
 
 
 def run(task, outcome):

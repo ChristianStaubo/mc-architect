@@ -2,17 +2,22 @@
 the seeded world into evals/sites/<task>.json.gz. A trial starts by putting the site back exactly, and is
 graded by comparing the live world with it."""
 
+import contextlib
 import gzip
 import json
 from pathlib import Path
 
 from . import bridge, edits, graders
+from .build import payload
 
 ROOT = Path(__file__).resolve().parent.parent
 DIR = ROOT / "evals" / "sites"
 MARGIN = 6      # around the plot: trees cut at the edge, spill-over, the "nothing outside" check
 BELOW = 10      # under the lowest ground: foundations and cellars
 ABOVE = 48      # over the highest ground: towers and lighthouses
+# While trials run and are graded the world holds still: no grass spreading, plants popping off in the
+# light, leaves decaying or snow melting between the reset and the grading, and always noon.
+STILL = {"advance_time": "false", "advance_weather": "false", "random_tick_speed": "0"}
 
 
 def path(tid):
@@ -50,13 +55,31 @@ def bounds(r):
 
 
 def reset(tid):
-    """Put the site back as captured, and remove what trials summoned (boats, armour stands)."""
+    """Put the site back as captured (only the blocks that differ), and remove what trials summoned."""
     r = load(tid)
-    (x0, y0, z0), (x1, y1, z1) = bounds(r)
+    lo, hi = bounds(r)
+    (x0, y0, z0), (x1, y1, z1) = lo, hi
     bridge.command(f"kill @e[type=!player,x={x0},y={y0},z={z0},dx={x1 - x0},dy={y1 - y0},dz={z1 - z0}]")
-    bridge.place({"origin": r["min"], "size": r["size"], "palette": r["palette"], "rle": r["rle"],
-                  "label": f"reset {tid}"})
-    edits.retire(tid, "site reset")
+    live = bridge.region(lo, hi)
+    diff = {p: b for p, b in bridge.decode(r).items() if live.get(p) != b}
+    if diff:
+        bridge.place(payload(diff, label=f"reset {tid}") | {"history": False})
+    edits.retire_in(lo, hi, f"site reset {tid}")
+
+
+@contextlib.contextmanager
+def still():
+    """The STILL gamerules for the duration, then back to what they were (nesting keeps them still)."""
+    old = {k: " ".join(bridge.command(f"gamerule {k}").get("output", [])).rsplit(" ", 1)[-1] for k in STILL}
+    for k, v in STILL.items():
+        bridge.command(f"gamerule {k} {v}")
+    bridge.command("time set noon")
+    try:
+        yield
+    finally:
+        for k, v in old.items():
+            if v in ("true", "false") or v.isdigit():
+                bridge.command(f"gamerule {k} {v}")
 
 
 def outcome(task, floor_y=None):

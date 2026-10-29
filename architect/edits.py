@@ -122,11 +122,12 @@ def _restore_body(e):
     return payload(snapshot(e), label=f"undo {e['id']}")
 
 
-def retire(task, how):
-    """Mark a task's live edits undone without touching the world: its site was put back some other way
-    (an eval reset), so their snapshots no longer describe what's there."""
+def retire_in(lo, hi, how):
+    """Mark every live edit inside the box lo..hi undone without touching the world: the box was put back
+    some other way (an eval site reset), so their snapshots no longer describe what's there."""
+    box = {"min": list(lo), "max": list(hi)}
     with _locked():
-        gone = [e for e in listing() if e.get("task") == task]
+        gone = [e for e in listing() if _overlap(e, box)]
         for e in gone:
             _write({**e, "undone": time.strftime("%Y-%m-%dT%H:%M:%S"), "undo_via": how})
     return gone

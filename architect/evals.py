@@ -1,17 +1,16 @@
-"""The eval suite: fixed briefs on fixed plots of the seeded world, and the scoreboard.
-
-A task (evals/tasks/<id>.json) is a brief, a plot, a budget and expectations. A run builds every task
-once; `record` joins what happened (edits, audit, the critic's scores, the journal's tool calls) into
-local/evals/<run>/<task>.json, and `report` turns runs into the scoreboard."""
+"""The eval tasks: fixed briefs on fixed plots of the seeded world (evals/tasks/<id>.json: brief, plot,
+budget, graders), the builder's brief, and what a builder did according to the journal. Runs, grading
+and reports: trials.py, graders.py, judges.py, scoreboard.py (docs/evals.md)."""
 
 import json
 from pathlib import Path
 
-from . import journal
+from . import graders, journal
 
 ROOT = Path(__file__).resolve().parent.parent
 TASKS = ROOT / "evals" / "tasks"
-RESULTS = ROOT / "local" / "evals"
+RESULTS = ROOT / "local" / "evals"   # capability runs, the regression suite's records, reference sheets
+REFERENCES = RESULTS / "references"
 
 
 def tasks():
@@ -30,36 +29,8 @@ def in_plot(t, lo, hi):
     return px0 <= lo[0] and hi[0] <= px1 and pz0 <= lo[2] and hi[2] <= pz1
 
 
-CHECKS = {  # the code graders in words, for the builder's brief
-    "audit_clean": "`mc audit` shows no FAIL",
-    "inside_plot": "nothing changes outside the plot",
-    "untouched_outside": "nothing changes outside the plot (tree clearing and foundations included)",
-    "door_reaches_outside": "every door can be walked to from outside",
-    "indoor_floor": "at least {min} indoor floor spots",
-    "lit_indoors": "every indoor floor is lit",
-    "storeys": "at least {min} storeys",
-    "stairs_reach_every_storey": "every storey can be walked to (stairs or ladders)",
-    "height": "at least {min} blocks tall above the ground",
-    "over_water": "at least {min} columns of the build stand over water",
-    "spans_water": "walkable without swimming from {frm} to {to} (x, z)",
-    "contains": "at least {min} of {any}",
-    "contains_not": "none of {any}",
-    "floor_levels": "people stand at {min}+ different heights (split levels, terraces)",
-    "not_symmetric": "not a mirror image of itself",
-    "materials": "{min}-{max} main materials",
-    "water_untouched": "no water block changes",
-    "keeps_trees": "at least {min_share:.0%} of the plot's tree logs still standing",
-    "light_near_top": "a light in the top {within} blocks",
-}
-
-
 def checks(t):
-    out = []
-    for g in t.get("graders", []):
-        if "code" in g:
-            args = {"min": 1, "within": 4, **{k: v for k, v in g.items() if k != "code"}}
-            out.append(CHECKS[g["code"]].format(**args) + (" on an indoor floor" if g.get("on_floor") else ""))
-    return out
+    return [graders.describe(g) for g in t.get("graders", []) if "code" in g]
 
 
 def brief(tid, run, plan=None):
@@ -95,47 +66,3 @@ def tool_stats(run_task):
             "dry_runs": sum(1 for e in by("place") if "--dry-run" in e["argv"]),
             "undos": len(by("undo")), "stucks": len(by("stuck")),
             "seconds": round(sum(e["ms"] for e in es) / 1000, 1)}
-
-
-def record(tid, run, edit, audit, critique):
-    t = task(tid)
-    tools = tool_stats(f"{run}:{tid}")
-    quality = critique.get("overall") if critique else None
-    must_fail = []
-    if "door" in t.get("must", []) and audit["stats"]["doors"] < 1:
-        must_fail.append("door")
-    if "interior" in t.get("must", []) and audit["stats"]["indoor_floor"] < t.get("min_indoor_floor", 1):
-        must_fail.append("interior")
-    out = {"task": tid, "run": run, "edit": edit["id"] if edit else None,
-           "pass": bool(edit) and audit["fails"] == 0 and not must_fail,
-           "audit": {"fails": audit["fails"], "warns": audit["warns"],
-                     "failed_checks": [c["check"] for c in audit["checks"] if c["level"] == "fail"]},
-           "must_missing": must_fail, "quality": quality,
-           "critique": critique, "tools": tools,
-           "within_budget": tools["calls"] <= t["budget"]["calls"]}
-    d = RESULTS / run
-    d.mkdir(parents=True, exist_ok=True)
-    (d / f"{tid}.json").write_text(json.dumps(out, indent=2))
-    return out
-
-
-def runs():
-    return sorted(p.name for p in RESULTS.glob("*") if p.is_dir()) if RESULTS.exists() else []
-
-
-def results(run):
-    return [json.loads(p.read_text()) for p in sorted((RESULTS / run).glob("*.json"))
-            if not p.name.endswith(".critique.json")]
-
-
-def summary(run):
-    rs = results(run)
-    if not rs:
-        return None
-    q = [r["quality"] for r in rs if r["pass"] and r["quality"] is not None]
-    return {"run": run, "tasks": len(rs), "passed": sum(r["pass"] for r in rs),
-            "quality": round(sum(q) / len(q), 2) if q else None,
-            "calls": round(sum(r["tools"]["calls"] for r in rs) / len(rs), 1),
-            "failed_calls": sum(r["tools"]["failed"] for r in rs),
-            "stops": sum(r["tools"]["stucks"] for r in rs),
-            "over_budget": sum(not r["within_budget"] for r in rs)}
