@@ -16,15 +16,18 @@ Read `STYLE.md` first: those are the user's rules for what a good build is.
    x east, z south, y up, **y 0 = the ground floor**. Use the parts (below); plain `b.set` / `b.fill`
    for anything they don't cover. Keep sizes as named constants at the top so revisions are one edit.
 3. **Preview.** `./mc.py place PLAN --task T --dry-run` → Read the PNG: your build drawn on the real
-   terrain (two opposite corners), exactly as place would leave it. Without `--at` the build is centred
-   in the plot; the output prints the `--at` it used. Fix what looks wrong *before* placing.
+   terrain (two opposite corners), exactly as place would leave it, **and audited** (floating blocks,
+   sealed rooms, dark floors show here, before you place). Block names are checked against the server
+   (a typo is refused with the closest real names). Without `--at` the build is centred in the plot;
+   the output prints the `--at` it used. Re-previewing over your own earlier build is fine: heights
+   come from the terrain before your edits. Fix what looks wrong *before* placing.
 4. **Place.** `./mc.py place PLAN --task T [--at X,Z]` (X,Z = where local 0,0 goes).
    Options: `--foundation BLOCK|none` (none for posts over water), `--y Y` (fix the floor height),
    `--no-clear` (keep terrain in the box), `--keep-trees` (by default trees touching the build go).
    Clearing only happens from y 0 up: anything below (posts, a basement) is exactly what you write.
 5. **Audit.** `./mc.py audit` — any FAIL must be fixed (floating, door, bed, sealed, dark).
-6. **Look.** `./mc.py shots` → Read the sheet: 4 corners, top-down, floor plan. Judge it against
-   the brief and STYLE.md like a picky player would.
+6. **Look.** `./mc.py shots` → Read the sheet: 4 corners, top-down, and a floor plan per storey (the
+   critic sees exactly this sheet: if the stairs or a room aren't visible there, they don't count).
 7. **Self-critique, then revise (required).** Before your second placement, write down the three
    biggest problems against `evals/RUBRIC.md` and the checklist below, as a strict critic would. Fix
    them: `./mc.py undo`, edit the plan, place, audit, shots. At least two rounds; three is normal. Use
@@ -53,6 +56,9 @@ Read `STYLE.md` first: those are the user's rules for what a good build is.
 | `straight_stairs(b, x, y, z, direction, steps, stair, width=1, support=None)` | a flight up toward `direction`; clears headroom (cuts the stairwell); returns the top landing |
 | `spiral_stairs(b, x1, z1, x2, z2, y1, y2, stair, landing)` | stairs climbing around the inside of a shaft (towers), landings at corners |
 | `posts(b, [(x, z), ...], y_top, y_bottom, block)` | stilts, piers, dock posts (over water: `--foundation none`) |
+| `stamp(b, piece, x, y, z, turns=0)` | copy another Build in, turned 0–3 quarter turns (facings and connections turn too): repeated stalls, houses, towers |
+| `dormer(b, x, y, z, facing, roof_stair, wall, width=3)` | a gabled dormer window out of a roof slope; call after the roof |
+Beams: pass the bare log name (`dark_oak_log`); parts set `[axis=...]` themselves.
 `plans/cottage.py` is a worked example.
 
 ## Block states (the bridge places exactly what you write)

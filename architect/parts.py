@@ -97,6 +97,7 @@ def timber_frame(b, x1, z1, x2, z2, y1, y2, fill, post="oak_log[axis=y]", beam="
     for z in list(range(z1, z2 + 1, every)) + [z2]:
         b.fill(x1, y1, z, x1, y2, z, post)
         b.fill(x2, y1, z, x2, y2, z, post)
+    beam = beam.split("[")[0]  # the axis is set per side (r2: "dark_oak_log[axis=x]" became [axis=x][axis=x])
     for y in (y1, y2):
         for x in range(x1 + 1, x2):
             b.set(x, y, z1, f"{beam}[axis=x]")
@@ -124,10 +125,12 @@ def straight_stairs(b, x, y, z, direction, steps, stair, width=1, support=None, 
     return x + dx * steps, y + steps, z + dz * steps
 
 
-def spiral_stairs(b, x1, z1, x2, z2, y1, y2, stair, landing, headroom=3):
+def spiral_stairs(b, x1, z1, x2, z2, y1, y2, stair, landing, headroom=3, support=None):
     """Stairs climbing around the inside of the rectangle x1..x2, z1..z2 (the shaft, inside the walls)
     from y1 to y2, one block up per step, with a full `landing` block at each corner. Clears headroom.
+    `support` (default: the landing block) fills under the first lap, which would otherwise float (r2).
     For towers: the middle of the rectangle stays free (a column, or open)."""
+    support = support or landing
     ring = ([(x, z1) for x in range(x1, x2)] + [(x2, z) for z in range(z1, z2)] +
             [(x, z2) for x in range(x2, x1, -1)] + [(x1, z) for z in range(z2, z1, -1)])
     corners = {(x1, z1), (x2, z1), (x2, z2), (x1, z2)}
@@ -142,6 +145,9 @@ def spiral_stairs(b, x1, z1, x2, z2, y1, y2, stair, landing, headroom=3):
             b.set(cx, y, cz, f"{stair}[facing={facing},half=bottom,shape=straight]")
         for h in range(1, headroom + 1):
             b.set(cx, y + h, cz, "air")
+        if i < len(ring):
+            for yy in range(y1, y):
+                b.set(cx, yy, cz, support)
         y, i = y + 1, i + 1
 
 
@@ -150,3 +156,58 @@ def posts(b, points, y_top, y_bottom, block="spruce_log[axis=y]"):
     Over water, use place --foundation none and reach y_bottom below the waterline."""
     for x, z in points:
         b.fill(x, y_bottom, z, x, y_top, z, block)
+
+
+ROT = {"north": "east", "east": "south", "south": "west", "west": "north"}
+
+
+def _turn(block, k):
+    """Rotate the facing/axis/connections in a block-data string by k quarter turns clockwise."""
+    if "[" not in block or k % 4 == 0:
+        return block
+    name, rest = block.split("[", 1)
+    props = dict(p.split("=", 1) for p in rest.rstrip("]").split(","))
+    for _ in range(k % 4):
+        if props.get("facing") in ROT:
+            props["facing"] = ROT[props["facing"]]
+        if props.get("axis") in ("x", "z"):
+            props["axis"] = "z" if props["axis"] == "x" else "x"
+        sides = {s: props[s] for s in ROT if s in props}
+        for s, v in sides.items():
+            props[ROT[s]] = v
+    return name + "[" + ",".join(f"{k}={v}" for k, v in props.items()) + "]"
+
+
+def stamp(b, piece, x, y, z, turns=0):
+    """Copy another Build into b at (x, y, z), turned `turns` quarter turns clockwise (seen from above)
+    around its own origin, with facings, axes and connections turned too. For repeated pieces: stalls
+    round a square, houses along a street, towers at corners."""
+    for (px, py, pz), blk in piece.blocks.items():
+        for _ in range(turns % 4):
+            px, pz = -pz, px
+        b.set(x + px, y + py, z + pz, _turn(blk, turns))
+
+
+def dormer(b, x, y, z, facing, roof_stair, wall, width=3, pane="glass_pane"):
+    """A gabled dormer sticking out of a roof slope that faces `facing`, with its front wall's centre at
+    (x, y, z) (y = the window's bottom). A window in the front, a small pitched roof on top. Place it
+    after the main roof so it cuts through: it clears the roof behind its window."""
+    dx, dz = FACE_STEP[facing]
+    sx, sz = abs(dz), abs(dx)  # along the front
+    half = width // 2
+    for i in range(-half, half + 1):
+        for h in range(0, 3):
+            for d in range(0, 3):  # front wall back into the roof
+                cx, cz = x + sx * i - dx * d, z + sz * i - dz * d
+                edge = abs(i) == half or d == 2
+                b.set(cx, y + h, cz, wall if edge or h == 2 else "air")
+    for h in (0, 1):
+        b.set(x, y + h, z, f"{pane}[{'east=true,west=true' if sx else 'north=true,south=true'}]")
+    for i in range(-half - 1, half + 2):  # the little roof, pitched along `facing`
+        lvl = half + 1 - abs(i)
+        for d in range(-1, 3):
+            cx, cz = x + sx * i - dx * d, z + sz * i - dz * d
+            side = ("west" if i < 0 else "east") if sx else ("north" if i < 0 else "south")
+            up = OPPOSITE[side]
+            b.set(cx, y + 2 + lvl, cz, f"{roof_stair}[facing={up},half=bottom,shape=straight]" if i else
+                  roof_stair.replace("_stairs", "_slab") + "[type=bottom]")
