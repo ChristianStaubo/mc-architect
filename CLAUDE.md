@@ -13,7 +13,8 @@ server only gets builds the user approves.
 ## Layout
 - `mc.py`: the CLI. `architect/`: build grids, parts, renders, audit, edits (undo), journal, evals.
 - `plans/`: reusable plans (examples). Builders' plans for evals: `local/plans/<run>/`.
-- `evals/tasks/`: the eval suite; `evals/RUBRIC.md`: the critic's rubric. `STYLE.md`: the house style.
+- `evals/tasks/`: the eval suite (v2: graders per task), `evals/sites/` their pristine plots, `evals/reference/`
+  a passing plan per task (builders must never read these); `evals/RUBRIC.md`: the critic's rubric. `STYLE.md`: the house style.
 - `.claude/agents/`: `mc-builder` (Sonnet, builds a task), `mc-critic` (scores from pictures).
 - `plugin/`: the bridge (Java). `docker/`, `compose.yaml`: the server. `tests/`: `python3 -m unittest discover tests`.
 - `local/` (gitignored): renders, edits + snapshots, notes, eval results, and the flight recorder:

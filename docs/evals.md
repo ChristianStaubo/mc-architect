@@ -1,4 +1,4 @@
-# Evals v2: design (for review, nothing built yet)
+# Evals v2: design and how it works
 
 The eval system that tells us whether the harness (tools, parts, skills, prompts, models) builds better
 Minecraft than it did yesterday, and stops us shipping a change that makes it worse. v1 was a one-off
@@ -101,7 +101,7 @@ Things we want to get better at. Expected to start well below the ceiling.
     {"code": "indoor_floor", "min": 30},
     {"code": "lit_indoors"},
     {"code": "contains", "any": ["oak_sign", "spruce_sign", "*_banner", "*_wall_sign"]},
-    {"code": "uses_slope", "min_floor_levels": 2},
+    {"code": "floor_levels", "min": 2},
     {"code": "inside_plot"},
     {"judge": "rubric", "dimensions": ["brief", "shape", "depth", "palette", "proportion", "detail", "site", "interior"]}
   ],
@@ -123,7 +123,10 @@ Things we want to get better at. Expected to start well below the ceiling.
 | `over_water` | ≥ N blocks of the build stand over water (posts/deck) |
 | `indoor_floor`, `lit_indoors` | from the audit's stats |
 | `contains` / `contains_not` | block names present / absent (glob patterns) |
-| `uses_slope` | floors at ≥ N different heights, or terrain kept (cut/fill below a bound) |
+| `floor_levels` | people stand at ≥ N different heights on and in the build (split levels, terraces) |
+| `water_untouched` | no water block changed |
+| `keeps_trees` | a share of the plot's logs still standing |
+| `light_near_top` | a light source in the top N blocks (lighthouse, watchtower) |
 | `not_symmetric` | the build isn't mirror-symmetric (for the market task) |
 | `materials` | 3-5 main materials (STYLE.md palette rule) |
 | `road_reached` | (town) the door is within 4 blocks of a road |
@@ -237,6 +240,10 @@ and out, cost, wall time, end reason (done / stuck / budget / timeout / error).
 - Towns and redstone suites: when those capabilities are being worked on.
 
 ## 12. Cost and time (estimates to check on the first run)
+Builders and judges run `claude -p` on the user's claude.ai subscription (no API key), so nothing is
+billed per run. The dollar figures in reports (`api_usd`) are the CLI's API-price estimate of the
+tokens used: a measure of how much of the subscription's usage a run takes, and a cap per trial
+(`--max-budget-usd`), not a charge.
 - Builder trial: ~70-120k tokens, ~1-4 min (r2/town1 builders). 15 tasks × 3 trials ≈ 45 trials ≈ 4-5M
   tokens, ~30-60 min wall with 5 in parallel.
 - Judges: 9 dimensions × 2 repeats × 45 trials ≈ 800 small calls with one image each.
@@ -248,12 +255,19 @@ The report prints actual cost per run so we can trim (fewer trials on stable tas
    door test, incident replays. **Done 2026-10-29**: `architect/regression.py`, `mc eval gate`
    (15 checks, ~15 s, 100%); the pre-push hook runs its offline half (no world changes while someone
    plays) and warns.
-2. **Task format v2 + code graders + reference plans** for the 5 existing tasks; graders validated
-   against the references and against r2's builds (which should mostly pass).
-3. **Runner** (`claude -p`, isolation, transcripts, manifest) with 1 trial, then 3.
-4. **Per-dimension judges + variance + report with comparisons.**
-5. **Rating page + calibration.**
-6. **Grow the capability suite** to 15-20 tasks from friction; first real A/B: one change, two runs.
+2. **Task format v2 + code graders + reference plans.** Done 2026-10-29 for 15 tasks (the 5 v1 tasks
+   plus 10 on new sites: steep slope, river crossing, tight plot, pond, point, hilltop, forest...).
+   `architect/graders.py` (19 graders, unit tests in `tests/test_graders.py`), pristine sites in
+   `evals/sites/` (`architect/sites.py`: capture once, reset before every trial), `mc eval check TASK
+   [--plan P]` (reset, place, grade). Every reference passes its graders and the gate checks them
+   (group "graders"). Lessons: a reset must retire the task's old edits (placement read them as
+   ground), doors must count as walkable, and plants popping off by themselves aren't the builder's.
+3. **Runner**: `mc eval run [--tasks a,b] [--trials 3]` (`architect/trials.py`).
+4. **Judges** (`architect/judges.py`: three judges per trial, three dimensions each, `unknown`
+   allowed, trial 1 of each task judged twice) and **report** (`architect/scoreboard.py`, `mc eval
+   report RUN [--vs OLD]`; the summary is committed to `evals/results/<run>.json`).
+5. **Rating page** (`scripts/rating_page.py`) + calibration.
+6. **Grow the capability suite** to 20 tasks from friction; first real A/B: one change, two runs.
 7. Town and redstone suites.
 
 ## 14. Decisions (the user, 2026-10-29)

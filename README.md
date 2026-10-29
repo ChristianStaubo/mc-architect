@@ -18,7 +18,8 @@ docker compose up -d
 ./mc.py doctor
 ```
 Join in Minecraft 26.3 at `localhost`. Both ports listen on 127.0.0.1 only.
-`./mc.py eval gate` runs the regression suite (docs/evals.md); `scripts/install-hooks.sh` adds a
+`./mc.py eval gate` runs the regression suite and `./mc.py eval run` the capability suite (15 tasks x 3
+headless trials, graded, judged; `mc eval report RUN`) (docs/evals.md); `scripts/install-hooks.sh` adds a
 warn-only pre-push check.
 
 ## What it can do
