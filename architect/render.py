@@ -21,7 +21,12 @@ COLORS = [
     ("brick", (150, 97, 83)), ("andesite", (136, 136, 137)), ("diorite", (188, 188, 189)),
     ("granite", (149, 103, 85)), ("tuff", (108, 109, 102)), ("calcite", (223, 224, 220)),
     ("blackstone", (42, 36, 41)), ("basalt", (80, 81, 86)), ("quartz", (235, 229, 222)),
-    ("terracotta", (152, 94, 67)), ("white", (234, 236, 236)), ("black", (25, 25, 29)),
+    # coloured terracotta before the bare word: 'white_terracotta' drew dark brown, and both lakeside
+    # critics read the town's plaster as brown (map colours from the game)
+    ("white_terracotta", (209, 178, 161)), ("light_gray_terracotta", (135, 107, 98)),
+    ("gray_terracotta", (57, 42, 35)), ("orange_terracotta", (161, 83, 37)), ("yellow_terracotta", (186, 133, 35)),
+    ("red_terracotta", (143, 61, 46)), ("brown_terracotta", (77, 51, 35)), ("cyan_terracotta", (86, 91, 91)),
+    ("terracotta", (152, 94, 67)), ("white_concrete", (207, 213, 214)), ("smooth_quartz", (235, 229, 222)), ("white", (234, 236, 236)), ("black", (25, 25, 29)),
     ("red", (160, 39, 34)), ("blue", (53, 57, 157)), ("yellow", (248, 197, 39)),
     ("green", (84, 109, 27)), ("lantern", (250, 200, 90)), ("torch", (250, 200, 90)),
     ("coal", (40, 40, 40)), ("iron", (200, 200, 200)), ("copper", (192, 107, 79)),

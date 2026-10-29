@@ -2,7 +2,8 @@
 """mc: the agent's one tool for the Minecraft test server.
 
 Build
-  mc site --task T | X,Z [W,D]      terrain of a task's plot (or around X,Z): heights grid, slope, map
+  mc site --task T | --plot TOWN/P | X,Z [W,D]
+                                    terrain of a plot (or centred on X,Z): heights grid, water, slope, map
   mc place PLAN [--at X,Z | --near PLAYER] [--task T] [--dry-run]
              [--foundation BLOCK|none] [--y Y] [--no-clear] [--keep-trees]
                                     build a plan (plans/NAME or a .py path) on the ground there:
@@ -30,6 +31,7 @@ Towns (towns/NAME/town.json + layout.json; docs/town.md)
   mc town terrace NAME PLOT [--dry-run]    level a plot at its floor_y with retaining walls
   mc town brief NAME PLOT           a builder's brief for a plot; build it with place --plot NAME/PLOT
   mc town shots NAME                the whole town from four corners and above (the town critic's input)
+  mc town tidy NAME [--dry-run]     remove whole trees touching plots and roads (never inside plots)
   mc town status NAME               what's built
 Server
   mc doctor | status | restart | cmd "<command>"  (cmd refuses stop/restart/reload)
@@ -126,9 +128,13 @@ def player_pos(name):
 
 
 def cmd_site(a):
-    if a.task:  # the task's plot exactly, plus a 4-block margin to see what's around it
-        t = evals.task(a.task)
-        (px0, pz0), (px1, pz1) = t["plot"]["min"], t["plot"]["max"]
+    if a.task or a.plot:  # the task's or town plot's area exactly, plus a 4-block margin around it
+        if a.plot:
+            pl = towns.plot(*a.plot.split("/"))
+            (px0, pz0), (px1, pz1) = pl["min"], pl["max"]
+        else:
+            t = evals.task(a.task)
+            (px0, pz0), (px1, pz1) = t["plot"]["min"], t["plot"]["max"]
         lo, hi = (px0 - 4, pz0 - 4), (px1 + 4, pz1 + 4)
     elif a.center:
         x, z = ints(a.center)
@@ -164,8 +170,23 @@ def cmd_site(a):
         for x in range(lo[0], hi[0] + 1, step):
             y, b = cols[(x, z)]
             row.append(f"{y:>4}{'~' if render.block_name(b) == 'water' else ' '}")
+        if any(render.block_name(cols[(x, z)][1]) == "water" for x in range(lo[0], hi[0] + 1, step)):
+            row.append("  depth: " + " ".join(str(water_depth(x, z, cols[(x, z)][0])) if
+                                              render.block_name(cols[(x, z)][1]) == "water" else "."
+                                              for x in range(lo[0], hi[0] + 1, step)))
         print(f"{z:>7} " + " ".join(row))
     print(f"map (north up, brighter = higher): {path}")
+
+
+def water_depth(x, z, surface):
+    """Blocks of water below the surface at a column (where posts must reach)."""
+    col = bridge.region((x, surface - 30, z), (x, surface, z))
+    d = 0
+    for y in range(surface, surface - 31, -1):
+        if render.block_name(col.get((x, y, z), "")) != "water":
+            break
+        d += 1
+    return d
 
 
 def load_plan(name):
@@ -555,6 +576,39 @@ def cmd_town(a):
         render.sheet(imgs, path, columns=2)
         print(f"{path}\nlayout: views from the SE, SW, NW, NE corners (2 per row), then top-down (north up); "
               f"area x {lo_xz[0]}..{hi_xz[0]}, z {lo_xz[1]}..{hi_xz[1]}")
+    elif a.action == "tidy":
+        # Trees within `reach` of a plot or road go whole (no half-trees, no floating leaves), but the
+        # flood never enters a plot (buildings' log frames live there), the road corridor, or water
+        # (bridge posts). Every lakeside builder lost views to trees on neighbouring land.
+        lay = towns.layout(name)
+        reach = 4
+        plots = [((p["min"][0], p["min"][1]), (p["max"][0], p["max"][1])) for p in lay["plots"]]
+        in_plot = lambda x, z: any(p0[0] <= x <= p1[0] and p0[1] <= z <= p1[1] for p0, p1 in plots)  # noqa: E731
+        road = set()
+        for r in lay["roads"]:
+            road |= towns.road_cells({**r, "width": r.get("width", 3) + 2})
+        near = set()
+        for (p0, p1) in plots:
+            near |= {(x, z) for x in range(p0[0] - reach, p1[0] + reach + 1) for z in range(p0[1] - reach, p1[1] + reach + 1)}
+        for (x, z) in road:
+            near |= {(x + dx, z + dz) for dx in range(-reach, reach + 1) for dz in range(-reach, reach + 1)}
+        xs, zs = [p[0] for p in near], [p[1] for p in near]
+        lo, hi = (min(xs) - 8, min(zs) - 8), (max(xs) + 8, max(zs) + 8)
+        cols = bridge.heightmap(lo, hi)
+        floors = [p["floor_y"] for p in lay["plots"]]
+        world = bridge.region((lo[0], min(floors) - 6, lo[1]), (hi[0], max(floors) + 28, hi[1]))
+        ok = lambda p: (not in_plot(p[0], p[2]) and (p[0], p[2]) not in road and  # noqa: E731
+                        not terrain.is_water(cols.get((p[0], p[2]), (0, "air"))))
+        tree = lambda b: any(k in b for k in TREE)  # noqa: E731
+        seeds = [p for p, b in world.items() if (p[0], p[2]) in near and tree(b) and ok(p)]
+        found = auditing.flood(world, seeds, tree)
+        found = {p for p in found if ok(p)}
+        found |= {(x, y + 1, z) for (x, y, z) in found if render.block_name(world.get((x, y + 1, z), "")) == "snow"}
+        if a.dry_run:
+            print(f"tidy {name}: would remove {len(found)} tree blocks; nothing placed")
+            return
+        e = edits.place({p: "air" for p in found}, label="tidy-trees", run=journal.run_id(), task=f"town:{name}:tidy")
+        print(f"tidied {name} as {e['id']}: {len(found)} tree blocks removed")
     elif a.action == "status":
         live = [e for e in edits.listing() if e.get("task", "").startswith(f"town:{name}")]
         for e in live:
@@ -611,6 +665,7 @@ def main():
     s = sub.add_parser("site")
     s.add_argument("center", nargs="?", help="X,Z")
     s.add_argument("--task", help="show exactly this task's plot (with a 4-block margin)")
+    s.add_argument("--plot", help="TOWN/PLOT: show exactly this town plot (with a 4-block margin)")
     s.add_argument("size", nargs="?", help="W,D (default 48,48)")
     pl = sub.add_parser("place")
     pl.add_argument("plan")
@@ -645,7 +700,7 @@ def main():
     f.add_argument("--repeat-of")
     f.add_argument("--all", action="store_true")
     tw = sub.add_parser("town")
-    tw.add_argument("action", choices=["site", "show", "road", "terrace", "brief", "shots", "status"])
+    tw.add_argument("action", choices=["site", "show", "road", "terrace", "brief", "shots", "tidy", "status"])
     tw.add_argument("--tile", type=int, default=5)
     tw.add_argument("name")
     tw.add_argument("id", nargs="?")
