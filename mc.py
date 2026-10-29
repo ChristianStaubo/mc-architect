@@ -14,7 +14,8 @@ Build
   mc edits                          live edits (id, label, task, box)
 Look and judge
   mc shots [EDIT]                   contact sheet: 4 corner views, top-down, floor plan (critic input)
-  mc render X1,Y1,Z1 X2,Y2,Z2       isometric picture of any region
+  mc render X1,Y1,Z1 X2,Y2,Z2 [--view se|sw|nw|ne] [--surface [N]]
+                                    isometric picture of any region (--surface: no underground)
   mc audit [EDIT] [--friction]      hard checks (floating, doors, beds, sealed rooms, dark floors, panes)
                                     exit 2 on a fail; --friction files a friction report for it
 When the tools fall short
@@ -397,8 +398,12 @@ def cmd_shots(a):
 
 def cmd_render(a):
     lo, hi = ints(a.lo), ints(a.hi)
-    cells = bridge.region([min(p) for p in zip(lo, hi)], [max(p) for p in zip(lo, hi)])
-    path = out_path("region")
+    lo, hi = [min(p) for p in zip(lo, hi)], [max(p) for p in zip(lo, hi)]
+    cells = bridge.region(lo, hi)
+    if a.surface:  # only the top few blocks of the land: what you'd see walking around, no cross-section
+        cols = bridge.heightmap((lo[0], lo[2]), (hi[0], hi[2]))
+        cells = {p: b for p, b in cells.items() if p[1] >= cols[(p[0], p[2])][0] - a.surface}
+    path = out_path(f"region-{a.view}")
     w, h, _ = render.iso(cells, path, tile=a.tile, view=a.view)
     print(f"{path} ({w}x{h})")
 
@@ -495,6 +500,8 @@ def main():
     r.add_argument("hi")
     r.add_argument("--tile", type=int, default=8)
     r.add_argument("--view", default="se", choices=list(render.ROTATIONS))
+    r.add_argument("--surface", type=int, nargs="?", const=3, default=0,
+                   help="keep only the top N blocks of the land (default 3): no underground cross-section")
     for n in ("undo", "shots", "audit"):
         x = sub.add_parser(n)
         x.add_argument("id", nargs="?")
