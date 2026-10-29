@@ -4,8 +4,10 @@ Players build *with* the architect from inside Minecraft. You stand somewhere an
 `/arc a little bakery here, facing the road`; the architect answers in chat, shows you a ghost of the
 build that only you can see, and places it when you say yes. `/arc undo` takes it back.
 
-Status (2026-10-30): built and working with virtual players; the scenario suite passes. Not yet tried by
-a real player in game (step 5).
+Status (2026-10-30): built, the scenario suite passes, and tried in the real game (Claude drove it: `/arc`
+as the owner through the bridge's `/as`, the camera moved with `/tp`, screenshots of the game window with
+`screencapture -l <window id>`). The ghost preview shows on the player's screen only, survives walking
+650 blocks away and back, updates on a change, and yes / undo build and restore the ground exactly.
 
 ## Running it
 ```
@@ -152,5 +154,10 @@ Adding a command later = a new folder under `plugin/.../<feature>/` with a `Feat
 - Under `dontAsk`, an agent that writes files with a shell heredoc is refused and may simply stop: both
   agents now say Bash runs only `./mc.py`, files go through Write/Edit.
 - The scenario runner must count a queued request as busy, or it grades steps that never ran.
+- In game, "right here" put the well against the player: fine for a well, worth watching for bigger builds.
+- Testing a real client without the owner: Codex's computer use can't target the game (a bare Java window
+  is not an "app" to it), but `screencapture -x -o -l <window id>` captures the game window in the
+  background, and the bridge's `/as` and `/tp` drive the player. Minecraft must have "pause on lost
+  focus" off (F3+P), or its menu covers the view.
 - "Three blocks taller" came out +2 (walls +3, roof lower) until the agent was told to compare the
   preview's box before saying it's done: the suite caught it.
