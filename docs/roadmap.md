@@ -48,6 +48,14 @@ staging containers, Tailscale for the bridge, restic backups, ~$9-12/month).
 - The agent works on a staging copy and pushes approved builds to the live world.
 
 ## Near term
-1. Evals v2 (docs/evals.md), so everything above is measured.
-2. A more ambitious build project (the user's choice), iterating on evals and tools as we go.
-3. Then: terraforming parts, warps, and the hosting plan, in the order the projects need them.
+1. ~~Evals v2 (docs/evals.md)~~: done 2026-10-29 (first run c1029-1705: 80% pass, quality 5.22).
+2. ~~Survival travel (/sethome, /home, /tpa)~~: done 2026-10-29; the two-player accept/deny check is left.
+3. **Deploy (planned for 2026-10-30), following docs/hosting.md:**
+   - the owner picks the host (OVH VPS-2 recommended), backup storage (B2 or R2) and the whitelist, and
+     creates those accounts plus Tailscale;
+   - we build and test locally first: live + staging compose, `mc` per server, backup/restore scripts,
+     `mc promote`, the server setup checklist;
+   - then set up the VPS, restore the current world onto it, run a restore drill, invite friends.
+4. A more ambitious build project (the user's choice), iterating on evals and tools as we go; the
+   builders' biggest gap is quitting at the minimum (docs/evals.md §15).
+5. Then: terraforming parts and warps, in the order the projects need them.
