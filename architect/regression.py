@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 from . import audit, blocks, bridge, edits, incidents, journal, parts
+from .run import mc as run_mc
 from .build import Build
 from .build import load as build_load
 
@@ -228,9 +229,7 @@ def check_replays():
         return True, "no resolved tool-bug incidents to replay"
     failed = []
     for i in todo:
-        r = subprocess.run([sys.executable, str(ROOT / "mc.py"), "incident", i["id"], "replay"], cwd=ROOT,
-                           capture_output=True, text=True, timeout=300)
-        if r.returncode != 0:
+        if not run_mc("incident", i["id"], "replay", timeout=300)[0]:
             failed.append(i["id"])
     return not failed, f"{len(todo) - len(failed)}/{len(todo)} replay cleanly" + (f"; failing: {failed}" if failed else "")
 
@@ -239,11 +238,10 @@ def check_reference(tid):
     """A capability task's reference plan, built on its reset site, passes all the task's code graders:
     the task is solvable and the graders are fair (docs/evals.md §5.2). Leaves the reference standing."""
     def fn():
-        r = subprocess.run([sys.executable, str(ROOT / "mc.py"), "eval", "check", tid], cwd=ROOT,
-                           capture_output=True, text=True, timeout=300)
-        lines = (r.stdout + r.stderr).strip().splitlines()
+        ok, out = run_mc("eval", "check", tid, timeout=300)
+        lines = out.splitlines()
         fails = [ln.strip() for ln in lines if ln.strip().startswith("FAIL")]
-        return r.returncode == 0, "; ".join(fails) or (lines[-1] if lines else "no output")
+        return ok, "; ".join(fails) or (lines[-1] if lines else "no output")
     return fn
 
 

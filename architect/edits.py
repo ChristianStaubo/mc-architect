@@ -2,14 +2,13 @@
 WorldEdit's own history when the edit is the server's latest, and otherwise puts the snapshot back.
 Snapshots keep block states, not container contents (a chest comes back empty)."""
 
-import contextlib
-import fcntl
 import gzip
 import json
 import time
 from pathlib import Path
 
 from . import bridge
+from .lock import locked
 from .build import payload
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -59,16 +58,9 @@ def get(eid):
     raise SystemExit(f"no edit {eid}")
 
 
-@contextlib.contextmanager
 def _locked():
     """One place or undo at a time across processes (parallel builders): ids and snapshots stay consistent."""
-    DIR.mkdir(parents=True, exist_ok=True)
-    with open(DIR / ".lock", "w") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(f, fcntl.LOCK_UN)
+    return locked(DIR)
 
 
 def place(cells, label, run="", task="", **extra):

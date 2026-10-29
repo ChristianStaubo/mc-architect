@@ -12,8 +12,7 @@ import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from . import evals, graders, journal, judges, regression, sites
-from .assistant.agent import NO_MCP
+from . import claude, evals, graders, journal, judges, regression, sites
 
 ROOT = evals.ROOT
 RESULTS = evals.RESULTS
@@ -68,19 +67,6 @@ def prompt(t, run_id, plan):
     ])
 
 
-def _result(transcript):
-    """The final `result` event of a stream-json transcript (cost, turns, why it ended)."""
-    last = None
-    for line in transcript.splitlines():
-        try:
-            ev = json.loads(line)
-        except ValueError:
-            continue
-        if ev.get("type") == "result":
-            last = ev
-    return last or {}
-
-
 def judge_trial(rec, t, model, repeat=False):
     """Judge scores on a trial record (in place); `repeat` judges it a second time to measure spread."""
     if not rec.get("sheet"):
@@ -106,11 +92,8 @@ def trial(run, t, i, model, settings, sheet, judge_model=None):
     plan = (work / "plan.py").relative_to(ROOT)
     sites.reset(tid)
     b = t["budget"]
-    cmd = ["claude", "-p", prompt(t, run_id, str(plan)), "--agent", "mc-builder", "--model", model, *NO_MCP,
-           "--permission-mode", "dontAsk",  # the user's default (auto) would approve anything
-           "--output-format", "stream-json", "--verbose", "--max-budget-usd", str(b.get("usd", 3.0)),
-           "--allowedTools", "Bash(./mc.py *)", "Read", "Write", "Edit", "Glob", "Grep",
-           "--settings", str(settings)]
+    cmd = claude.command(prompt(t, run_id, str(plan)), model, claude.MC_TOOLS, b.get("usd", 3.0),
+                         agent="mc-builder", settings=settings)
     env = {**os.environ, "MC_RUN_ID": run_id}
     t0 = time.time()
     try:
@@ -119,9 +102,9 @@ def trial(run, t, i, model, settings, sheet, judge_model=None):
     except subprocess.TimeoutExpired as e:
         out, end = (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or ""), "timeout"
     minutes = round((time.time() - t0) / 60, 1)
-    res = _result(out)
+    res = claude.result_of(out.splitlines())
     if end is None:
-        end = {"success": "done", "error_max_budget_usd": "budget"}.get(res.get("subtype"), res.get("subtype") or "error")
+        end = claude.end_of(res)
     tools = evals.tool_stats(run_id)
     if tools["stucks"] and end == "done":
         end = "stuck"

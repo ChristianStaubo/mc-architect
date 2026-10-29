@@ -13,7 +13,7 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from .assistant.agent import NO_MCP
+from . import claude
 
 ROOT = Path(__file__).resolve().parent.parent
 RUBRIC = ROOT / "evals" / "RUBRIC.md"
@@ -77,8 +77,7 @@ def judge_group(task, dims, sheet, model):
     with tempfile.TemporaryDirectory() as tmp:
         img = Path(tmp) / "sheet.png"
         shutil.copy(sheet, img)
-        cmd = ["claude", "-p", prompt(task, dims, img), "--model", model, "--output-format", "json", "--permission-mode", "dontAsk",
-               "--allowedTools", "Read", "--disallowedTools", *NO_TOOLS, "--max-budget-usd", "1.0", *NO_MCP]
+        cmd = claude.command(prompt(task, dims, img), model, ["Read"], 1.0, deny=NO_TOOLS, stream=False)
         p = subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=600)
     try:
         res = json.loads(p.stdout)

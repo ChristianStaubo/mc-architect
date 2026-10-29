@@ -1,9 +1,8 @@
 """Evals: the regression gate, task checks, capability runs, judging and the report (docs/evals.md)."""
 
-import subprocess
-import sys
 
 from .. import evals, graders, sites
+from ..run import mc as run_mc
 from .common import load_plan, shots, ROOT
 
 
@@ -33,11 +32,10 @@ def cmd_eval(a):
         args = load_plan(plan).place_args
         with sites.still():  # no plants popping off or grass spreading between the reset and the grading
             sites.reset(t["id"])
-            r = subprocess.run([sys.executable, str(ROOT / "mc.py"), "place", plan, "--task", t["id"], *args],
-                               capture_output=True, text=True)
-            print(r.stdout.strip() or r.stderr.strip())
-            if r.returncode:
-                raise SystemExit(f"place failed: {r.stderr.strip()[-300:]}")
+            ok, out = run_mc("place", plan, "--task", t["id"], *args)
+            print(out)
+            if not ok:
+                raise SystemExit(f"place failed: {out[-300:]}")
             o = sites.outcome(t)
         res = graders.run(t, o)
         if not a.plan and o.box:  # the reference's sheet, for the rating page's anchors
