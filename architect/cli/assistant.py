@@ -2,6 +2,7 @@
 (say, preview). docs/in-game-architect.md."""
 
 import json
+import math
 import os
 import sys
 
@@ -24,8 +25,12 @@ def player_of(a):
     return p
 
 
-def limits(player, box):
-    """Refuse a build outside what the player asked for: their selection, or near where they stood."""
+AHEAD = {"south": (0, 1), "north": (0, -1), "east": (1, 0), "west": (-1, 0)}
+
+
+def limits(player, box, cells):
+    """Refuse a build outside what the player asked for (their selection, or near where they stood) or one
+    that would swallow them: without a selection it goes in front of them, never on their spot."""
     ctx = sessions.get(player).get("context") or {}
     (x0, y0, z0), (x1, y1, z1) = box
     if x1 - x0 + 1 > MAX_SIDE or z1 - z0 + 1 > MAX_SIDE or y1 - y0 + 1 > MAX_HEIGHT:
@@ -35,6 +40,13 @@ def limits(player, box):
         far = max(abs(x - pos[0]) for x in (x0, x1)), max(abs(z - pos[2]) for z in (z0, z1))
         if max(far) > RADIUS:
             return f"too far from {player} (at {pos[0]},{pos[2]}): keep the build within {RADIUS} blocks of them"
+        px, pz = math.floor(pos[0]), math.floor(pos[2])
+        foot = {(x, z) for (x, _, z), b in cells.items() if b != "air" and not str(b).endswith(":air")}
+        if any((px + dx, pz + dz) in foot for dx in (-1, 0, 1) for dz in (-1, 0, 1)):
+            dx, dz = AHEAD.get(ctx.get("facing"), (0, 1))
+            return (f"the build covers where {player} stands ({px},{pz}). Put it in front of them: they face "
+                    f"{ctx.get('facing', 'south')}, so its nearest side should be about 3 blocks that way, "
+                    f"at {px + 3 * dx},{pz + 3 * dz} (move --at, not the design)")
     return None
 
 
@@ -45,7 +57,7 @@ def cmd_preview(a):
         a.within = f"{sel['min'][0]},{sel['min'][2]},{sel['max'][0]},{sel['max'][2]}"
     build, t, at, cells, y0 = resolve(a)
     box = [list(v) for v in bounds(cells)]
-    why = limits(player, box)
+    why = limits(player, box, cells)
     if why:
         sys.exit(f"refused: {why}")
     r = show_on_terrain(build, at, y0, cells)

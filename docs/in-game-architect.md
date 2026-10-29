@@ -55,7 +55,9 @@ arc    Built (edit e270). /arc undo takes it back.
   the daemon long-polls `/inbox`. Events survive a slow agent; nothing is lost if the daemon restarts
   mid-job (it picks up unhandled events).
 - **Previews are client-side fake blocks** (Paper's `sendBlockChanges`): exact, cheap (no entities), and
-  only the asking player sees them. The world doesn't change until "yes". A preview is redrawn when the
+  only the asking player sees them. They look exactly like real blocks, so a preview is also marked: a
+  glowing light-blue wireframe round the build (12 vanilla block-display rods, glowing, seen through
+  walls, visible only to that player, never saved) and a line above the hotbar ("Preview: ... /arc yes"). The world doesn't change until "yes". A preview is redrawn when the
   player comes back into range and cleared on "no", on timeout, or on a new preview.
 - **"yes" is deterministic**: the daemon keeps the pending preview (plan file + placement args) and runs
   the same `mc place` the preview was drawn from, so what you saw is exactly what you get.
@@ -154,7 +156,8 @@ Adding a command later = a new folder under `plugin/.../<feature>/` with a `Feat
 - Under `dontAsk`, an agent that writes files with a shell heredoc is refused and may simply stop: both
   agents now say Bash runs only `./mc.py`, files go through Write/Edit.
 - The scenario runner must count a queued request as busy, or it grades steps that never ran.
-- In game, "right here" put the well against the player: fine for a well, worth watching for bigger builds.
+- In game, "right here" put the well on the player's spot: `mc preview` now refuses (without a selection)
+  a build covering where the player stands, and says which way to move it.
 - Testing a real client without the owner: Codex's computer use can't target the game (a bare Java window
   is not an "app" to it), but `screencapture -x -o -l <window id>` captures the game window in the
   background, and the bridge's `/as` and `/tp` drive the player. Minecraft must have "pause on lost
