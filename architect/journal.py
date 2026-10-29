@@ -36,12 +36,18 @@ def entries(run=None):
     return [e for e in out if run is None or e.get("run") == run]
 
 
-def stuck(text):
-    """Save what the builder was doing when the tools fell short."""
+def stuck(text, kind="stuck", **extra):
+    """Save what the builder was doing when the tools fell short. kind: stuck (it stopped), gap (a tool
+    was missing or awkward and it carried on), incident (filed automatically on a crash), report (a gap
+    the fixer copied from a builder's final report)."""
     FRICTION.mkdir(parents=True, exist_ok=True)
     fid = time.strftime("f%Y%m%d-%H%M%S")
-    report = {"id": fid, "t": time.strftime("%Y-%m-%dT%H:%M:%S"), "run": run_id(), "report": text,
-              "recent": entries(run_id() or None)[-15:], "status": "open"}
+    n = 1
+    while (FRICTION / f"{fid}.json").exists():
+        fid = time.strftime("f%Y%m%d-%H%M%S") + f"-{n}"
+        n += 1
+    report = {"id": fid, "t": time.strftime("%Y-%m-%dT%H:%M:%S"), "run": run_id(), "report": text, "kind": kind,
+              "recent": entries(run_id() or None)[-15:], "status": "open", **extra}
     (FRICTION / f"{fid}.json").write_text(json.dumps(report, indent=2))
     return fid
 

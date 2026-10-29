@@ -23,7 +23,10 @@ Look and judge
                                     the approval sheet: site + footprint, design x-ray, face before/after,
                                     floor plans, and the audit of the result. Places nothing.
 When the tools fall short
+  mc gap "<what was missing or awkward>"   note a tool gap and carry on (the fixer turns it into a tool)
   mc stuck "<goal> | <what you tried> | <what happened>"   save a friction report, then STOP
+  mc incidents [--all] | incident ID [replay]   failures saved automatically: error, stack, last bridge
+                                    requests and commands, the plan as it was, the server log; replay = dry rerun
   mc friction [--all] | resolve ID "<fix>" --cause C | stats
 Evals
   mc eval list | brief T --run R | reset T | record T --run R [--critique FILE] | report [R]
@@ -39,13 +42,15 @@ Towns (towns/NAME/town.json + layout.json; docs/town.md)
 Server
   mc doctor | status | restart | cmd "<command>"  (cmd refuses stop/restart/reload)
 
-Every call is logged to local/runs/commands.jsonl with MC_RUN_ID. Pictures: local/renders/.
+Every call is logged to local/runs/commands.jsonl and every bridge request to local/runs/trace/ (with
+MC_RUN_ID); a failure saves an incident in local/runs/incidents/. Pictures: local/renders/.
 """
 
 import argparse
 import difflib
 import importlib.util
 import json
+import os
 import re
 import statistics
 import subprocess
@@ -57,7 +62,7 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from architect import audit as auditing  # noqa: E402
-from architect import bridge, edits, evals, journal, render, terrain  # noqa: E402
+from architect import bridge, edits, evals, incidents, journal, render, terrain, trace  # noqa: E402
 from architect import town as towns  # noqa: E402
 
 RENDERS = ROOT / "local" / "renders"
@@ -493,6 +498,55 @@ def cmd_render(a):
     print(f"{path} ({w}x{h})")
 
 
+# ---- incidents ----
+
+def cmd_incidents(a):
+    rows = incidents.listing()
+    if not a.all:
+        rows = [r for r in rows if r["kind"] in ("crash", "bridge")] or rows[-10:]
+    for r in rows[-30:]:
+        print(f"{r['id']:<40} {r['kind']:<8} {r['run'] or '-':<24} {r['error'].splitlines()[0][:90]}")
+    print(f"{len(incidents.listing())} incidents kept (newest {incidents.KEEP}); --all shows refusals and errors too")
+
+
+def cmd_incident(a):
+    d = incidents.get(a.id)
+    info = json.loads((d / "incident.json").read_text())
+    if a.action == "replay":
+        argv = info["argv"]
+        if argv[0] == "place" and "--dry-run" not in argv:
+            argv = argv + ["--dry-run"]
+        elif argv[0] not in ("place", "blueprint", "site", "audit", "shots", "render", "status", "edits", "town"):
+            raise SystemExit(f"won't replay '{argv[0]}' (it changes the world); run it yourself")
+        if argv[0] == "town" and argv[1] in ("road", "terrace", "tidy") and "--dry-run" not in argv:
+            argv = argv + ["--dry-run"]
+        env = dict(os.environ, MC_RUN_ID=info["run"] or "")
+        print(f"replaying (dry): mc {' '.join(argv)}")
+        return subprocess.run([sys.executable, str(ROOT / "mc.py"), *argv], env=env).returncode
+    print(f"{info['id']}  [{info['kind']}]  run {info['run'] or '-'}  {info['t']}")
+    print(f"command: mc {' '.join(info['argv'])}")
+    print(f"error: {info['error']}")
+    if info.get("stack"):
+        print("stack (last lines):\n  " + "\n  ".join(info["stack"].strip().splitlines()[-6:]))
+    print("\nlast bridge requests:")
+    for l in [json.loads(x) for x in (d / "trace.jsonl").read_text().splitlines() if x.strip()][-8:]:
+        print(f"  {l['t'][11:]} {l['path']:<11} {l['status']:>4} {l['ms']:>5}ms {json.dumps(l['req'])[:70]}"
+              + (f"  ERROR {l['error'][:60]}" if l.get("error") else ""))
+    print("\nlast mc commands:")
+    for l in [json.loads(x) for x in (d / "journal.jsonl").read_text().splitlines() if x.strip()][-8:]:
+        print(f"  {l['t'][11:]} {l['run'] or '-':<22} {l['cmd']:<8} {' '.join(l['argv'])[:50]:<50} {'ok' if l['ok'] else 'FAIL'}")
+    log = (d / "server.log").read_text().splitlines() if (d / "server.log").exists() else []
+    bad = [x for x in log if any(k in x for k in ("ERROR", "WARN", "Exception"))]
+    print(f"\nserver log: {len(log)} lines kept, {len(bad)} warnings/errors" + ("".join("\n  " + x[:140] for x in bad[-4:])))
+    print(f"\nfiles: {d}" + ("  (plan.py = the plan as it was)" if (d / "plan.py").exists() else ""))
+    print(f"replay it (dry): mc incident {info['id']} replay")
+
+
+def cmd_gap(a):
+    fid = journal.stuck(a.text, kind="gap")
+    print(f"gap {fid} noted. Carry on; the fixer turns gaps into tools.")
+
+
 # ---- friction ----
 
 def cmd_stuck(a):
@@ -512,12 +566,19 @@ def cmd_friction(a):
             by[k] = by.get(k, 0) + 1
         builds = sum(1 for e in journal.entries() if e["cmd"] == "place" and "--dry-run" not in e["argv"] and e["ok"])
         print(f"{len(rs)} friction reports ({sum(r['status'] == 'open' for r in rs)} open), "
-              f"{builds} builds placed: {builds / max(1, len(rs)):.1f} builds per stop")
+              f"{builds} builds placed: {builds / max(1, len(rs)):.1f} builds per friction report")
         print("by cause: " + ", ".join(f"{k} {v}" for k, v in sorted(by.items(), key=lambda kv: -kv[1])))
         print(f"repeats (a fix that didn't hold): {sum(1 for r in rs if r.get('repeat_of'))}")
+        kinds = {}
+        for r in rs:
+            k = r.get("kind", "stuck")
+            kinds[k] = kinds.get(k, 0) + 1
+        print("by kind: " + ", ".join(f"{k} {v}" for k, v in sorted(kinds.items())))
+        crashes = [i for i in incidents.listing() if i["kind"] in ("crash", "bridge")]
+        print(f"incidents: {len(incidents.listing())} kept, {len(crashes)} crashes/bridge failures")
     else:
         for r in journal.reports(include_resolved=a.all):
-            print(f"{r['id']}  [{r['status']}] run {r['run'] or '-'}: {r['report'][:150]}")
+            print(f"{r['id']}  [{r['status']}] {r.get('kind', 'stuck'):<8} run {r['run'] or '-'}: {r['report'][:140]}")
 
 
 # ---- towns ----
@@ -738,6 +799,12 @@ def main():
         x.add_argument("id", nargs="?")
         if n == "audit":
             x.add_argument("--friction", action="store_true")
+    g = sub.add_parser("gap")
+    g.add_argument("text")
+    sub.add_parser("incidents").add_argument("--all", action="store_true")
+    ic = sub.add_parser("incident")
+    ic.add_argument("id")
+    ic.add_argument("action", nargs="?", choices=["show", "replay"], default="show")
     st = sub.add_parser("stuck")
     st.add_argument("text")
     f = sub.add_parser("friction")
@@ -777,19 +844,31 @@ def main():
     if a.cmd == "eval" and a.action == "report" and a.task and not a.run:
         a.run = a.task  # `mc eval report RUN`
     t0 = time.time()
-    code, err = 0, None
+    code, err, kind, exc = 0, None, None, None
     try:
         code = globals()["cmd_" + a.cmd](a) or 0
     except bridge.BridgeError as e:
-        code, err = 1, f"error: {e}"
+        # 4xx = the request was wrong (too big, unknown block): the caller's error, not the bridge's
+        code, err, exc = 1, f"error: {e}", e
+        kind = "error" if 400 <= getattr(e, "status", 0) < 500 else "bridge"
     except SystemExit as e:
         code, err = (e.code if isinstance(e.code, int) else 1), (e.code if isinstance(e.code, str) else None)
-    except Exception as e:  # a tool bug: record it, then show it
-        journal.log(a.cmd, sys.argv[2:], int((time.time() - t0) * 1000), False, repr(e))
-        raise
-    journal.log(a.cmd, sys.argv[2:], int((time.time() - t0) * 1000), code == 0, err)
+        if err:
+            kind = "refused" if err.startswith("refused") else "error"
+    except Exception as e:  # a tool bug: record it with everything around it, then show it
+        code, err, kind, exc = 1, repr(e), "crash", e
+    argv = sys.argv[1:]
+    journal.log(a.cmd, argv[1:], int((time.time() - t0) * 1000), code == 0, err)
+    # Judges failing (audit, town show: exit 2) are the system working, not incidents.
+    if kind and a.cmd not in ("incidents", "incident"):
+        iid = incidents.save(a.cmd, argv, kind, err, exc)
+        err = f"{err}\n(incident {iid}: mc incident {iid})"
+    if kind == "crash":
+        import traceback
+        traceback.print_exception(exc)
     if err:
         print(err, file=sys.stderr)
+    trace.prune()
     sys.exit(code)
 
 
