@@ -68,3 +68,8 @@ and the skills in `.claude/skills/` (`mc-build`, `mc-improve`).
 maintainers) and a hash. `python3 scripts/deps.py lock` moves to the newest releases that are
 **at least 7 days old** (the same rule as pnpm's `minimumReleaseAge`). The Docker base image is a dated
 Debian release pinned by digest. Jars, Java, worlds and tokens are never committed.
+
+## For players
+Everyone on the server (survival, no operator rights) can use `/sethome` and `/home`, `/tpa <player>`
+to ask to teleport to someone, `/tpahere <player>` to ask them over, and `/tpaccept` or `/tpdeny`
+(or click Accept/Deny in chat). Requests last a minute; there's a 10 second cooldown between teleports.

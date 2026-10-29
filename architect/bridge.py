@@ -66,6 +66,11 @@ def command(cmd):
     return call("/command", {"command": cmd})
 
 
+def as_player(player, cmd):
+    """Run a command as if `player` typed it (replies go to their chat)."""
+    return call("/as", {"player": player, "command": cmd})
+
+
 def region(lo, hi):
     """Blocks in the inclusive box lo..hi as {(x, y, z): block-data string}."""
     return decode(call("/region", {"min": list(lo), "max": list(hi)}))

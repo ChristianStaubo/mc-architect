@@ -4,3 +4,32 @@ main: dev.mcarchitect.bridge.BridgePlugin
 api-version: '26.3'
 depend: [WorldEdit]
 description: JSON API for the mc-architect agent (read the world, build and undo through WorldEdit)
+commands:
+  sethome:
+    description: Set your home where you stand
+    usage: /sethome
+    permission: mcbridge.travel
+  home:
+    description: Teleport to your home
+    usage: /home
+    permission: mcbridge.travel
+  tpa:
+    description: Ask to teleport to another player
+    usage: /tpa <player>
+    permission: mcbridge.travel
+  tpahere:
+    description: Ask another player to teleport to you
+    usage: /tpahere <player>
+    permission: mcbridge.travel
+  tpaccept:
+    description: Accept a teleport request (the newest, or the named player's)
+    usage: /tpaccept [player]
+    permission: mcbridge.travel
+  tpdeny:
+    description: Deny a teleport request (the newest, or the named player's)
+    usage: /tpdeny [player]
+    permission: mcbridge.travel
+permissions:
+  mcbridge.travel:
+    description: /sethome, /home, /tpa, /tpahere, /tpaccept, /tpdeny
+    default: true

@@ -25,6 +25,11 @@ and tree clearing (`architect/terrain.py`).
 
 ### 3. Players: /tp without creative
 Friends play in survival on the real server and can travel between places without being operators.
+**Done 2026-10-29 (first cut):** `/sethome`, `/home`, `/tpa`, `/tpahere`, `/tpaccept`, `/tpdeny` for
+every player, in our own plugin (`plugin/src/.../Travel.java`, nothing installed; homes in
+`plugins/MCBridge/homes.json`, requests expire after a minute, 10 s cooldown). Live test:
+`scripts/test_travel_live.py`. Still to check with two people: accepting and denying a /tpa. Warps
+were left out for now (the user's call).
 - Named warps (the market, the hall, the lighthouse...) that any player can use: `/warp <name>` or
   `/tp`-like commands granted by permission, not op. Options: our own small plugin command in MCBridge
   (warps stored in a file, `mc warp add|remove|list` for us), or a well-known plugin (EssentialsX's

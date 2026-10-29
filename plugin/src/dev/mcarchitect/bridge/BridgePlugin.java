@@ -76,6 +76,7 @@ public final class BridgePlugin extends JavaPlugin {
             http.setExecutor(Executors.newFixedThreadPool(4));
             route("/status", b -> sync(this::status));
             route("/command", b -> sync(() -> command(b.get("command").getAsString())));
+            route("/as", b -> sync(() -> asPlayer(b.get("player").getAsString(), b.get("command").getAsString())));
             route("/region", b -> sync(() -> region(b)));
             route("/heightmap", b -> sync(() -> heightmap(b)));
             route("/place", b -> sync(() -> place(b)));
@@ -89,6 +90,7 @@ public final class BridgePlugin extends JavaPlugin {
             route("/sign", b -> sync(() -> sign(b)));
             http.start();
             getLogger().info("bridge listening on port " + port);
+            new Travel(this);  // /sethome, /home, /tpa... for every player
         } catch (IOException e) {
             throw new RuntimeException("bridge failed to start", e);
         }
@@ -175,6 +177,14 @@ public final class BridgePlugin extends JavaPlugin {
         var sender = Bukkit.createCommandSender(c -> out.add(PlainTextComponentSerializer.plainText().serialize(c)));
         boolean ok = Bukkit.dispatchCommand(sender, cmd.startsWith("/") ? cmd.substring(1) : cmd);
         return map("ok", ok, "output", out);
+    }
+
+    /** Run a command exactly as if the player typed it (plugin commands see the Player; `execute as`
+     * doesn't give them one). Replies go to the player's chat, not back here. */
+    private Object asPlayer(String name, String cmd) {
+        Player p = Bukkit.getPlayerExact(name);
+        if (p == null) throw new IllegalArgumentException(name + " isn't online");
+        return map("ok", Bukkit.dispatchCommand(p, cmd.startsWith("/") ? cmd.substring(1) : cmd));
     }
 
     private Object region(JsonObject b) {
