@@ -48,8 +48,9 @@ staging containers, Tailscale for the bridge, restic backups, ~$9-12/month).
 - The agent works on a staging copy and pushes approved builds to the live world.
 
 ## Near term
-0. **Now (2026-10-30): the in-game architect** (docs/in-game-architect.md): `/arc` in chat, ghost
-   previews only you see, yes/no/undo, and the agent-behaviour eval suite. Deployment waits until after.
+0. **The in-game architect** (docs/in-game-architect.md): built 2026-10-30 (`/arc`, ghost previews,
+   yes/no/undo/cancel, the daemon, `mc eval scenarios` 9/9). Left: the owner tries it in game, then
+   friends' permission and an `@architect` chat mention.
 1. ~~Evals v2 (docs/evals.md)~~: done 2026-10-29 (first run c1029-1705: 80% pass, quality 5.22).
 2. ~~Survival travel (/sethome, /home, /tpa)~~: done 2026-10-29; the two-player accept/deny check is left.
 3. **Deploy (postponed; after the in-game architect), following docs/hosting.md:**
