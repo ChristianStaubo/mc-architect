@@ -20,7 +20,9 @@ repo root (`~/coding/games/mc-architect`). You write the layout; builders build 
    switch back instead), plots fronting the road with doors facing it, the larger and more important
    buildings on prominent spots, smaller ones filling in, water builds where the shore allows.
 3. Plots: rectangles with a 1-block gap between them and off the road. Size them for their building
-   (a cottage ~9x7 to 11x9, a tavern ~16x12, a market square ~20x20, a boathouse partly over water).
+   (a cottage ~9x7 to 11x9, a tavern ~16x12, a market square ~20x20, a boathouse partly over water),
+   **plus 2 blocks each way** for the roof overhang and the outside details (porch, chimney, steps,
+   flower boxes): lakeside phase 1's builders all ran out of room on plots sized to the walls.
    `floor_y`: the level the building's ground floor sits on (the plot is terraced to it): pick it near
    the plot's middle ground height so cut and fill stay small; split a steep plot rather than
    terracing 8+ blocks. `door`: the side facing the road (within 4 blocks of it).

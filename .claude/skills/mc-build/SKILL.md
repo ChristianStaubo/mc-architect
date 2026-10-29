@@ -9,8 +9,8 @@ You build through `./mc.py` (repo root) and Python plans. Never the game UI.
 Read `STYLE.md` first: those are the user's rules for what a good build is.
 
 ## The loop
-1. **Site.** `./mc.py site --task T` (or `X,Z W,D`): the plot's height grid (rows north→south, `~` =
-   water), which side is highest, and a map PNG. Decide where the door faces, how the build meets the
+1. **Site.** `./mc.py site --task T` / `--plot TOWN/PLOT` (or `X,Z W,D`, centred): the plot's height grid (rows north→south, `~` =
+   water, with its depth: how far posts must reach), which side is highest, and a map PNG. Decide where the door faces, how the build meets the
    slope (step it, terrace it, a basement on the low side) and where the path comes in.
 2. **Plan.** A Python file whose `build()` returns an `architect.build.Build` in local coordinates:
    x east, z south, y up, **y 0 = the ground floor**. Use the parts (below); plain `b.set` / `b.fill`
@@ -50,12 +50,13 @@ Read `STYLE.md` first: those are the user's rules for what a good build is.
 | `clear_inside(b, x1, z1, x2, z2, y1, y2)` | air inside the walls (clears hills from the room) |
 | `window(b, x, y, z, along="x"/"z", width, height, pane)` | glass panes with connections set |
 | `door(b, x, y, z, facing, wood)` | both door halves; facing = direction you walk out |
-| `gable_roof(b, x1, z1, x2, z2, y, stair, gable, ridge="x"/"z", overhang=1)` | pitched stair roof, gable ends filled |
+| `gable_roof(b, x1, z1, x2, z2, y, stair, gable, ridge="x"/"z", overhang=1, end_overhang=None)` | pitched stair roof, gable ends filled; `end_overhang=0` keeps the gable ends flush on a tight plot |
 | `light(b, x, y, z, block)` | a light source |
 | `timber_frame(b, x1, z1, x2, z2, y1, y2, fill, post, beam, every=4)` | walls with posts every N and beam bands top and bottom |
 | `straight_stairs(b, x, y, z, direction, steps, stair, width=1, support=None)` | a flight up toward `direction`; clears headroom (cuts the stairwell); returns the top landing |
-| `spiral_stairs(b, x1, z1, x2, z2, y1, y2, stair, landing)` | stairs climbing around the inside of a shaft (towers), landings at corners |
+| `spiral_stairs(b, x1, z1, x2, z2, y1, y2, stair, landing, start=0)` | stairs climbing around the inside of a shaft (towers), landings at corners; `start=N` leaves the first N ring cells open (a door) |
 | `posts(b, [(x, z), ...], y_top, y_bottom, block)` | stilts, piers, dock posts (over water: `--foundation none`) |
+| `hip_roof(b, x1, z1, x2, z2, y, stair, top=None, overhang=1)` | roof sloping on all four sides (towers, pavilions) |
 | `stamp(b, piece, x, y, z, turns=0)` | copy another Build in, turned 0–3 quarter turns (facings and connections turn too): repeated stalls, houses, towers |
 | `dormer(b, x, y, z, facing, roof_stair, wall, width=3)` | a gabled dormer window out of a roof slope; call after the roof |
 Beams: pass the bare log name (`dark_oak_log`); parts set `[axis=...]` themselves.
@@ -67,6 +68,7 @@ Beams: pass the bare log name (`dark_oak_log`); parts set `[axis=...]` themselve
 - Doors, beds: always both halves (`door()` does doors; beds: `part=head` + `part=foot`, foot behind the head).
 - Panes, fences, walls: set connections (`east=true` ...) or use `window()`.
 - Ladders/wall torches/signs need `facing` away from the block they hang on.
+- Property values are lowercase strings: `lit=true`, not Python's `True` (the server refuses `True`).
 
 ## When the tools fall short
 If a part you need doesn't exist and would take more than ~20 lines to fake, a command fails twice,
