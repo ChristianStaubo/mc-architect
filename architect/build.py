@@ -17,6 +17,16 @@ class Build:
     def __init__(self, name="build"):
         self.name = name
         self.blocks = {}
+        self.entities = []  # (x, y, z, type): summoned after the blocks are placed (boats, armour stands)
+        self.signs = []     # (x, y, z, [lines], side): text written into signs after placing
+
+    def entity(self, x, y, z, kind):
+        self.entities.append((x, y, z, kind))
+
+    def sign(self, x, y, z, block, lines, side="front"):
+        """A sign block with up to 4 lines of text (e.g. a tavern's name)."""
+        self.set(x, y, z, block)
+        self.signs.append((x, y, z, list(lines)[:4], side))
 
     def set(self, x, y, z, block):
         self.blocks[(x, y, z)] = _states(block)

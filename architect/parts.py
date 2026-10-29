@@ -102,6 +102,8 @@ def gable_roof(b, x1, z1, x2, z2, y, stair, gable, ridge="x", overhang=1, slab=N
     if lo_o + level == hi_o - level:  # odd span: a ridge row of slabs
         for a in range(a1, a2 + 1):
             put(a, lo_o + level, y + level, slab or f"{stair.replace('_stairs', '_slab')}[type=bottom]")
+    return {"x1": x1, "z1": z1, "x2": x2, "z2": z2, "y": y, "ridge": ridge, "overhang": overhang,
+            "stair": stair, "gable": gable}
 
 
 def light(b, x, y, z, block="lantern[hanging=false]"):
@@ -237,3 +239,180 @@ def dormer(b, x, y, z, facing, roof_stair, wall, width=3, pane="glass_pane"):
             up = OPPOSITE[side]
             b.set(cx, y + 2 + lvl, cz, f"{roof_stair}[facing={up},half=bottom,shape=straight]" if i else
                   roof_stair.replace("_stairs", "_slab") + "[type=bottom]")
+
+
+# ---- details the lakeside builders wrote by hand (friction: town1) ----
+
+OUT = {"north": (0, -1), "south": (0, 1), "east": (1, 0), "west": (-1, 0)}
+
+
+def chimney(b, x, z, y_base, y_top, block="cobblestone", width=1, smoke=True, cap="stone_brick_slab[type=bottom]"):
+    """A chimney stack from y_base to y_top (width 1 or 2 square), finished with a cap or, with smoke, a
+    lit campfire on top that sends smoke up."""
+    for dx in range(width):
+        for dz in range(width):
+            b.fill(x + dx, y_base, z + dz, x + dx, y_top, z + dz, block)
+            b.set(x + dx, y_top + 1, z + dz, cap)
+    if smoke:
+        b.set(x, y_top + 1, z, "campfire[lit=true,signal_fire=false,facing=north]")
+
+
+def _window_cells(x, y, z, along, width, height):
+    return [((x + i, y + j, z) if along == "x" else (x, y + j, z + i)) for i in range(width) for j in range(height)]
+
+
+def shutters(b, x, y, z, along, width, height, out, wood="spruce"):
+    """Open shutters either side of a window (the window's cells: from (x, y, z), `width` along `along`,
+    `height` up), on the outside of the wall; `out` is the direction the wall faces (north/south/east/west)."""
+    ox, oz = OUT[out]
+    sides = [(x - 1, z), (x + width, z)] if along == "x" else [(x, z - 1), (x, z + width)]
+    for sx, sz in sides:
+        for j in range(height):
+            b.set(sx + ox, y + j, sz + oz, f"{wood}_trapdoor[facing={out},half=bottom,open=true]")
+
+
+def flower_box(b, x, y, z, along, width, out, flowers=("poppy", "dandelion", "azure_bluet", "cornflower"),
+               front="spruce_trapdoor"):
+    """A planter under a window: a row of moss sticking out of the wall one block below the window's
+    bottom row (y), flowers on it, and a trapdoor front. `out`: the direction the wall faces."""
+    ox, oz = OUT[out]
+    for i in range(width):
+        cx, cz = (x + i, z) if along == "x" else (x, z + i)
+        b.set(cx + ox, y - 1, cz + oz, "moss_block")
+        b.set(cx + ox, y, cz + oz, flowers[i % len(flowers)])
+        b.set(cx + 2 * ox, y - 1, cz + 2 * oz, f"{front}[facing={out},half=bottom,open=true]")
+
+
+def outside_stair(b, x, y, z, direction, steps, wood="spruce", side=None, landing=2):
+    """A wooden stair up the outside of a wall: `steps` up toward `direction` from (x, y, z), solid
+    underneath, a fence rail on the open `side` (north/south/east/west, the side away from the wall), and
+    a `landing`-long platform at the top. Returns the landing's far end."""
+    dx, dz = FACE_STEP[direction]
+    for i in range(steps):
+        cx, cz = x + dx * i, z + dz * i
+        b.set(cx, y + i, cz, f"{wood}_stairs[facing={direction},half=bottom,shape=straight]")
+        for yy in range(y, y + i):
+            b.set(cx, yy, cz, f"{wood}_planks")
+        if side:
+            sx, sz = OUT[side]
+            b.set(cx + sx, y + i + 1, cz + sz, f"{wood}_fence")
+    top = y + steps - 1
+    for i in range(steps, steps + landing):
+        cx, cz = x + dx * i, z + dz * i
+        b.fill(cx, y, cz, cx, top, cz, f"{wood}_planks")
+        if side:
+            sx, sz = OUT[side]
+            b.set(cx + sx, top + 1, cz + sz, f"{wood}_fence")
+    return x + dx * (steps + landing - 1), top + 1, z + dz * (steps + landing - 1)
+
+
+def dock(b, x1, z1, x2, z2, y, post_bottom, wood="spruce", posts_every=3, rails=True, lanterns=True, boats=1):
+    """A dock: plank deck at y over x1..x2, z1..z2, log posts at its corners and every `posts_every`
+    blocks along its long sides down to post_bottom (below the water: `mc site` prints depths), fence
+    rails along the long sides, lanterns on every other post, mooring posts at the far corners, and
+    `boats` real boats tied up alongside (entities: placed after the blocks)."""
+    b.fill(x1, y, z1, x2, y, z2, f"{wood}_planks")
+    long_x = (x2 - x1) >= (z2 - z1)
+    posts = set()
+    if long_x:
+        for x in list(range(x1, x2 + 1, posts_every)) + [x2]:
+            posts |= {(x, z1), (x, z2)}
+    else:
+        for z in list(range(z1, z2 + 1, posts_every)) + [z2]:
+            posts |= {(x1, z), (x2, z)}
+    for n, (px, pz) in enumerate(sorted(posts)):
+        b.fill(px, post_bottom, pz, px, y - 1, pz, f"{wood}_log[axis=y]")
+        if rails:
+            b.set(px, y + 1, pz, f"{wood}_fence")
+            if lanterns and n % 2 == 0:
+                b.set(px, y + 2, pz, "lantern[hanging=false]")
+    if rails:  # rails between the posts along the long sides
+        if long_x:
+            for x in range(x1, x2 + 1):
+                for z in (z1, z2):
+                    b.blocks.setdefault((x, y + 1, z), f"{wood}_fence")
+        else:
+            for z in range(z1, z2 + 1):
+                for x in (x1, x2):
+                    b.blocks.setdefault((x, y + 1, z), f"{wood}_fence")
+    for i in range(boats):  # alongside the deck, beside the far end
+        if long_x:
+            b.entity(x2 - 1 - 3 * i, y, z2 + 1, f"{wood}_boat")
+        else:
+            b.entity(x2 + 1, y, z2 - 1 - 3 * i, f"{wood}_boat")
+
+
+def round_tower(b, cx, cz, y1, y2, radius, wall, inside="air"):
+    """A round tower: a one-block ring of `wall` of the given radius around (cx, cz) from y1 to y2, the
+    inside cleared to `inside` (None: leave it). Radius 2 reads as an octagon, 3+ as round."""
+    for x in range(cx - radius, cx + radius + 1):
+        for z in range(cz - radius, cz + radius + 1):
+            d = ((x - cx) ** 2 + (z - cz) ** 2) ** 0.5
+            for y in range(y1, y2 + 1):
+                if radius - 0.5 <= d < radius + 0.5:
+                    b.set(x, y, z, wall)
+                elif d < radius - 0.5 and inside:
+                    b.set(x, y, z, inside)
+
+
+def cone_roof(b, cx, cz, y, radius, stair, top=None):
+    """A conical roof for a round tower: rings of stairs (tall side toward the middle) shrinking by one each
+    level, from radius + 1 (an overhang) to a point, capped with `top` (default the stair's slab)."""
+    level = 0
+    for r in range(radius + 1, 0, -1):
+        for x in range(cx - r, cx + r + 1):
+            for z in range(cz - r, cz + r + 1):
+                d = ((x - cx) ** 2 + (z - cz) ** 2) ** 0.5
+                if r - 0.5 <= d < r + 0.5:
+                    dx, dz = cx - x, cz - z
+                    facing = ("east" if dx > 0 else "west") if abs(dx) >= abs(dz) else ("south" if dz > 0 else "north")
+                    b.set(x, y + level, z, f"{stair}[facing={facing},half=bottom,shape=straight]")
+                elif d < r - 0.5:
+                    b.set(x, y + level, z, "air")
+        level += 1
+    b.set(cx, y + level, cz, top or stair.replace("_stairs", "_slab") + "[type=bottom]")
+
+
+def awning(b, x1, x2, z, y, out, colors=("red_wool", "white_wool"), depth=2):
+    """A striped awning over a stall front from x1..x2 (along x) on the wall at z, starting at height y
+    and stepping down one per row outward (`out`: north or south) for `depth` rows: stripes alternate
+    `colors` along x. Wool has no slopes, so the slope is stepped (lakeside: flat awnings read as lids)."""
+    oz = OUT[out][1]
+    for d in range(depth):
+        for x in range(x1, x2 + 1):
+            b.set(x, y - d, z + oz * (d + 1), colors[(x - x1) % len(colors)])
+
+
+def roofs(b, *specs):
+    """Several gable roofs that meet (an L, a T, a cross gable): each spec is gable_roof's arguments as a
+    dict (x1, z1, x2, z2, y, stair, gable, ridge, overhang, end_overhang). Where one roof's surface is
+    higher, the other roof's blocks under it are left out, so the roofs meet in valleys and the attic
+    under them stays one open space (lakeside's inn hand-cleared its attic row by row)."""
+    from .build import Build
+    built = []
+    for sp in specs:
+        t = Build("roof")
+        gable_roof(t, **sp)
+        top = {}
+        for (x, y, z) in t.blocks:
+            top[(x, z)] = max(top.get((x, z), y), y)
+        built.append((t, top))
+    for i, (t, _) in enumerate(built):
+        for (x, y, z), blk in t.blocks.items():
+            if any(top.get((x, z), -10 ** 9) > y for j, (_, top) in enumerate(built) if j != i):
+                continue  # inside another roof
+            b.set(x, y, z, blk)
+
+
+def dormer_on(b, roof, at, side, wall, width=3, pane="glass_pane"):
+    """A dormer on a roof made by gable_roof (pass what it returned): `at` is the position along the
+    ridge, `side` "front" or "back" (the low or high slope). Its window sits on the wall top at the eave,
+    so it never floats (lakeside: dormers placed by guess floated or poked out of the plot)."""
+    if roof["ridge"] == "x":
+        facing = "north" if side == "front" else "south"
+        z = roof["z1"] if side == "front" else roof["z2"]
+        dormer(b, at, roof["y"], z, facing, roof["stair"], wall, width, pane)
+    else:
+        facing = "west" if side == "front" else "east"
+        x = roof["x1"] if side == "front" else roof["x2"]
+        dormer(b, x, roof["y"], at, facing, roof["stair"], wall, width, pane)
