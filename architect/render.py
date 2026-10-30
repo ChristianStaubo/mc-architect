@@ -10,10 +10,20 @@ from .blocks import is_air, is_plant
 from .blocks import name as block_name  # noqa: F401  (re-exported: render.block_name)
 
 # First matching substring wins; order specific before general.
+# The 16 dye colours (wool, carpet, concrete, banners, beds, stained glass...), two-word ones before the
+# words they contain: orange wool drew green and light blue drew blue (Riverford's awnings).
+DYES = [(f"{d}_", rgb) for d, rgb in (
+    ("light_blue", (58, 175, 217)), ("light_gray", (142, 142, 134)), ("white", (234, 236, 236)),
+    ("orange", (240, 118, 19)), ("magenta", (189, 68, 179)), ("yellow", (248, 197, 39)), ("lime", (112, 185, 25)),
+    ("pink", (237, 141, 172)), ("gray", (62, 68, 71)), ("cyan", (21, 137, 145)), ("purple", (121, 42, 172)),
+    ("blue", (53, 57, 157)), ("brown", (114, 71, 40)), ("green", (84, 109, 27)), ("red", (160, 39, 34)),
+    ("black", (20, 21, 25)))]
 COLORS = [
+    # copper's ages first: "weathered_copper" contains "red_" and drew red
+    ("oxidized", (82, 162, 132)), ("weathered", (108, 153, 110)), ("exposed", (161, 125, 103)),
     ("water", (52, 92, 196)), ("lava", (220, 100, 20)), ("glass_pane", (190, 220, 235)),
     ("glass", (200, 228, 240)), ("grass_block", (95, 159, 53)), ("dirt_path", (148, 122, 65)),
-    ("podzol", (90, 63, 28)), ("mud", (60, 57, 60)), ("dirt", (134, 96, 67)),
+    ("podzol", (90, 63, 28)), ("mud_brick", (137, 103, 79)), ("packed_mud", (142, 106, 79)), ("mud", (60, 57, 60)), ("dirt", (134, 96, 67)),
     ("red_sand", (190, 102, 33)), ("sandstone", (216, 203, 155)), ("sand", (219, 207, 163)),
     ("gravel", (131, 127, 126)), ("snow", (240, 248, 248)), ("ice", (145, 183, 253)),
     ("leaves", (60, 110, 40)), ("cherry", (226, 178, 172)), ("dark_oak", (66, 43, 20)),
@@ -31,9 +41,7 @@ COLORS = [
     ("white_terracotta", (209, 178, 161)), ("light_gray_terracotta", (135, 107, 98)),
     ("gray_terracotta", (57, 42, 35)), ("orange_terracotta", (161, 83, 37)), ("yellow_terracotta", (186, 133, 35)),
     ("red_terracotta", (143, 61, 46)), ("brown_terracotta", (77, 51, 35)), ("cyan_terracotta", (86, 91, 91)),
-    ("terracotta", (152, 94, 67)), ("white_concrete", (207, 213, 214)), ("smooth_quartz", (235, 229, 222)), ("white", (234, 236, 236)), ("black", (25, 25, 29)),
-    ("red", (160, 39, 34)), ("blue", (53, 57, 157)), ("yellow", (248, 197, 39)),
-    ("green", (84, 109, 27)), ("sticky_piston", (120, 170, 80)), ("piston_head", (170, 140, 95)), ("piston", (170, 140, 95)),
+    ("terracotta", (152, 94, 67)), ("white_concrete", (207, 213, 214)), ("smooth_quartz", (235, 229, 222)), *DYES, ("sticky_piston", (120, 170, 80)), ("piston_head", (170, 140, 95)), ("piston", (170, 140, 95)),
     ("lever", (90, 70, 50)), ("observer", (90, 90, 95)), ("repeater", (160, 60, 50)), ("lantern", (250, 200, 90)), ("torch", (250, 200, 90)),
     ("coal", (40, 40, 40)), ("iron", (200, 200, 200)), ("copper", (192, 107, 79)),
     ("stone", (125, 125, 125)), ("log", (109, 85, 50)), ("planks", (162, 130, 78)),

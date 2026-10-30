@@ -89,3 +89,9 @@ def load(path):
     b = mod.build()
     b.place_args = getattr(mod, "PLACE", [])
     return b
+
+
+def centre(v):
+    """A coordinate for a summon or entity selector: a whole block's centre (12 -> "12.5"), or as given
+    when the plan already chose a spot inside the block (6.25 stays "6.25")."""
+    return f"{v}.5" if isinstance(v, int) else f"{v:g}"

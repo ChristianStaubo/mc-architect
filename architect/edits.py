@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import bridge
 from .lock import locked
-from .build import payload
+from .build import centre, payload
 
 ROOT = Path(__file__).resolve().parent.parent
 DIR = ROOT / "local" / "edits"
@@ -145,7 +145,7 @@ def _undo(eid=None, run=""):
         bridge.place(_restore_body(e))
         how = "snapshot"
     for (x, y, z, kind) in e.get("entities", []):  # entities the edit summoned (boats)
-        bridge.command(f"kill @e[type=minecraft:{kind},x={x}.5,y={y},z={z}.5,distance=..2]")
+        bridge.command(f"kill @e[type=minecraft:{kind},x={centre(x)},y={y},z={centre(z)},distance=..2]")
     e = {**e, "undone": time.strftime("%Y-%m-%dT%H:%M:%S"), "undo_via": how}
     _write(e)
     return e

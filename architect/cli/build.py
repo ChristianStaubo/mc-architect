@@ -8,6 +8,7 @@ from collections import Counter
 from .. import blocks, bridge, edits, evals, journal, render, terrain
 from .. import audit as auditing
 from .. import town as towns
+from ..build import centre
 from ..placement import bounds, check_blocks, clear_trees, ground_cells, overflow, water_depths
 from .common import out_path, ints, player_pos, load_plan
 
@@ -120,7 +121,7 @@ def cmd_place(a):
     e = edits.place(cells, label=build.name, run=journal.run_id(), task=a.task or "",
                     floor_y=y0, at=list(at), plan=str(a.plan), entities=ents)
     for (x, y, z, k) in ents:  # after the blocks, so boats sit on water, not inside the old terrain
-        bridge.command(f"summon minecraft:{k} {x}.5 {y} {z}.5")
+        bridge.command(f"summon minecraft:{k} {centre(x)} {y} {centre(z)}")
     for (x, y, z, lines, side) in build.signs:
         bridge.call("/sign", {"pos": [at[0] + x, y0 + y, at[1] + z], "lines": lines, "side": side})
     if ents or build.signs:
