@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""mc: the agent's one tool for the Minecraft test server.
+"""mc: the command line for the Minecraft server (and the one tool its agents use).
 
 Build
   mc site --task T | --plot TOWN/P | X,Z [W,D]
                                     terrain of a plot (or centred on X,Z): heights grid, water, slope, map
-  mc place PLAN [--at X,Z | --near PLAYER] [--task T] [--dry-run]
+  mc place PLAN [--at X,Z | --near PLAYER] [--task T | --plot TOWN/P | --within X0,Z0,X1,Z1] [--dry-run]
              [--foundation BLOCK|none] [--y Y] [--no-clear] [--keep-trees]
                                     build a plan (plans/NAME or a .py path) on the ground there:
                                     local (0,0,0) at X,Z, y 0 one above the median ground; foundation
@@ -28,10 +28,19 @@ When the tools fall short
   mc incidents [--all] | incident ID [replay]   failures saved automatically: error, stack, last bridge
                                     requests and commands, the plan as it was, the server log; replay = dry rerun
   mc friction [--all] | resolve ID "<fix>" --cause C | stats
-Evals
-  mc eval gate [--offline]          the regression suite (docs/evals.md): must be 100%; exit 1 on a failure
-  mc eval list | brief T --run R | reset T | record T --run R [--critique FILE] | report [R]
-Towns (towns/NAME/town.json + layout.json; docs/town.md)
+The in-game architect (docs/architect.md)
+  mc architect serve | status       the daemon that answers /arc in game; what it's doing
+  mc architect ask "TEXT" --as NAME --at X,Y,Z [--facing F] [--selection ...]   a virtual player asks
+  mc preview PLAN --for PLAYER [place options]   show a plan to one player only, as ghost blocks
+  mc say PLAYER "TEXT" [--button "Label=/command"]   a line in their chat from the architect
+  mc bench                          time the architect on three fixed requests
+Evals (docs/evals.md)
+  mc eval gate [--offline]          the regression suite: must be 100%; exit 1 on a failure
+  mc eval run [--tasks a,b] [--trials 3] | report [RUN] [--vs OLD] | judge RUN   build quality
+  mc eval check TASK [--plan P]     grade a plan on a task's freshly reset site
+  mc eval scenarios [--tasks ...]   the architect's scripted conversations
+  mc eval list | brief TASK --run R | reset TASK
+Towns (towns/NAME/town.json + layout.json)
   mc town site NAME                 the area's height grid, slope classes, terrain and slope maps
   mc town show NAME                 check the layout (plots, roads, doors, water, earthworks) + map; exit 2 on a fail
   mc town road NAME ROAD [--dry-run]       build a road (follows the land, bridges over water)
