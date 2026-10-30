@@ -1,0 +1,36 @@
+{
+ "name": "riverford",
+ "area": {
+  "min": [
+   188,
+   -190
+  ],
+  "max": [
+   379,
+   75
+  ]
+ },
+ "brief": "Riverford, a river-trading town on the south bank, across the water from the lakeside town. Friendly neighbours with a different culture: where lakeside is dark timber, white plaster and steep dark roofs, Riverford is warm and sunlit, built by merchants and boat people. It grew around a ford and a bridge: a riverside quay with warehouses and boat sheds, a market square where the trade road arrives, a guildhall on the low hill in the middle that you can see from both towns and the castle, and houses and workshops climbing the gentle slope between them. A town wall with gate towers rings it (fence gates in the gateways, not doors), so its villagers stay inside; the river side is closed by the quay and warehouses. The trade road starts at the lakeside town's church lane (its end at 362,-184), runs south to the river, crosses it on a stone bridge (a toll house or waystation at the bridgehead, crates and carts, lanterns), and enters Riverford by its north gate, straight to the market. Nothing of Riverford is built north of the river except that road. It's a town for villagers: every house has beds for the people who live in it, every workshop its job block, and the market a bell.",
+ "style": "warm river-trader style: mud bricks and packed mud, smooth sandstone and cut sandstone bases, birch and acacia timber, terracotta (orange, red, white) for walls and patterns, low hip roofs and terraces in granite, brick or mud-brick stairs, copper accents (lanterns, gutters, the guildhall dome), striped canvas awnings (wool), lots of potted plants and vines; arches, loggias and flat roof terraces instead of lakeside's steep gables",
+ "phase1": "The core, about 14 buildings: the trade road and bridge from lakeside, the north gate and the wall's gate towers (the full wall can come in phase 2 if it's long), the market square with the bell and a fountain, the guildhall landmark on the hill, the quay with one warehouse and a boat shed, an inn for traders, and houses and workshops for 14 villagers.",
+ "max_plots_phase1": 16,
+ "villagers": {
+  "count": 14,
+  "rule": "one bed per villager (no spare beds: no breeding), one job block per working villager, a bell in the market",
+  "professions": {
+   "farmer": "composter",
+   "fisherman": "barrel",
+   "librarian": "lectern",
+   "cartographer": "cartography_table",
+   "cleric": "brewing_stand",
+   "mason": "stonecutter",
+   "shepherd": "loom",
+   "leatherworker": "cauldron",
+   "toolsmith": "smithing_table",
+   "butcher": "smoker",
+   "fletcher": "fletching_table"
+  },
+  "keep_in": "a wall or hedges with fence gates (villagers can't open them); the river side closed by buildings"
+ },
+ "features": []
+}

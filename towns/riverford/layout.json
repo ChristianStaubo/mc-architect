@@ -1,0 +1,479 @@
+{
+  "palette": {
+    "notes": "warm river-trader town, the sunny opposite of lakeside's dark timber: mud-brick and packed-mud walls on smooth/cut sandstone bases, stripped acacia and birch frames, posts and loggia columns, low hip roofs in brick stairs (mud-brick or granite stairs mixed in for variety) with flat roof terraces, bands and patterns in orange, red and white terracotta, copper accents (lanterns, gutters, the guildhall dome), striped wool awnings (orange/white, red/white), potted plants and vines everywhere; arches and loggias instead of gables",
+    "frame": "stripped_acacia_log",
+    "fill": "mud_bricks",
+    "base": "cut_sandstone",
+    "roof": "brick_stairs",
+    "accent": "birch"
+  },
+  "wall": {
+    "note": "Not a plot: the layout format has no long linear features and `town show` neither draws nor checks this. The town wall (phase 1: the north gate towers only; the rest is phase 2 unless the user wants it now): 3 high, mud bricks on a cut-sandstone footing, sandstone-slab coping, a walk only at the gate. It runs from the river bank west of the guildhall spur, south past the guildhall, east along the foot of the southern slope, and north down the east edge to the river. Along the river the line is closed by the riverfront buildings (boat shed, gate towers, toll house, warehouse) and between them by a 2-high quay parapet with fence-gate water stairs. Every gateway takes fence gates, never doors (villagers can't open fence gates).",
+    "points": [
+      [
+        263,
+        -60
+      ],
+      [
+        263,
+        -37
+      ],
+      [
+        318,
+        -37
+      ],
+      [
+        320,
+        -46
+      ],
+      [
+        378,
+        -46
+      ],
+      [
+        378,
+        -87
+      ]
+    ],
+    "river_side": [
+      [
+        263,
+        -60
+      ],
+      [
+        288,
+        -63
+      ],
+      [
+        292,
+        -79
+      ],
+      [
+        313,
+        -79
+      ]
+    ],
+    "gates": {
+      "north": [
+        340,
+        -84
+      ],
+      "south_phase2": [
+        319,
+        -45
+      ],
+      "west_phase2": "beside the guildhall, toward the spur"
+    },
+    "river_side_note": "West of the boat shed the line follows the river bank round the spur and the knoll (the coordinates above), then a quay parapet along z -79 west of the boat shed; from there east the outer walls of boat_shed, gate_tower_w, gate_tower_e, toll_house and warehouse close the river side, with 2-high parapet and fence gates in the 1-3 block gaps between them (x 327-330, 350, 361)."
+  },
+  "villagers": {
+    "beds": 14,
+    "job_blocks": {
+      "fletching_table": 1,
+      "cartography_table": 1,
+      "barrel": 3,
+      "brewing_stand": 1,
+      "smoker": 1,
+      "lectern": 1,
+      "loom": 1,
+      "cauldron": 1,
+      "smithing_table": 1,
+      "stonecutter": 1,
+      "composter": 2
+    },
+    "rule_for_builders": "Only the beds and job blocks listed in each brief, nothing extra anywhere in town: no decorative barrels, composters, lecterns, looms, cauldrons, smokers, stonecutters, grindstones, blast furnaces or bookshelf-lectern combos as props. Use chests, crates (spruce/birch trapdoor boxes), sacks (wool), pots and hay bales for clutter. The market has the town's only bell."
+  },
+  "roads": [
+    {
+      "id": "trade_road",
+      "width": 3,
+      "note": "starts at the end of lakeside's church_lane (362,-184), runs down the east shore of lakeside's southern bench (lakeside land, unbuilt, nothing of Riverford built along it), hops onto the river island over a 2-block gap, and crosses the main channel on a short straight north-south stone bridge (about 10 blocks) to Riverford's north gate, then straight on to the market on the quay",
+      "points": [
+        [
+          362,
+          -184
+        ],
+        [
+          359,
+          -178
+        ],
+        [
+          358,
+          -170
+        ],
+        [
+          348,
+          -160
+        ],
+        [
+          342,
+          -150
+        ],
+        [
+          333,
+          -141
+        ],
+        [
+          329,
+          -133
+        ],
+        [
+          329,
+          -122
+        ],
+        [
+          331,
+          -117
+        ],
+        [
+          336,
+          -111
+        ],
+        [
+          340,
+          -104
+        ],
+        [
+          340,
+          -98
+        ],
+        [
+          340,
+          -77
+        ]
+      ]
+    },
+    {
+      "id": "quay_street",
+      "width": 3,
+      "note": "the riverfront street inside the wall, from the fishers' house on the knoll to the warehouse at the east wall; the riverfront buildings sit on its north side, the market opens onto it",
+      "points": [
+        [
+          296,
+          -76
+        ],
+        [
+          301,
+          -77
+        ],
+        [
+          375,
+          -77
+        ]
+      ]
+    },
+    {
+      "id": "back_street",
+      "width": 3,
+      "note": "the upper street at the foot of the southern slope, from the guildhall's door on the spur down to the east wall",
+      "points": [
+        [
+          285,
+          -47
+        ],
+        [
+          291,
+          -51
+        ],
+        [
+          375,
+          -51
+        ]
+      ]
+    },
+    {
+      "id": "knoll_lane",
+      "width": 3,
+      "note": "short climbing lane between the inn and the knoll, joining quay street and back street",
+      "points": [
+        [
+          310,
+          -77
+        ],
+        [
+          310,
+          -51
+        ]
+      ]
+    }
+  ],
+  "plots": [
+    {
+      "id": "gate_tower_w",
+      "district": "gate",
+      "type": "gate tower",
+      "min": [
+        331,
+        -88
+      ],
+      "max": [
+        337,
+        -80
+      ],
+      "floor_y": 63,
+      "door": "east",
+      "beds": 1,
+      "job_blocks": [
+        "fletching_table"
+      ],
+      "brief": "West tower of the north gate, at the south end of the trade bridge (7x9 plot, tower about 5x5, 3 storeys plus a flat crenellated roof terrace). Mud-brick on a cut-sandstone plinth whose north face stands in the river shallows; acacia floor beams poking out, a copper lantern on a bracket over the gate. Door east into the gate passage. With gate_tower_e it carries a mud-brick arch (2 blocks clear above the road) over the trade road at about z -84, with a pair of fence gates in it (never doors). The quay parapet and wall run on from its west side. Inside: the gate warden's room, 1 bed (upper floor) and the job block, a fletching table (the warden makes arrows for the gate). Special detail: an orange-and-white striped awning over a bench on the river side where the guard watches boats come in."
+    },
+    {
+      "id": "gate_tower_e",
+      "district": "gate",
+      "type": "gate tower",
+      "min": [
+        343,
+        -88
+      ],
+      "max": [
+        349,
+        -80
+      ],
+      "floor_y": 63,
+      "door": "west",
+      "beds": 0,
+      "job_blocks": [],
+      "brief": "East tower of the north gate (7x9 plot, tower about 5x5, 3 storeys, flat roof terrace with a little copper-domed lookout kiosk on top: the first copper you see from the bridge). Mirror of gate_tower_w and joined to it by the gate arch with fence gates; door west into the gate passage. No bed and no job block: it's the guardroom and the stair up to the arch walk (a 1-wide walk across the top of the arch between the towers). Special detail: Riverford's banner (orange with a white wavy band) hanging on the river face."
+    },
+    {
+      "id": "toll_house",
+      "district": "gate",
+      "type": "toll house",
+      "min": [
+        351,
+        -88
+      ],
+      "max": [
+        360,
+        -80
+      ],
+      "floor_y": 63,
+      "door": "south",
+      "beds": 1,
+      "job_blocks": [
+        "cartography_table"
+      ],
+      "brief": "The toll house at the bridgehead (10x9 plot, building ~7x5, 1 storey and a roof terrace), right beside the east gate tower so the toll keeper's hatch (a window with a trapdoor shutter and a counter of sandstone slabs) looks into the gate passage; door south onto the quay street. Smooth sandstone and mud brick, low brick-stair hip roof, a striped awning over the hatch. Outside on the quay side: a cart, crates, sacks and a weighing beam (fence post and chains). 1 bed in a back room, job block: a cartography table (the toll keeper keeps the river charts and the ledger of every boat). Special detail: a board of trader's banners on the wall, one for each town that trades here, lakeside's first."
+    },
+    {
+      "id": "boat_shed",
+      "district": "quay",
+      "type": "boathouse (boat shed)",
+      "min": [
+        314,
+        -92
+      ],
+      "max": [
+        326,
+        -80
+      ],
+      "floor_y": 63,
+      "door": "south",
+      "beds": 1,
+      "job_blocks": [
+        "barrel"
+      ],
+      "brief": "The boat shed (13x13 plot, shed ~9x10) standing out over the river on acacia piles: the south 3 rows on the bank, the rest over the water, deck at 63. Open water gate on the north end with a slip inside and a boat on it; birch plank and mud-brick walls under a wide low hip roof in brick stairs with a copper ridge. Door south onto the quay street. Its west and north sides are the town's river edge, so no openings villagers could walk out of except the water gate (fence gate across the slip walkway). A loft over the slip with 1 bed (the boatwright) and the job block, one barrel (fisherman) by the slip. Special detail: oars and a half-built hull on a cradle next to the shed on the quay."
+    },
+    {
+      "id": "warehouse",
+      "district": "quay",
+      "type": "warehouse",
+      "min": [
+        362,
+        -90
+      ],
+      "max": [
+        376,
+        -80
+      ],
+      "floor_y": 64,
+      "door": "south",
+      "beds": 0,
+      "job_blocks": [],
+      "brief": "The river warehouse (15x11 plot, building ~12x7, 2 storeys), the big riverfront building that closes the east end of the quay; its north side stands on the water's edge with a loading platform over the water and a hoist beam above it. Smooth sandstone ground floor with three wide arches onto the quay street (door south), mud-brick upper floor with small windows, low hip roof in mud-brick/brick stairs, copper gutters. Inside: chests, stacked crates (trapdoor boxes), wool sacks, hay bales, a scale. No bed, no job block, and NO barrels (barrels are fisherman job blocks; use chests). Special detail: a striped awning on posts along the quay front with goods spilling out under it. Its back east wall stands against the town wall line (x 378)."
+    },
+    {
+      "id": "market",
+      "district": "market",
+      "type": "market square",
+      "min": [
+        331,
+        -74
+      ],
+      "max": [
+        351,
+        -54
+      ],
+      "floor_y": 64,
+      "door": "north",
+      "beds": 0,
+      "job_blocks": [],
+      "brief": "The market square (21x21), where the trade road comes through the north gate and across the quay street: open to the quay on the north and to back street on the south. Paved in smooth sandstone, cut sandstone and terracotta patches (an orange/white checker band round the edge). In the middle a round fountain (sandstone basin, water spout, copper rim) and the town BELL on an acacia frame beside it (the only bell in town). 6-8 market stalls round the edges with striped wool awnings (orange/white, red/white, yellow/white) on birch posts, selling from crates and pots; a few trees in big pots (azalea, acacia saplings), benches. Ground 63-66: pave at 64 and finish the south edge with two shallow steps. No beds and no job blocks in the stalls (the traders live in the houses). Copper lanterns on posts at the corners and along the stalls."
+    },
+    {
+      "id": "inn",
+      "district": "market",
+      "type": "inn",
+      "min": [
+        313,
+        -74
+      ],
+      "max": [
+        328,
+        -55
+      ],
+      "floor_y": 65,
+      "door": "north",
+      "beds": 2,
+      "job_blocks": [
+        "brewing_stand",
+        "smoker"
+      ],
+      "brief": "The traders' inn (16x20 plot, building ~12x14 in an L, 2 storeys plus a roof terrace), on the quay facing the river and the bridge, next to the market: the first big building a trader sees inside the gate. Ground floor a loggia of sandstone arches along the quay front (tables under the arches), taproom and kitchen behind; upper floor of mud brick with acacia frame; low hip roof over the main block and a flat roof terrace on the wing with a striped awning and potted plants, looking over the river to lakeside. Door north onto the quay street, a side door east toward the market and one west onto knoll lane. The ground rises from 63 to 67 toward the back: floor 65, the back wing on a low sandstone terrace. 2 beds (innkeeper and cook, in rooms upstairs; no guest beds, guests are players) and 2 job blocks: a brewing stand behind the bar (cleric, the brewer) and a smoker in the kitchen (butcher, the cook). Special detail: a hanging sign of a boat on a copper bracket over the door and a grape-vine pergola on the terrace."
+    },
+    {
+      "id": "guildhall",
+      "district": "guild",
+      "type": "guildhall",
+      "min": [
+        266,
+        -54
+      ],
+      "max": [
+        282,
+        -40
+      ],
+      "floor_y": 79,
+      "door": "east",
+      "beds": 1,
+      "job_blocks": [
+        "lectern"
+      ],
+      "brief": "The guildhall, Riverford's landmark, on the crown of the low hill in the middle of the town's land (17x15 plot, building ~13x11 plus a tower), 15 blocks above the quay so it is seen from the river, lakeside's market and the castle. Cut-sandstone base and a ground-floor loggia of arches on the east front facing down back street (door east), mud-brick and terracotta-patterned upper hall, and over the middle a copper dome on a square drum (or a square tower ~20 high with a copper cupola), the copper left to weather. Ground 75-82: floor 79 with a short stair and terrace on the low east side, the west end cut into the hill. Inside: the guild hall with a long table, banners of the trade houses, charts on the wall; a clerk's room with 1 bed and the job block, a lectern (librarian, the guild's record keeper). Special detail: a terrace with a sandstone balustrade in front of the door, looking down over the roofs and the river."
+    },
+    {
+      "id": "fishers_house",
+      "district": "knoll",
+      "type": "house",
+      "min": [
+        294,
+        -74
+      ],
+      "max": [
+        307,
+        -64
+      ],
+      "floor_y": 68,
+      "door": "north",
+      "beds": 2,
+      "job_blocks": [
+        "barrel",
+        "barrel"
+      ],
+      "brief": "The fishers' house on the river side of the knoll (14x11 plot, house ~10x6, 2 storeys), door north onto the quay street, looking straight over the river. Mud brick on a sandstone base, birch frame, low hip roof in brick stairs with one flat roof terrace corner where nets dry. The ground climbs from 66 at the street to 69 behind: floor 68 with 2 steps up from the street. 2 beds (two fishers) and 2 job blocks, a barrel each (fisherman), one inside by the door, one under the loggia. Special detail: a smoking rack and a fish-drying line on the terrace, and a little stair down to the water's edge at the west end of the quay street."
+    },
+    {
+      "id": "weavers_house",
+      "district": "east quarter",
+      "type": "house and workshop",
+      "min": [
+        354,
+        -74
+      ],
+      "max": [
+        365,
+        -65
+      ],
+      "floor_y": 64,
+      "door": "north",
+      "beds": 1,
+      "job_blocks": [
+        "loom"
+      ],
+      "brief": "The awning weaver's house and workshop (12x10 plot, ~8x6, 2 storeys), on the quay street east of the market: the person who makes all those striped awnings. Ground-floor workshop open to the street through a wide arch with bolts of coloured wool and a striped awning; living room above with a little balcony. Mud brick with white terracotta bands, birch frame, low brick roof. Door north onto the quay. 1 bed (upstairs), job block: a loom (shepherd). Special detail: dyed wool hanging on lines between the house and its neighbour."
+    },
+    {
+      "id": "tannery",
+      "district": "east quarter",
+      "type": "workshop",
+      "min": [
+        367,
+        -74
+      ],
+      "max": [
+        376,
+        -65
+      ],
+      "floor_y": 64,
+      "door": "north",
+      "beds": 1,
+      "job_blocks": [
+        "cauldron"
+      ],
+      "brief": "The tannery (11x10 plot, ~7x6, 1 storey plus a roof terrace), at the downstream east end of the quay where the smell blows away from town, against the east wall line. Mud brick and packed mud, acacia frame, a flat terrace roof with hides drying on racks (item frames with leather or brown banners). Door north onto the quay street. 1 bed in the back room and the job block, a cauldron (leatherworker) in the open workshop; a stone trough under a lean-to. Special detail: a water stair down from the quay edge where the tanner rinses hides."
+    },
+    {
+      "id": "smithy",
+      "district": "east quarter",
+      "type": "smithy",
+      "min": [
+        354,
+        -63
+      ],
+      "max": [
+        365,
+        -54
+      ],
+      "floor_y": 66,
+      "door": "south",
+      "beds": 1,
+      "job_blocks": [
+        "smithing_table"
+      ],
+      "brief": "The coppersmith's and toolsmith's forge (12x10 plot, ~8x6, 1 storey plus loft), on back street east of the market, door south. Sandstone and mud brick, an open forge under a wide arch with an anvil and a chimney of bricks; copper gutters, copper lanterns and a copper weathervane (lightning rod) to show off the trade. 1 bed in the loft, job block: a smithing table (toolsmith). No blast furnace or grindstone (they're job blocks too). Special detail: a rack of copper pots and finished tools on the street wall under a small awning."
+    },
+    {
+      "id": "masons_yard",
+      "district": "east quarter",
+      "type": "house and yard",
+      "min": [
+        367,
+        -63
+      ],
+      "max": [
+        376,
+        -54
+      ],
+      "floor_y": 66,
+      "door": "south",
+      "beds": 1,
+      "job_blocks": [
+        "stonecutter"
+      ],
+      "brief": "The mason's house and yard (11x10 plot, house ~6x6, 1 storey, the rest a walled work yard), on back street against the east wall, door south. Built to show off the mason's work: cut-sandstone and chiseled-sandstone walls, a terracotta pattern panel over the door, a flat roof terrace. The yard holds blocks of sandstone and terracotta, a crane (fence posts and chains). 1 bed, job block: a stonecutter (mason) under a lean-to in the yard. Special detail: a half-carved sandstone column lying on trestles."
+    },
+    {
+      "id": "gardeners_house",
+      "district": "knoll",
+      "type": "farmhouse",
+      "min": [
+        294,
+        -48
+      ],
+      "max": [
+        308,
+        -39
+      ],
+      "floor_y": 72,
+      "door": "north",
+      "beds": 2,
+      "job_blocks": [
+        "composter",
+        "composter"
+      ],
+      "brief": "The market gardeners' house (15x10 plot, house ~7x5, 1 storey plus a roof terrace), south of back street at the foot of the slope, door north. Packed mud and mud brick, acacia frame, a vine-covered pergola on the terrace. Behind and beside it the kitchen garden on two low terraces (sandstone retaining edges): farmland rows of wheat, carrots, potatoes and beetroot with a water channel, inside the wall so the farmers stay in. 2 beds (two farmers) and 2 job blocks, a composter each, at the garden's edge. Ground 70-77, rising to the south: floor 72, the garden stepping up behind. Special detail: a melon and pumpkin patch along the town wall at the back with a scarecrow in a straw hat."
+    }
+  ]
+}
