@@ -1,5 +1,7 @@
 # The lake town (next capability)
 
+> Working notes, kept for history. The plan for the lakeside town on our own test world. For how things work now, see `docs/`.
+
 Goal: one town built from scratch that **works with the natural terrain**: a lake, water builds,
 buildings on a mountainside, roads that follow the land. No flattened plain.
 

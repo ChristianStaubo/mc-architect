@@ -11,7 +11,7 @@ from .. import bridge, incidents, journal
 from . import assistant, build, evals, look, recorder, town, world
 from .common import Parser
 
-# The in-game architect's agent (MC_ROLE=architect) never changes the world itself (docs/in-game-architect.md).
+# The in-game architect's agent (MC_ROLE=architect) never changes the world itself (docs/architect.md).
 ARCHITECT_DENIED = {"place", "undo", "cmd", "restart", "eval", "town"}
 GROUPS = [world, build, look, recorder, town, evals, assistant]
 

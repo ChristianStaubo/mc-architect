@@ -1,4 +1,4 @@
-"""Build the blind rating page (docs/evals.md §10) for a capability run.
+"""Build the blind rating page (docs/notes/evals-design.md §10) for a capability run.
 
     python3 scripts/rating_page.py RUN [--refs N] [--per-task N]
 

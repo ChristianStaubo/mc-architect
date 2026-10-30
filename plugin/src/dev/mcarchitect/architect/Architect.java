@@ -22,7 +22,7 @@ import static dev.mcarchitect.core.Json.map;
 import static dev.mcarchitect.core.Json.str;
 
 /**
- * The in-game architect (docs/in-game-architect.md). /arc turns what a player says into an event for the
+ * The in-game architect (docs/architect.md). /arc turns what a player says into an event for the
  * daemon (mc architect serve), which answers through /say and shows designs through /preview. The plugin
  * never decides anything itself: it carries words, context and ghost blocks.
  */

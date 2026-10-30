@@ -1,4 +1,4 @@
-"""The capability runner (docs/evals.md §7): every task, N trials each, one headless builder per trial.
+"""The capability runner (docs/notes/evals-design.md §7): every task, N trials each, one headless builder per trial.
 
 A trial resets its site, runs `claude -p --agent mc-builder` in the repo with the tools fenced in, then
 grades what's on the site with the task's code graders and draws its contact sheet. Trials of one task

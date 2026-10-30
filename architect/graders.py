@@ -1,4 +1,4 @@
-"""Code graders (docs/evals.md §5.1): checks of a task's outcome, the blocks in the world after a trial,
+"""Code graders (docs/notes/evals-design.md §5.1): checks of a task's outcome, the blocks in the world after a trial,
 compared with the plot's pristine terrain. Pure functions over region dicts, like the audit, so they can
 be tested and run on previews. Each returns {"pass": bool, "value": ..., "detail": "..."}."""
 

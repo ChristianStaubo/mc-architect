@@ -1,5 +1,5 @@
 """The in-game architect: the daemon (architect serve), and the tools its agent talks and shows designs with
-(say, preview). docs/in-game-architect.md."""
+(say, preview). docs/architect.md."""
 
 import json
 import os

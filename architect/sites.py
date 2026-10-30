@@ -1,4 +1,4 @@
-"""Pristine eval sites (docs/evals.md §6): each capability task's plot, plus a margin, captured once from
+"""Pristine eval sites (docs/notes/evals-design.md §6): each capability task's plot, plus a margin, captured once from
 the seeded world into evals/sites/<task>.json.gz. A trial starts by putting the site back exactly, and is
 graded by comparing the live world with it."""
 

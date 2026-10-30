@@ -1,4 +1,4 @@
-"""Model judges (docs/evals.md §8): quality scores for a trial's contact sheet, never pass/fail.
+"""Model judges (docs/notes/evals-design.md §8): quality scores for a trial's contact sheet, never pass/fail.
 
 Three small judges per trial, each with a few rubric dimensions, instead of one holistic critic: each
 sees only the brief, its dimensions' rubric rows and the picture, and may answer "unknown" when the

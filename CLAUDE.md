@@ -7,7 +7,7 @@ server only gets builds the user approves.
 ## Start here
 1. `./mc.py doctor`: Docker, server and bridge up? (`open -a Docker`, `docker compose up -d`.)
 2. Building something → skill **mc-build** (and `STYLE.md`). Improving the harness, running evals,
-   "keep going" → skill **mc-improve** (and `docs/agent-workflow.md`).
+   "keep going" → skill **mc-improve** (and `docs/notes/agent-workflow.md`).
 3. `./mc.py -h`: the only tool. Never drive the game UI.
 
 ## Layout
@@ -17,7 +17,7 @@ server only gets builds the user approves.
 - `evals/tasks/`: the eval suite (v2: graders per task), `evals/sites/` their pristine plots, `evals/reference/`
   a passing plan per task (builders must never read these); `evals/RUBRIC.md`: the critic's rubric. `STYLE.md`: the house style.
 - `.claude/agents/`: `mc-builder` (Sonnet, builds a task), `mc-critic` (scores from pictures), `mc-architect`
-  (answers players' `/arc` in game: preview and talk, never place; docs/in-game-architect.md).
+  (answers players' `/arc` in game: preview and talk, never place; docs/architect.md).
 - `evals/scenarios/`: scripted `/arc` conversations checked by code (`mc eval scenarios`).
 - `plugin/`: the Paper plugin (Java), one package per feature: `bridge/` (the agent's API), `travel/`
   (homes, /tpa), `architect/` (/arc, inbox, previews); a new feature implements `core/Feature`. `docker/`, `compose.yaml`: the server. `tests/`: `python3 -m unittest discover tests`.

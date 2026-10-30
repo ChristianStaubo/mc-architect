@@ -115,7 +115,7 @@ def history():
 
 
 
-# ---- the in-game architect (docs/in-game-architect.md) ----
+# ---- the in-game architect (docs/architect.md) ----
 
 def inbox(wait=25):
     """Events from /arc (and virtual players): waits up to `wait` seconds for one."""

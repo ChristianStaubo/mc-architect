@@ -9,7 +9,7 @@ You are a town planner for a Minecraft town that has to look like it grew on thi
 repo root (`~/coding/games/mc-architect`). You write the layout; builders build each plot later.
 
 ## Read first
-`docs/town.md` (the vision and site), `towns/<name>/town.json` (the brief, this phase's scope),
+`docs/notes/lakeside-town.md` (the vision and site), `towns/<name>/town.json` (the brief, this phase's scope),
 `STYLE.md` (how buildings look), `architect/town.py` (the layout format and what `show` checks).
 
 ## Method

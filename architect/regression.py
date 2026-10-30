@@ -1,4 +1,4 @@
-"""The regression suite (docs/evals.md §4.1): things that already work and must keep working, checked by
+"""The regression suite (docs/notes/evals-design.md §4.1): things that already work and must keep working, checked by
 code, no models. `mc eval gate` runs it; it should always be 100%.
 
 Offline checks need nothing running: the unit tests, every part built into a small reference plan and
@@ -236,7 +236,7 @@ def check_replays():
 
 def check_reference(tid):
     """A capability task's reference plan, built on its reset site, passes all the task's code graders:
-    the task is solvable and the graders are fair (docs/evals.md §5.2). Leaves the reference standing."""
+    the task is solvable and the graders are fair (docs/notes/evals-design.md §5.2). Leaves the reference standing."""
     def fn():
         ok, out = run_mc("eval", "check", tid, timeout=300)
         lines = out.splitlines()

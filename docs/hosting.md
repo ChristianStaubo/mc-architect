@@ -1,23 +1,23 @@
-# Hosting plan
+# Hosting your own server (planned)
 
-How we take the server from this laptop to somewhere friends can join any time (roadmap goal 4).
-Researched 2026-10-29; prices are from that day and need checking at checkout.
+How to run this somewhere your friends can join any time. This is the plan; the scripts it lists under
+"Still to build" don't exist yet. Prices were checked on 2026-10-29: check them again before you buy.
 
 ## The shape
-One small Linux VPS running two containers from our own image (the one we already build from pinned,
-hash-checked files):
+One small Linux VPS running two containers from this repo's image (built from pinned, hash-checked
+files):
 
 | | live | staging |
 |---|---|---|
-| who | friends, survival | the agent and us |
+| who | your friends, survival | you and the architect |
 | game port | 25565, public | none (Tailscale only) |
 | bridge | off, or Tailscale only | on, Tailscale only |
 | heap | ~4.5 GB | ~2 GB |
 | world | the real one | a copy, refreshed from the newest live backup every week |
 
 The agent builds on staging. An approved build goes to live by reading its box from the staging bridge
-(`/region`) and placing it on live (`/place`): the same calls we use today, with an undo snapshot on
-live. Nothing the agent tries ever lands on live unasked.
+(`/region`) and placing it on live (`/place`), with an undo snapshot on live. Nothing the agent tries
+ever lands on live unasked.
 
 ## Where
 Minecraft's game loop runs on one thread, so per-core speed matters more than core count; Paper's
@@ -35,37 +35,37 @@ guidance is a heap set once (Xms = Xmx) with ~1-1.5 GB left for the OS. For 3-8 
 
 ## Backups
 - **restic** to cheap object storage: Backblaze B2 (first 10 GB free, then $6.95/TB) or Cloudflare R2
-  (10 GB free, no egress fees). A deduplicated world repo of a few GB costs cents a month.
-- Around each snapshot: `save-off`, `save-all flush`, snapshot, `save-on`, through the bridge we already
-  have (no RCON port). Hourly while people are on, nightly otherwise; keep 24 hourly, 7 daily, 4 weekly,
+  (10 GB free, no egress fees). A deduplicated backup of a few GB costs cents a month.
+- Around each snapshot: `save-off`, `save-all flush`, snapshot, `save-on`, through the bridge (no RCON
+  port). Hourly while people are on, nightly otherwise; keep 24 hourly, 7 daily, 4 weekly,
   6 monthly.
 - Always a snapshot before a Paper/WorldEdit upgrade and before promoting a build to live.
 - **Restore drill**: the weekly staging refresh *is* a restore of the newest live backup, so backups
   get tested every week without extra work.
 - restic is a single static binary from its GitHub releases: pinned and hash-checked like everything
-  else in `deps.lock.json`, under the 7-day rule.
+  else in `deps.lock.json` (nothing released in the last 7 days).
 
 ## Security
 - `online-mode=true`, `white-list=true`, `enforce-whitelist=true`; friends added by name.
 - Firewall (the provider's plus nftables/ufw): only 25565/tcp open to the internet. SSH over Tailscale
   only (or keys only).
 - Docker bypasses ufw for published ports: publish the bridge on `127.0.0.1` or the Tailscale address,
-  never `0.0.0.0`. (Our compose file already binds to 127.0.0.1.)
+  never `0.0.0.0`. (`compose.yaml` already binds to 127.0.0.1.)
 - Tailscale (free plan: 6 users, unlimited devices) for the bridge and staging: no open ports, and the
   agent's machine reaches the bridge directly. The bearer token stays as a second lock.
 - DDoS: OVH includes protection; a proxy like TCPShield isn't worth it for a whitelisted friends server.
-- Debian `unattended-upgrades` with an automatic reboot window; our image stays non-root with
+- Debian `unattended-upgrades` with an automatic reboot window; the image stays non-root with
   `cap_drop: ALL` and `no-new-privileges`.
 
 ## Running it
 - **Monitoring**: an external ping of the game port (e.g. a free uptime checker) and a heartbeat after
-  every successful backup, so a missed backup alerts us; disk at 80% alerts.
-- **Updates**: bump Paper/WorldEdit in `deps.lock.json` (7-day rule), build the image, run it on
+  every successful backup, so a missed backup alerts you; disk at 80% alerts.
+- **Updates**: bump Paper/WorldEdit in `deps.lock.json`, build the image, run it on
   staging, run `mc eval gate` against staging, snapshot live, switch live to the new image digest. Keep
   the previous digest to roll back. World upgrades are one-way: never skip the snapshot.
 - **Logs**: Docker `json-file` with `max-size`/`max-file`; Paper rotates its own logs.
 
-## What we need to build
+## Still to build
 1. `compose.prod.yaml`: live + staging services, heaps, ports as above, restart policies, log limits.
 2. `mc` pointing at a named server (`MC_SERVER=staging|live`, each with its bridge URL and token).
 3. `scripts/backup.sh` (restic via the bridge's save-off/save-on) + a systemd timer, and
@@ -75,11 +75,10 @@ guidance is a heap set once (Xms = Xmx) with ~1-1.5 GB left for the OS. For 3-8 
 6. Whitelist management (`mc whitelist add NAME`, or by hand in the console).
 7. A restore drill and a rollback drill once, before friends rely on it.
 
-## Decisions for the owner
+## Choices you'll make
 - Where: OVH VPS-2 (recommended), Hetzner when it's back in stock, or a spare PC at home.
-- Backup storage: B2 or R2 (both effectively free at our size).
+- Backup storage: B2 or R2 (both effectively free for a friends server).
 - Who's on the whitelist.
-- Account sign-ups and payment are the owner's to do; we build and test everything else locally first.
 
 Sources: [Paper: Aikar's flags](https://docs.papermc.io/paper/aikars-flags),
 [OVH VPS](https://www.ovhcloud.com/en/vps/), [Hetzner cloud](https://www.hetzner.com/cloud/cost-optimized/),

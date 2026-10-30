@@ -45,7 +45,7 @@ def cmd_eval(a):
             print(f"  {'ok  ' if g['pass'] else 'FAIL'} {g['grader']:<26} {g['detail'][:110]}")
         print(f"{sum(g['pass'] for g in res)}/{len(res)} code graders pass")
         return 0 if all(g["pass"] for g in res) else 2
-    elif a.action == "run":  # the capability suite, headless (docs/evals.md §7)
+    elif a.action == "run":  # the capability suite, headless (docs/notes/evals-design.md §7)
         from architect import trials
         tids = a.tasks.split(",") if a.tasks else list(evals.tasks())
         print(f"capability run: {len(tids)} tasks x {a.trials} trials, builder {a.model}, judge {a.judge_model}")
@@ -58,7 +58,7 @@ def cmd_eval(a):
             if rec.get("sheet") and (a.force or rec.get("quality") is None):
                 trials.save(trials.judge_trial(rec, evals.task(rec["task"]), a.judge_model, repeat=rec["trial"] == 1))
                 print(f"  {rec['task']} #{rec['trial']}: quality {rec['quality']}")
-    elif a.action == "scenarios":  # the in-game architect's behaviour suite (docs/in-game-architect.md)
+    elif a.action == "scenarios":  # the in-game architect's behaviour suite (docs/architect.md)
         from .. import scenarios
         rec = scenarios.run(a.tasks.split(",") if a.tasks else None, a.model,
                             log=lambda m: print(m, flush=True))
@@ -71,7 +71,7 @@ def cmd_eval(a):
 
 
 def eval_report(run, vs=None):
-    """The capability report (docs/evals.md §9) of RUN (default: the newest), saved to evals/results/."""
+    """The capability report (docs/notes/evals-design.md §9) of RUN (default: the newest), saved to evals/results/."""
     from architect import scoreboard
     run = run or (scoreboard.runs() or [None])[-1]
     if not run:

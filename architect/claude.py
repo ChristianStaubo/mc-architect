@@ -1,7 +1,7 @@
 """Headless Claude Code, the one way this harness starts it (eval builders, judges, the in-game architect):
 `dontAsk` permissions (the user's default mode approves anything), and none of the user's MCP servers,
 skills or slash commands: loading 19 MCP servers cost ~5 s of startup, and their tool definitions rode
-along on every model call (docs/in-game-architect.md, speed)."""
+along on every model call (docs/notes/architect-build-log.md, speed)."""
 
 import json
 

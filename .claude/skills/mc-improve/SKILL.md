@@ -5,14 +5,14 @@ description: Run the mc-architect improvement loop — run the eval suite with b
 
 # The improvement loop (you are the fixer and the supervisor)
 
-The method is `docs/agent-workflow.md` (from fm26-manager). In short: builders build, judges judge,
+The method is `docs/notes/agent-workflow.md` (from fm26-manager). In short: builders build, judges judge,
 you fix the tools, the scoreboard says whether it worked. The user is paged only when you are stuck.
 
 ## One round
 1. **Health.** `./mc.py doctor` (Docker Desktop: `open -a Docker`; server: `docker compose up -d`).
    `./mc.py eval gate` (the regression suite: unit tests, every part, plans, block names, place + undo,
    the door test, incident replays) must be 100% before and after every fix.
-2. **Run.** `./mc.py eval run [--tasks a,b] [--trials 3] --label "<what changed>"` (docs/evals.md §7):
+2. **Run.** `./mc.py eval run [--tasks a,b] [--trials 3] --label "<what changed>"` (docs/notes/evals-design.md §7):
    it resets each site, runs a headless Sonnet builder per trial with the tools fenced in, grades it
    with the task's code graders and has Opus judges score its sheet. Never build for the builders.
 3. **Check.** `./mc.py eval check <task> [--plan P]` grades one plan on a reset site (a reference by
@@ -21,7 +21,7 @@ you fix the tools, the scoreboard says whether it worked. The user is paged only
    failing graders, flags. Look at the sheets (`local/evals/<run>/<task>/<trial>/sheet.png`) and read
    a few transcripts yourself too: graders and judges can be wrong.
 5. **Ratings.** Now and then, `python3 scripts/rating_page.py <run>` makes a rating page for the user to
-   calibrate the judges against (docs/evals.md §10).
+   calibrate the judges against (docs/notes/evals-design.md §10).
 6. **Fix.** Read every friction report (`./mc.py friction`: stuck stops, gaps, auto-filed crashes),
    every incident (`./mc.py incidents`, then `./mc.py incident ID`: the error and stack, the last bridge
    requests and commands, the plan as it was, the server log; `replay` reruns it dry) and each builder's

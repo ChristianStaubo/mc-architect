@@ -61,11 +61,11 @@ Leave it running while you play; `/arc` works for operators.
 
 ## Roadmap
 - **Run it on your own server:** a step-by-step hosting guide (a small VPS, backups, a private link for the
-  architect). The plan is in [docs/hosting.md](docs/hosting.md).
+  architect). The plan is in [hosting.md](docs/hosting.md).
 - **Bigger builds:** whole districts and cities, and terraforming (rivers, hills, forests).
 - **Friends using the architect,** with per-player limits.
 - **More in-game tests:** a bot player that checks previews and builds automatically.
 
 ## More
-[How the architect works](docs/in-game-architect.md) · [Evals](docs/evals.md) ·
-[Town planning](docs/town.md) · [Roadmap](docs/roadmap.md) · [For Claude Code](CLAUDE.md)
+[How the architect works](docs/architect.md) · [How the evals work](docs/evals.md) ·
+[Roadmap](docs/roadmap.md) · [Hosting (planned)](docs/hosting.md) · [For Claude Code](CLAUDE.md)

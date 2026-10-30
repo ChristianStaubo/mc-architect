@@ -1,4 +1,6 @@
-# The in-game architect: design
+# The in-game architect: build log
+
+> Working notes, kept for history. How the in-game architect was designed and built, what testing it taught us, and the speed work. For how things work now, see `docs/`.
 
 Players build *with* the architect from inside Minecraft. You stand somewhere and type
 `/arc a little bakery here, facing the road`; the architect answers in chat, shows you a ghost of the
@@ -128,7 +130,7 @@ architect/                     Python: the agent's toolkit (unchanged modules st
 
 .claude/agents/mc-architect.md the in-game agent
 evals/scenarios/*.json         scripted conversations for the suite
-docs/in-game-architect.md      this file
+docs/architect.md      this file
 ```
 Adding a command later = a new folder under `plugin/.../<feature>/` with a `Feature`, its entries in
 `plugin.yml`, and (if the agent needs it) a file in `architect/cli/`.

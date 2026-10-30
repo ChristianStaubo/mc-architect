@@ -1,4 +1,4 @@
-"""The capability report (docs/evals.md §9): per task and overall, with bootstrap intervals, pass@k and
+"""The capability report (docs/notes/evals-design.md §9): per task and overall, with bootstrap intervals, pass@k and
 pass^k, and paired comparisons between runs."""
 
 import json

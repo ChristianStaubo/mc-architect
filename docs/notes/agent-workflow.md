@@ -1,7 +1,9 @@
 # How this harness gets better (the workflow)
 
-Adapted from fm26-manager's `docs/agent-workflow.md` (the full version, with the FM examples:
-`~/coding/games/fm26-manager/docs/agent-workflow.md`). Goal: Claude builds great things in Minecraft
+> Working notes, kept for history. The builder, judge and fixer loop this harness is developed with. For how things work now, see `docs/`.
+
+Adapted from fm26-manager's `docs/notes/agent-workflow.md` (the full version, with the FM examples:
+`~/coding/games/fm26-manager/docs/notes/agent-workflow.md`). Goal: Claude builds great things in Minecraft
 **by itself**, and earns autonomy one capability at a time.
 
 ## 1. The outcome, as a scoreboard

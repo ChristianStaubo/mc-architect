@@ -1,4 +1,4 @@
-"""The agent-behaviour suite (docs/in-game-architect.md): scripted /arc conversations with virtual players,
+"""The agent-behaviour suite (docs/architect.md): scripted /arc conversations with virtual players,
 each checked by code. Steps go to the daemon's handle() in this process (no inbox, so a running `mc
 architect serve` isn't disturbed); every scenario starts on its own pristine site with a fresh session.
 
