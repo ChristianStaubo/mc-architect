@@ -54,15 +54,24 @@ class PlotWorkflow:
 class CityWorkflow:
     def __init__(self):
         self.phase, self.done, self.total, self.running = "starting", 0, 0, []
+        self.conc = None
+
+    @workflow.signal
+    def set_concurrency(self, n: int):
+        """More (or fewer) builders at once, on a running build: the window grows as soon as it's set."""
+        self.conc = max(1, int(n))
 
     @workflow.query
     def status(self) -> dict:
-        return {"phase": self.phase, "done": self.done, "total": self.total, "running": self.running}
+        return {"phase": self.phase, "done": self.done, "total": self.total, "running": self.running,
+                "concurrency": self.conc}
 
     @workflow.run
     async def run(self, args: dict) -> dict:
         run, name = args["run"], args["name"]
-        conc, only, build = args.get("concurrency", 4), args.get("districts"), args.get("build", True)
+        only, build = args.get("districts"), args.get("build", True)
+        if self.conc is None:
+            self.conc = args.get("concurrency", 4)
 
         self.phase = "planning the districts"
         await workflow.execute_activity(A.plan_macro, args=[run, name, args.get("plots", 140)],
@@ -95,7 +104,7 @@ class CityWorkflow:
         self.total, results, pending = len(ids), [], set()
         queue = list(ids)
         while queue or pending:  # a sliding window: never more than `conc` builders at once
-            while queue and len(pending) < conc:
+            while queue and len(pending) < self.conc:
                 pid = queue.pop(0)
                 h = await workflow.start_child_workflow(PlotWorkflow.run, {"run": run, "name": name, "plot": pid},
                                                         id=f"city-{run}-{pid}", task_queue=A.QUEUE)

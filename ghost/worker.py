@@ -21,7 +21,7 @@ async def main():
     name = f"ghost-worker-{os.getpid()}"
     threading.Thread(target=db.beat_forever, args=(name,), daemon=True).start()
     client = await Client.connect(config.TEMPORAL)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=40) as pool:
         worker = Worker(client, task_queue=config.TASK_QUEUE, workflows=[BuildWorkflow],
                         activities=[A.tell, A.clear_preview, A.check, A.place, A.finish],
                         activity_executor=pool, max_concurrent_activities=6,
@@ -33,7 +33,7 @@ async def main():
                          max_concurrent_activities=4)
         # the city harness: its own queue, so long builder runs never starve the ghosts' quick steps
         city = Worker(client, task_queue=C.QUEUE, workflows=[CityWorkflow, PlotWorkflow], activities=C.ACTIVITIES,
-                      activity_executor=pool, max_concurrent_activities=12,
+                      activity_executor=pool, max_concurrent_activities=28,
                       workflow_runner=SandboxedWorkflowRunner(
                           restrictions=SandboxRestrictions.default.with_passthrough_modules("ghost", "architect",
                                                                                             "psycopg", "cedarpy")))

@@ -19,6 +19,12 @@ async def _start(a):
     print(f"started city-{run} (watch it at http://localhost:8233)")
 
 
+async def _workers(a):
+    c = await Client.connect(config.TEMPORAL)
+    await c.get_workflow_handle(f"city-{a.run}").signal("set_concurrency", a.concurrency)
+    print(f"city-{a.run}: now {a.concurrency} builders at once")
+
+
 async def _status(a):
     c = await Client.connect(config.TEMPORAL)
     runs = [a.run] if a.run else [r["run"] for r in db.all("SELECT DISTINCT run FROM city_agents WHERE run LIKE %s "
@@ -41,7 +47,7 @@ async def _status(a):
 
 def main(argv):
     ap = argparse.ArgumentParser(prog="ghost city")
-    ap.add_argument("action", choices=["start", "status"])
+    ap.add_argument("action", choices=["start", "status", "workers"])
     ap.add_argument("name")
     ap.add_argument("--run")
     ap.add_argument("--plots", type=int, default=140)
@@ -51,5 +57,5 @@ def main(argv):
     ap.add_argument("--plan-only", action="store_true")
     a = ap.parse_args(argv)
     db.migrate()
-    asyncio.run(_start(a) if a.action == "start" else _status(a))
+    asyncio.run(_start(a) if a.action == "start" else _workers(a) if a.action == "workers" else _status(a))
     return 0
