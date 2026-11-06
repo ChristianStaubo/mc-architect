@@ -206,7 +206,7 @@ def lay_ground(run: str, name: str, only: list | None = None) -> dict:
     n = 0
     for r in lay.get("roads", []):
         if f"town:{name}:road:{r['id']}" not in done:
-            ok, out = mcrun.mc("town", name, "road", r["id"], timeout=900, MC_RUN_ID=f"city:{run}:ground")
+            ok, out = mcrun.mc("town", "road", name, r["id"], timeout=900, MC_RUN_ID=f"city:{run}:ground")
             if not ok:
                 raise ApplicationError(f"road {r['id']}: {out[-300:]}")
             n += 1
@@ -215,7 +215,7 @@ def lay_ground(run: str, name: str, only: list | None = None) -> dict:
         if only and p.get("district") not in only and p["id"] not in only:
             continue
         if f"town:{name}:{p['id']}:terrace" not in done:
-            ok, out = mcrun.mc("town", name, "terrace", p["id"], timeout=600, MC_RUN_ID=f"city:{run}:ground")
+            ok, out = mcrun.mc("town", "terrace", name, p["id"], timeout=600, MC_RUN_ID=f"city:{run}:ground")
             if not ok:
                 raise ApplicationError(f"terrace {p['id']}: {out[-300:]}")
             n += 1
@@ -246,7 +246,7 @@ def build_plot(run: str, name: str, pid: str, feedback: str | None, session: str
     if not feedback:
         for e in sorted(_plot_edits(name, pid), key=edits.seq, reverse=True):
             edits.undo(e["id"], "")
-    ok, brief = mcrun.mc("town", name, "brief", pid)
+    ok, brief = mcrun.mc("town", "brief", name, pid)
     if not ok:
         raise ApplicationError(f"no brief for {pid}: {brief[-200:]}", non_retryable=True)
     plan = (work / "plan.py").relative_to(ROOT)
@@ -289,7 +289,7 @@ def judge_plot(run: str, name: str, pid: str) -> dict:
     m = re.search(r"(/\S+\.png)", out)
     if not ok or not m:
         return {"score": None, "fix": "", "error": out[-200:]}
-    _, brief = mcrun.mc("town", name, "brief", pid)
+    _, brief = mcrun.mc("town", "brief", name, pid)
     o = run_agent(run, "critic", pid, CRITIC.format(sheet=m.group(1), brief=brief), [], "mc-critic")
     j = re.search(r"\{.*\}", o["report"], re.S)
     try:
