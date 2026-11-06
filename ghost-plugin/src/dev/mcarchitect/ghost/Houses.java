@@ -33,7 +33,7 @@ import static dev.mcarchitect.core.Json.str;
  * pick_house event; ghost-core records it and sends the members back.
  */
 final class Houses implements Listener {
-    record House(String id, String name, TextColor color, String motto) {}
+    record House(String id, String name, TextColor color, String motto, String style) {}
 
     private final Plugin plugin;
     private final Inbox inbox;
@@ -54,7 +54,7 @@ final class Houses implements Listener {
             for (JsonElement e : b.getAsJsonArray("houses")) {
                 JsonObject h = e.getAsJsonObject();
                 houses.put(str(h, "id"), new House(str(h, "id"), str(h, "name"), TextColor.fromHexString(str(h, "color")),
-                        str(h, "motto", "")));
+                        str(h, "motto", ""), str(h, "style", "")));
             }
         }
         if (b.has("members")) {
@@ -95,8 +95,55 @@ final class Houses implements Listener {
         }
     }
 
+    /** The house picker: a dialog screen (Minecraft's own UI since 1.21.6) with each house's banner, motto,
+     * style and members, and a button to join; the chest menu if the dialog can't be shown. */
     void open(Player p) {
         if (houses.isEmpty()) return;
+        try {
+            p.showDialog(dialog());
+        } catch (RuntimeException | LinkageError e) {
+            plugin.getLogger().warning("house dialog failed (" + e + "); showing the menu instead");
+            openMenu(p);
+        }
+    }
+
+    private io.papermc.paper.dialog.Dialog dialog() {
+        List<io.papermc.paper.registry.data.dialog.body.DialogBody> body = new ArrayList<>();
+        body.add(io.papermc.paper.registry.data.dialog.body.DialogBody.plainMessage(Component.text(
+                "Each house has its own land, its own style and its own ghost, who builds with you. "
+                        + "Choose one; only the server owner can move you later.", NamedTextColor.GRAY), 300));
+        List<io.papermc.paper.registry.data.dialog.ActionButton> buttons = new ArrayList<>();
+        for (House h : houses.values()) {
+            long n = members.values().stream().filter(h.id()::equals).count();
+            Component about = Component.text(h.name(), h.color()).decorate(TextDecoration.BOLD)
+                    .append(Component.text("  " + n + (n == 1 ? " member" : " members"), NamedTextColor.DARK_GRAY))
+                    .append(Component.newline()).append(Component.text(h.motto(), NamedTextColor.WHITE))
+                    .append(h.style().isEmpty() ? Component.empty()
+                            : Component.newline().append(Component.text(h.style(), NamedTextColor.GRAY)));
+            body.add(io.papermc.paper.registry.data.dialog.body.DialogBody.item(new ItemStack(banner(h.color())),
+                    io.papermc.paper.registry.data.dialog.body.DialogBody.plainMessage(about, 260), false, false, 16, 16));
+            buttons.add(io.papermc.paper.registry.data.dialog.ActionButton.create(
+                    Component.text("Join " + h.name(), h.color()), Component.text(h.motto()), 140,
+                    io.papermc.paper.registry.data.dialog.action.DialogAction.customClick((view, audience) -> {
+                        if (audience instanceof Player who) choose(who, h.id());
+                    }, net.kyori.adventure.text.event.ClickCallback.Options.builder().uses(1).build())));
+        }
+        var later = io.papermc.paper.registry.data.dialog.ActionButton.create(Component.text("Decide later"),
+                Component.text("/ghost house opens this again"), 140, null);
+        return io.papermc.paper.dialog.Dialog.create(f -> f.empty()
+                .base(io.papermc.paper.registry.data.dialog.DialogBase.builder(Component.text("Choose your house"))
+                        .canCloseWithEscape(true).body(body).build())
+                .type(io.papermc.paper.registry.data.dialog.type.DialogType.multiAction(buttons, later, 2)));
+    }
+
+    private void choose(Player p, String house) {
+        if (houseOf(p.getName()) != null) return;  // a second click, or a stale screen
+        inbox.post("pick_house", house, Listen.context(p, this));
+        House chosen = houses.get(house);
+        p.sendMessage(Component.text("You chose " + chosen.name() + ".", chosen.color()));
+    }
+
+    private void openMenu(Player p) {
         Menu m = new Menu();
         m.inv = Bukkit.createInventory(m, 9, Component.text("Pick your house"));
         int slot = houses.size() == 2 ? 2 : 0;
@@ -132,11 +179,8 @@ final class Houses implements Listener {
         int slot = e.getRawSlot();
         if (slot < 0 || slot >= m.slots.size() || m.slots.get(slot) == null) return;
         Player p = (Player) e.getWhoClicked();
-        String house = m.slots.get(slot);
         p.closeInventory();
-        inbox.post("pick_house", house, Listen.context(p, this));
-        House chosen = houses.get(house);
-        p.sendMessage(Component.text("You chose " + chosen.name() + ".", chosen.color()));
+        choose(p, m.slots.get(slot));
     }
 
     @EventHandler

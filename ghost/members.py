@@ -49,10 +49,17 @@ def answering(who, ctx):
     return ghost_of(who)
 
 
+def _short_style(hid):
+    """The house's style in a line, for the picker (the first clause of its town's style)."""
+    text = config.style(hid).split(": ", 1)[-1].split(" (palette")[0]
+    first = text.split(";")[0].split(". ")[0]
+    return (first[:117] + "...") if len(first) > 120 else first
+
+
 def sync():
     """Send the houses and members to the plugin (on start and after every change)."""
-    hs = [{"id": h["id"], "name": h["name"], "color": h["color"], "motto": h.get("motto", "")}
-          for h in config.houses()["houses"]]
+    hs = [{"id": h["id"], "name": h["name"], "color": h["color"], "motto": h.get("motto", ""),
+           "style": _short_style(h["id"])} for h in config.houses()["houses"]]
     ms = {r["player"]: {"house": r["house"], "role": r["role"]} for r in db.all("SELECT player, house, role FROM members")}
     owner = config.houses()["owner"].lower()
     ms.setdefault(owner, {"house": None, "role": "owner"})["role"] = "owner"
