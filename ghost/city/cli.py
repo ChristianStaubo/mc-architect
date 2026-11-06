@@ -21,6 +21,17 @@ async def _start(a):
     print(f"started city-{run} (watch it at http://localhost:8233)")
 
 
+async def _kits(a):
+    """Build a town from kits (ghost/city/kitwork.py): its town.json names the kits to write."""
+    c = await Client.connect(config.TEMPORAL)
+    run = a.run or f"{a.name}-{time.strftime('%m%d-%H%M')}"
+    from architect import town as towns
+    keys = list(towns.town(a.name).get("kits", {}))
+    await c.start_workflow("KitTownWorkflow", {"run": run, "name": a.name, "kits": keys, "skip_kits": a.skip_kits},
+                           id=f"city-{run}", task_queue=A.QUEUE)
+    print(f"started city-{run}: kits {keys} (watch it at http://localhost:8233)")
+
+
 async def _decide(a):
     c = await Client.connect(config.TEMPORAL)
     await c.get_workflow_handle(f"city-{a.run}").signal("answer", args=[a.key, a.answer])
@@ -61,7 +72,8 @@ async def _status(a):
 
 def main(argv):
     ap = argparse.ArgumentParser(prog="ghost city")
-    ap.add_argument("action", choices=["start", "status", "workers", "decide"])
+    ap.add_argument("action", choices=["start", "status", "workers", "decide", "kits"])
+    ap.add_argument("--skip-kits", action="store_true", help="kits: the kits are written; lay, stamp and judge")
     ap.add_argument("--key", help="decide: the district (or plot) that asked")
     ap.add_argument("--answer", help="decide: your answer, in words")
     ap.add_argument("name")
@@ -74,5 +86,5 @@ def main(argv):
     ap.add_argument("--infill", help='JSON {district: {"covered": 0.35, "hole": 60, "count": 12}}: fill hollow districts')
     a = ap.parse_args(argv)
     db.migrate()
-    asyncio.run({"start": _start, "workers": _workers, "decide": _decide, "status": _status}[a.action](a))
+    asyncio.run({"start": _start, "workers": _workers, "decide": _decide, "status": _status, "kits": _kits}[a.action](a))
     return 0

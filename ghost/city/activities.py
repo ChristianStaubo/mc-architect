@@ -21,9 +21,9 @@ from architect.cli.town import town_terrain  # noqa: E402
 ROOT = config.ROOT
 WORK = ROOT / "local" / "city"
 QUEUE = "city"
-MODELS = {"macro": "opus", "district": "sonnet", "builder": "sonnet", "critic": "sonnet"}
-BUDGETS = {"macro": 8.0, "district": 4.0, "builder": 4.0, "critic": 1.0}   # caps per run (USD-equivalent)
-MINUTES = {"macro": 40, "district": 30, "builder": 45, "critic": 10}
+MODELS = {"macro": "opus", "district": "sonnet", "builder": "sonnet", "critic": "sonnet", "kit": "opus"}
+BUDGETS = {"macro": 8.0, "district": 4.0, "builder": 4.0, "critic": 1.0, "kit": 10.0}   # caps per run (USD-equivalent)
+MINUTES = {"macro": 40, "district": 30, "builder": 45, "critic": 10, "kit": 45}
 
 
 def model(role):

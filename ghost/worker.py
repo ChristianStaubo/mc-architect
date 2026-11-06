@@ -14,6 +14,8 @@ from . import activities as A
 from . import config, db
 from .city import activities as C
 from .city.workflows import CityWorkflow, PlotWorkflow
+from .city.kitwork import KitTownWorkflow
+from .city import kitwork as K
 from .workflows import BuildWorkflow
 
 
@@ -32,7 +34,8 @@ async def main():
         designs = Worker(client, task_queue=config.DESIGN_QUEUE, activities=[A.design], activity_executor=pool,
                          max_concurrent_activities=4)
         # the city harness: its own queue, so long builder runs never starve the ghosts' quick steps
-        city = Worker(client, task_queue=C.QUEUE, workflows=[CityWorkflow, PlotWorkflow], activities=C.ACTIVITIES,
+        city = Worker(client, task_queue=C.QUEUE, workflows=[CityWorkflow, PlotWorkflow, KitTownWorkflow],
+                      activities=C.ACTIVITIES + K.KIT_ACTIVITIES,
                       activity_executor=pool, max_concurrent_activities=28,
                       workflow_runner=SandboxedWorkflowRunner(
                           restrictions=SandboxRestrictions.default.with_passthrough_modules("ghost", "architect",
