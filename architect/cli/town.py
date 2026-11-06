@@ -56,6 +56,29 @@ def cmd_town(a):
         fails = sum(i["level"] == "fail" for i in issues)
         print(f"{fails} fail, {sum(i['level'] == 'warn' for i in issues)} warn. map (north up): {path}")
         return 2 if fails else 0
+    elif a.action == "plots":  # the layout as a table (planners: no need to parse the JSON)
+        lay = towns.layout(name)
+        for p in lay.get("plots", []):
+            if not a.district or p.get("district") == a.district:
+                print(f"{p['id']:<34} {p.get('district', ''):<14} {p.get('type', '')[:22]:<22} x {p['min'][0]}..{p['max'][0]} "
+                      f"z {p['min'][1]}..{p['max'][1]} floor {p.get('floor_y')} door {p.get('door')}")
+        for r in lay.get("roads", []):
+            if not a.district or r.get("district") in (None, a.district):
+                pts = r["points"]
+                print(f"road {r['id']:<29} width {r.get('width', 3)} {pts[0]} -> {pts[-1]} ({len(pts)} points)")
+    elif a.action == "check":  # one district's file, merged in memory and checked: before the orchestrator merges it
+        if not a.district:
+            raise SystemExit("check needs --district D (it checks towns/NAME/districts/D.json in the city)")
+        lay = towns.merged(name, a.district)
+        mine = {p["id"] for p in lay["plots"] if p.get("district") == a.district} | \
+            {r["id"] for r in lay["roads"] if r.get("district") == a.district}
+        issues = [i for i in towns.check(name, town_terrain(name), lay) if i["what"] in mine or i["level"] == "fail"
+                  and i["what"] not in {p["id"] for p in lay["plots"]}]
+        for i in issues:
+            print(f"  {i['level'].upper():<4} {i['what']:<30} {i['msg']}")
+        fails = sum(i["level"] == "fail" for i in issues)
+        print(f"{a.district}: {fails} fail, {sum(i['level'] == 'warn' for i in issues)} warn")
+        return 2 if fails else 0
     elif a.action == "road":
         r = next((r for r in towns.layout(name)["roads"] if r["id"] == a.id), None)
         if not r:
@@ -149,7 +172,9 @@ def cmd_town(a):
 
 def register(sub):
     tw = sub.add_parser("town")
-    tw.add_argument("action", choices=["site", "show", "road", "terrace", "brief", "shots", "tidy", "status"])
+    tw.add_argument("action", choices=["site", "show", "road", "terrace", "brief", "shots", "tidy", "status",
+                                       "plots", "check"])
+    tw.add_argument("--district", help="plots: only this district; check: merge towns/NAME/districts/D.json first")
     tw.add_argument("--tile", type=int, default=5)
     tw.add_argument("name")
     tw.add_argument("id", nargs="?")

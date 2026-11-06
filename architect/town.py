@@ -62,9 +62,21 @@ def door_point(p):
     return {"north": (cx, z0 - 1), "south": (cx, z1 + 1), "west": (x0 - 1, cz), "east": (x1 + 1, cz)}[d]
 
 
-def check(name, cols):
-    """Problems with a layout, as {level, what, msg}: fail = must fix before building, warn = look at it."""
-    t, lay = town(name), layout(name)
+def merged(name, district):
+    """The layout with one district's own file (towns/NAME/districts/D.json: its plots and lanes) in place of
+    that district's part: what the layout will be once a district planner's edits are merged."""
+    lay = layout(name)
+    part = json.loads((TOWNS / name / "districts" / f"{district}.json").read_text())
+    lay["plots"] = [p for p in lay["plots"] if p.get("district") != district] + part.get("plots", [])
+    lay["roads"] = [r for r in lay.get("roads", []) if r.get("district") != district] + \
+        [{**r, "district": district} for r in part.get("roads", [])]
+    return lay
+
+
+def check(name, cols, lay=None):
+    """Problems with a layout (the town's, or `lay`), as {level, what, msg}: fail = must fix before building,
+    warn = look at it."""
+    t, lay = town(name), lay or layout(name)
     (ax0, az0), (ax1, az1) = t["area"]["min"], t["area"]["max"]
     out = []
 
