@@ -6,6 +6,7 @@ import dev.mcarchitect.MCBridgePlugin;
 import dev.mcarchitect.bridge.HttpBridge;
 import dev.mcarchitect.core.Chat;
 import dev.mcarchitect.core.Feature;
+import dev.mcarchitect.core.Inbox;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;

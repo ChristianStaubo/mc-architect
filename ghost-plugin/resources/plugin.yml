@@ -1,0 +1,15 @@
+name: Ghost
+version: 0.1.0
+main: dev.mcarchitect.ghost.GhostPlugin
+api-version: '26.3'
+depend: [MCBridge]
+description: The ghost (docs/ghost/design.md) - house ghosts you can talk to, their bodies, and the house picker. Optional.
+commands:
+  ghost:
+    description: Talk to your house's ghost, or stop it
+    usage: /ghost <anything> | stop | house
+    permission: ghost.talk
+permissions:
+  ghost.talk:
+    description: Talk to the ghost
+    default: true

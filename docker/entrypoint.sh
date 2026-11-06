@@ -9,6 +9,9 @@ rm -f /data/plugins/worldedit*.jar
 ln -sfn /opt/paper/worldedit.jar /data/plugins/worldedit.jar
 # Our bridge plugin, compiled by scripts/build-plugin.sh into plugin/build.
 [ -f /plugin/mc-bridge.jar ] && ln -sfn /plugin/mc-bridge.jar /data/plugins/mc-bridge.jar
+# The ghost (optional): only when compose.ghost.yaml is in use, which sets GHOST_PLUGIN=1.
+rm -f /data/plugins/ghost.jar
+if [ "${GHOST_PLUGIN:-0}" = 1 ] && [ -f /plugin/ghost.jar ]; then ln -sfn /plugin/ghost.jar /data/plugins/ghost.jar; fi
 
 # The person running the server accepts the Minecraft EULA themselves (server/eula.txt).
 if ! grep -qs '^eula=true' /data/eula.txt; then
