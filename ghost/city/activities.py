@@ -229,8 +229,12 @@ def lay_ground(run: str, name: str, only: list | None = None) -> dict:
 
 @activity.defn
 def plot_ids(name: str, only: list | None) -> list:
+    """The plots to build: those asked for, minus any an earlier run of this city already finished (so a
+    stopped build picks up where it left off; a plot that was stopped mid-build is built again)."""
     lay = _read(city_dir(name) / "layout.json", {})
-    ps = [p for p in lay.get("plots", []) if not only or p.get("district") in only or p["id"] in only]
+    finished = {r["plot"] for r in db.all("SELECT plot FROM city_plots WHERE city = %s AND state IN ('done', 'flawed')", name)}
+    ps = [p for p in lay.get("plots", []) if (not only or p.get("district") in only or p["id"] in only)
+          and p["id"] not in finished]
     # landmarks first: they set the tone the others follow
     return [p["id"] for p in sorted(ps, key=lambda p: (not p.get("landmark"), p["id"]))]
 
