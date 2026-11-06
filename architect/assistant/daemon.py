@@ -9,8 +9,7 @@ import time
 from collections import deque
 
 from .. import bridge, journal, run
-from ..parts import FACE_STEP
-from . import agent, sessions
+from . import agent, policy, sessions
 from .sessions import ROOT
 
 MAX_JOBS = 2
@@ -53,8 +52,7 @@ def on_yes(player):
     m = re.search(r"placed (e\d+)", out)
     if not ok or not m:
         return say(player, f"I couldn't build it: {out.splitlines()[-1][:200] if out else 'no output'}", "warn")
-    bridge.preview_clear(player)
-    bridge.area_clear(player)  # a marked area is used up by the build in it
+    bridge.preview_clear(player, area=True)  # the selection is used up by the build in it
     with sessions.edit(player) as s:
         s["builds"].append({"edit": m.group(1), "plan": p["plan"], "at": sessions.now()})
         s.pop("pending", None)
@@ -112,15 +110,7 @@ def on_status(player):
 def site_ahead(player, ctx):
     """The ground where a build will most likely go (the selection, the spot they're looking at, or a
     16x16 patch just in front of them), read before Claude starts so the agent doesn't spend a turn on it."""
-    sel, pos, target = ctx.get("selection"), ctx.get("pos") or [0, 0, 0], ctx.get("target")
-    if sel:
-        lo, hi = sel["min"], sel["max"]
-        cx, cz, w, d = (lo[0] + hi[0]) // 2, (lo[2] + hi[2]) // 2, hi[0] - lo[0] + 5, hi[2] - lo[2] + 5
-    elif target:
-        cx, cz, w, d = target["pos"][0], target["pos"][2], 24, 24
-    else:
-        dx, dz = FACE_STEP.get(ctx.get("facing"), (0, 1))
-        cx, cz, w, d = int(pos[0]) + 10 * dx, int(pos[2]) + 10 * dz, 16, 16
+    cx, cz, w, d = policy.anchor(ctx)["site"]
     ok, out = mc(player, "site", f"{cx},{cz}", f"{w},{d}")
     return out if ok else ""
 

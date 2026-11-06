@@ -141,14 +141,11 @@ def preview(player, body):
     return call("/preview", {**body, "player": player})
 
 
-def preview_clear(player):
-    return call("/preview/clear", {"player": player})
+def preview_clear(player, area=False):
+    """Take a player's preview away; area=True also drops their selection (a build uses it up)."""
+    return call("/preview/clear", {"player": player, "area": area})
 
 
 def preview_get(player):
     return call("/preview/get", {"player": player})
 
-
-def area_clear(player):
-    """Drop the area a player marked with /arc mark (and its gold frame)."""
-    return call("/area/clear", {"player": player})

@@ -33,18 +33,35 @@ def ahead(ctx, frame, at):
     return at[0] + sx, at[1] + sz
 
 
+def anchor(ctx):
+    """Where a build for this request goes, the one rule the daemon, the guard and the evals share:
+    {"spot": (x, z) the radius counts from (None inside a selection), "what": its name,
+    "site": (cx, cz, w, d) the ground to read first}. Their selection wins, then the block under their
+    crosshair ("here", "this hill"), then just in front of them."""
+    sel, pos, target = ctx.get("selection"), ctx.get("pos") or [0, 0, 0], ctx.get("target")
+    if sel:
+        lo, hi = sel["min"], sel["max"]
+        return {"spot": None, "what": "their selection",
+                "site": ((lo[0] + hi[0]) // 2, (lo[2] + hi[2]) // 2, hi[0] - lo[0] + 5, hi[2] - lo[2] + 5)}
+    if target:
+        x, z = target["pos"][0], target["pos"][2]
+        return {"spot": (x, z), "what": "the spot they're looking at", "site": (x, z, 24, 24)}
+    dx, dz = FACE_STEP.get(ctx.get("facing"), (0, 1))
+    x, z = math.floor(pos[0]), math.floor(pos[2])
+    return {"spot": (x, z), "what": "them", "site": (x + 10 * dx, z + 10 * dz, 16, 16)}
+
+
 def limits(ctx, frame, at=None):
     """None if the build may go there, else why not (and, when it covers the player, the --at to use)."""
     (x0, y0, z0), (x1, y1, z1) = frame
     if x1 - x0 + 1 > MAX_SIDE or z1 - z0 + 1 > MAX_SIDE or y1 - y0 + 1 > MAX_HEIGHT:
         return f"too big: {x1 - x0 + 1}x{y1 - y0 + 1}x{z1 - z0 + 1} (max {MAX_SIDE} wide, {MAX_HEIGHT} tall)"
-    pos = ctx.get("pos")
-    if not pos or ctx.get("selection"):
+    pos, a = ctx.get("pos"), anchor(ctx)
+    if not pos or not a["spot"]:
         return None
-    # Near where they're looking (the crosshair: "this hill"), else near where they stand.
-    spot, what = (ctx["target"]["pos"], "the spot they're looking at") if ctx.get("target") else (pos, "them")
-    if max(abs(v - spot[0]) for v in (x0, x1)) > RADIUS or max(abs(v - spot[2]) for v in (z0, z1)) > RADIUS:
-        return f"too far from {what} (at {spot[0]},{spot[2]}): keep it within {RADIUS} blocks of it"
+    sx, sz = a["spot"]
+    if max(abs(v - sx) for v in (x0, x1)) > RADIUS or max(abs(v - sz) for v in (z0, z1)) > RADIUS:
+        return f"too far from {a['what']} (at {sx},{sz}): keep it within {RADIUS} blocks of it"
     px, pz = math.floor(pos[0]), math.floor(pos[2])
     if x0 - 1 <= px <= x1 + 1 and z0 - 1 <= pz <= z1 + 1:
         hint = f": use --at {','.join(map(str, ahead(ctx, frame, at)))}" if at else ""

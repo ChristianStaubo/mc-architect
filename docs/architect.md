@@ -15,8 +15,8 @@ architect  Built it.                                              [Undo]
 | Command | What happens |
 |---|---|
 | `/arc <idea>` | a new design where you're looking, or a change to the one you're looking at |
-| `/arc mark` | look at a corner and mark it, then the opposite corner: that area glows gold and the next build goes in it |
-| `/arc clear` | forget the marked area |
+| `/arc mark` | look at a corner and mark it, then the opposite corner: that area (your WorldEdit selection) glows gold and the next build goes in it |
+| `/arc clear` | forget the area |
 | `/arc yes` | builds exactly what the preview showed |
 | `/arc no` | drops the preview |
 | `/arc undo` | takes your last build back, block for block |
@@ -29,7 +29,7 @@ architect  Built it.                                              [Undo]
 - **A glowing frame** around the build, visible through walls and from far away, and a bar at the top of
   your screen while a preview is waiting.
 - **It builds where you mean.** "Here", "there" or "on this hill" is the block under your crosshair (up to
-  200 blocks away). Marked an area (`/arc mark`, or a WorldEdit selection)? It builds inside that. Looking
+  200 blocks away). Marked an area (`/arc mark`, or the WorldEdit wand)? It builds inside that, and the build uses it up. Looking
   at the sky? A few blocks in front of you, facing you.
 
 ## How it works

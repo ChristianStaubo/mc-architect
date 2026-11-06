@@ -2,6 +2,7 @@
 (say, preview). docs/architect.md."""
 
 import json
+import math
 import os
 import sys
 
@@ -58,7 +59,9 @@ def cmd_architect(a):
             v = ints(a.selection)
             ctx["selection"] = {"min": v[:3], "max": v[3:]}
         if a.target:
-            ctx["target"] = {"pos": ints(a.target), "block": "minecraft:grass_block", "distance": 0}
+            t, p = ints(a.target), ctx["pos"]
+            ctx["target"] = {"pos": t, "block": bridge.heightmap((t[0], t[2]), (t[0], t[2]))[(t[0], t[2])][1],
+                             "distance": round(math.dist((t[0], t[2]), (p[0], p[2])))}
         kind = a.text if a.text in daemon.HANDLERS else "request"
         print(f"posted event {bridge.post_event(ctx, '' if kind != 'request' else a.text, kind)}")
 
