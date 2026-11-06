@@ -14,7 +14,9 @@
       "Edit(local/ghost/**)",
       "Edit(policies/**)",
       "Edit(config/**)",
-      "Edit(ghost/**)"
+      "Edit(ghost/**)",
+      "Read(local/ghost-memory/**)",
+      "Edit(local/ghost-memory/**)"
     ]
   }
 }

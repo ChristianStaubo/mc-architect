@@ -17,7 +17,7 @@ import uuid
 
 from temporalio.client import Client
 
-from . import bridge, config, db, members, model, outbox, tasks, tools
+from . import bridge, config, db, members, memory, model, outbox, tasks, tools
 from .policy import Who, acting_ghost
 
 CONVERSATION_S = 120   # after talking to the ghost, their chat stays in the conversation this long
@@ -219,7 +219,8 @@ class Core:
                  f"They're standing in {config.house(land.house)['name'] + chr(39) + 's land' if land.house else 'the commons'}.",
                  "Recent builds on the server: " + "; ".join(f"{r['player']} ({r['ghost']}): {r['request'][:50]!r}"
                                                              for r in recent) if recent else "No builds yet.",
-                 "You know nothing else about the world: if asked, say you don't know rather than guess."]
+                 "You know nothing else about the world: if asked, say you don't know rather than guess.",
+                 "", memory.guide(th["ghost"], player), "", memory.read(th["ghost"], player)]
         return "\n".join(x for x in lines if x), open_task
 
     def route(self, eid, player, ctx, text, may_ignore=False):
@@ -232,12 +233,15 @@ class Core:
             c.execute("INSERT INTO messages (thread_id, who, text) VALUES (%s, 'player', %s)", (th["id"], text))
         context, open_task = self.context_for(th, player, who, ctx)
         acts, trace = actions_for(open_task, may_ignore), uuid.uuid4().hex
+        before = memory.read(ghost, player)
         try:
             a = model.ask("router", router_system(ghost, acts), f'{context}\n\nThey just said: "{text}"',
-                          router_schema(acts), None, trace)
+                          router_schema(acts), None, trace, notes=memory.path(ghost, player))
         except model.ModelError as ex:
             print(f"router failed: {ex}", flush=True)
             return outbox.say(ghost, player, "Sorry, I lost my train of thought. Say that again?", (), th["id"])
+        if memory.note_change(ghost, player, before, trace):
+            print(f"  (noted something about {player})", flush=True)
         print(f"  -> {ghost}: {a['action']} {a.get('build') or ''} | {a['reply'][:80]}", flush=True)
         if a["action"] == "stay_quiet":
             return db.run("UPDATE events SET verdict = 'quiet' WHERE id = %s", eid)
@@ -335,8 +339,9 @@ class Core:
         t = tasks.get(int(arg)) if arg.strip().isdigit() else None
         ghost = t["ghost"] if t else members.ghost_of(who)   # a button answers in the voice of its task's ghost
         handler = {"stop": self.b_stop, "status": self.b_status, "yes": self.b_answer, "no": self.b_answer,
-                   "approve": self.b_approve, "deny": self.b_approve, "undo": self.b_undo}.get(verb)
-        if verb not in ("stop", "status") and not t:
+                   "approve": self.b_approve, "deny": self.b_approve, "undo": self.b_undo,
+                   "forget": self.b_forget}.get(verb)
+        if verb not in ("stop", "status", "forget") and not t:
             return outbox.say(ghost, player, "That button is for something that's gone.")
         if handler:
             answer = handler(verb, player, who, t)
@@ -348,6 +353,10 @@ class Core:
         if waiting:
             self.signal(waiting["id"], "decide", "no")
         return "Stopped."
+
+    def b_forget(self, verb, player, who, t):
+        n = memory.forget(player)
+        return "Done: I've forgotten everything I noted about you." if n else "I had nothing noted about you."
 
     def b_status(self, verb, player, who, t):
         used = tools.used_today(who.house) if who.house else {}

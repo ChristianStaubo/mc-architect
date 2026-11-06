@@ -112,7 +112,7 @@ final class Listen implements Listener, TabExecutor {
         }
         if (args.length == 0) {
             Chat.warn(p, "Talk to your house's ghost: /ghost follow me, /ghost build a bench here. "
-                    + "/ghost stop stops it at once. /ghost house shows the houses.");
+                    + "/ghost stop stops it at once. /ghost house shows the houses. /ghost forget clears what it remembers about you.");
             return true;
         }
         String first = args[0].toLowerCase();
@@ -127,7 +127,7 @@ final class Listen implements Listener, TabExecutor {
                 p.sendMessage(Component.text("(stopped)", NamedTextColor.GRAY));
             }
             case "house" -> houses.open(p);
-            case "yes", "no", "approve", "deny", "undo", "status" ->  // buttons: structured, no model needed
+            case "yes", "no", "approve", "deny", "undo", "status", "forget" ->  // structured, no model needed
                     inbox.post("button", String.join(" ", args).toLowerCase(), ctx);
             default -> {
                 inbox.post("command", String.join(" ", args), ctx);
@@ -141,7 +141,7 @@ final class Listen implements Listener, TabExecutor {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length != 1) return List.of();
-        return List.of("follow me", "come here", "stop", "house", "status").stream()
+        return List.of("follow me", "come here", "stop", "house", "status", "forget").stream()
                 .filter(w -> w.startsWith(args[0].toLowerCase())).toList();
     }
 

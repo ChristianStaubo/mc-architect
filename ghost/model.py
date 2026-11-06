@@ -39,11 +39,15 @@ def _prompt_hash(system):
     return h
 
 
-def ask(role, system, prompt, schema, task_id=None, trace_id=None, timeout=90):
-    """The model's answer as a dict matching `schema`. Raises ModelError (after recording the trace)."""
+def ask(role, system, prompt, schema, task_id=None, trace_id=None, timeout=90, notes=None):
+    """The model's answer as a dict matching `schema`. Raises ModelError (after recording the trace).
+    notes: a file the model may keep with Read / Edit / Write (its memory); every other path is denied."""
     model = name(role)
     trace_id = trace_id or uuid.uuid4().hex
-    cmd = ["claude", "-p", prompt, "--model", model, "--system-prompt", system, *LEAN,
+    lean = LEAN if not notes else [x for x in LEAN if x not in ("--tools", "")] + [
+        "--tools", "Read,Edit,Write", "--permission-mode", "dontAsk", "--add-dir", str(notes.parent),
+        "--allowedTools", *(f"{t}(/{notes})" for t in ("Read", "Edit", "Write"))]
+    cmd = ["claude", "-p", prompt, "--model", model, "--system-prompt", system, *lean,
            "--json-schema", json.dumps(schema), "--output-format", "json"]
     t0 = time.time()
     out, ok, answer = "", False, None
