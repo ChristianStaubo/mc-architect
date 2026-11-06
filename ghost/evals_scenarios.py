@@ -10,8 +10,8 @@ import time
 
 from . import bridge, db, sim
 
-LAKE = (352, -224)        # inside Lakeside's zone, away from the protected market
-RIVER = (300, -60)        # inside Riverford's zone
+LAKE = (2030, 30)         # Lakeside's testing ground (config/ghost/houses.json): evals never build in the towns
+RIVER = (2130, 30)        # Riverford's testing ground
 
 
 def ground(x, z):
@@ -125,13 +125,28 @@ def s_build_and_undo():
     built = t and t["state"] == "done"
     edit = t and t["detail"].get("edit")
     rows = audit(task_id=t["id"])
+    # a second build asked for on the same spot must not land on the first
+    first = t
+    t1 = max_task()
+    a.command("build a lantern post right here")
+    t2 = wait_state(a.name, t1, ("waiting", "failed", "denied"), 420)
+    clear = True
+    if t2 and t2["detail"].get("frame"):
+        (fx0, _, fz0), (fx1, _, fz1) = first["detail"]["frame"]
+        (gx0, _, gz0), (gx1, _, gz1) = t2["detail"]["frame"]
+        clear = fx1 < gx0 or gx1 < fx0 or fz1 < gz0 or gz1 < fz0
+    if t2 and t2["state"] == "waiting":
+        a.click(f"no {t2['id']}")
+    t = first
     a.click(f"undo {t['id']}")
     undone = sim.wait_for(lambda: db.one("SELECT state FROM tasks WHERE id = %s", t["id"])["state"] == "undone", 60)
     live = {e["id"] for e in _edits()}
     return [("build: previewed, then built after yes", built, t and t["state"]),
             ("build: every Build was authorized before it ran", all(r["decision"] == "allow" for r in rows if r["action"] == "Build")
              and any(r["action"] == "Build" for r in rows), [(r["action"], r["decision"]) for r in rows]),
-            ("build: undo took it back", bool(undone) and edit not in live, edit)]
+            ("build: undo took it back", bool(undone) and edit not in live, edit),
+            ("build: a second build on the same spot went beside it, not on it", clear,
+             t2 and (t2["state"], t2["detail"].get("frame")))]
 
 
 def s_cross_house():

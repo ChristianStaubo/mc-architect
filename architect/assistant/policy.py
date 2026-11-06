@@ -5,6 +5,7 @@ import math
 
 from .. import blocks
 from ..parts import FACE_STEP
+from ..occupied import occupied
 from ..placement import bounds
 
 RADIUS = 32        # without a selection, a build stays this close to where the player looked (or stood)
@@ -56,6 +57,10 @@ def limits(ctx, frame, at=None):
     (x0, y0, z0), (x1, y1, z1) = frame
     if x1 - x0 + 1 > MAX_SIDE or z1 - z0 + 1 > MAX_SIDE or y1 - y0 + 1 > MAX_HEIGHT:
         return f"too big: {x1 - x0 + 1}x{y1 - y0 + 1}x{z1 - z0 + 1} (max {MAX_SIDE} wide, {MAX_HEIGHT} tall)"
+    on = occupied((x0, z0), (x1, z1))
+    if on:
+        return (f"that spot is taken: it would land on {', '.join(on[:3])}. Move it to clear ground nearby "
+                f"(never on top of an existing building, wall or road)")
     pos, a = ctx.get("pos"), anchor(ctx)
     if not pos or not a["spot"]:
         return None

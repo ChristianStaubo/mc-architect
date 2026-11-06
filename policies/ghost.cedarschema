@@ -14,7 +14,7 @@ action Preview appliesTo {
 };
 action Build, Demolish appliesTo {
   principal: [Player, Ghost], resource: [Zone],
-  context: { "blocks": Long, "head_approved": Bool, "zone_head_approved": Bool }
+  context: { "blocks": Long, "head_approved": Bool, "zone_head_approved": Bool, "overlaps_build": Bool }
 };
 action Undo appliesTo { principal: [Player, Ghost], resource: [Zone], context: { "own_build": Bool } };
 action ApproveBuild appliesTo { principal: [Player], resource: [Zone] };

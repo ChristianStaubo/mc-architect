@@ -162,12 +162,15 @@ def _decide(t, audit=True):
     d = t["detail"]
     requester = members.who(t["player"])
     head = _approved(t["id"], "head", d["plan_hash"])
+    from architect.occupied import occupied
+    (bx0, _, bz0), (bx1, _, bz1) = d.get("frame") or d["box"]
+    on = occupied((bx0, bz0), (bx1, bz1), ignore_runs=(f"ghost:task{t['id']}",))
     for z in _zones(d):
         # each zone's own ghost does the work there (the commons: the asker's ghost); the asker must be
         # allowed too, so building in another house's land still needs that house's head
         ghost = Who.ghost(z.house) if z.house else (Who.ghost(t["ghost"]) if t["ghost"] != "spirit" else None)
         zh = _approved(t["id"], f"zone_head:{z.house}", d["plan_hash"]) if z.house else False
-        ctx = build_context(d["blocks"], head, zh)
+        ctx = build_context(d["blocks"], head, zh, bool(on))
         try:
             if audit:
                 tools.act("Build", requester, ghost, z, ctx, task_id=t["id"])
@@ -177,11 +180,13 @@ def _decide(t, audit=True):
                 if not dec.allowed:
                     raise tools.Denied(dec)
         except tools.Denied as e:
-            return {"allowed": False, "zone": z.id, "rules": e.decision.rules, **_what_would_help(requester, z, d)}
+            return {"allowed": False, "zone": z.id, "rules": e.decision.rules, **_what_would_help(requester, z, d, on)}
     return {"allowed": True}
 
 
-def _what_would_help(requester, z, d):
+def _what_would_help(requester, z, d, on=()):
+    if on:
+        return {"needs": None, "why": f"it would land on {', '.join(on[:3])}; ask me for it on clear ground"}
     if requester.role == "guest":
         return {"needs": None, "why": "you haven't picked a house yet (/ghost house)"}
     if z.protected:

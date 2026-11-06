@@ -45,10 +45,11 @@ def router_system(ghost):
 You float near them and you can: follow them, come to them, stay where you are, go home, and design builds that
 appear as a preview only the asker sees before anything is built.
 Choose exactly one action for this message:
-- follow / come / stay / go_home: moving yourself.
+- follow / come / stay / go_home: moving yourself, only when they ask you to move or stop moving.
 - build: they want something new built ("build a bench here", "a small tower on that hill").
 - change_build: they want the design you're showing changed ("make it taller").
-- accept_build: they say yes to the design you're showing, in words ("looks good, build it").
+- accept_build: they clearly say yes to the design you're showing ("looks good, build it"). If they point at
+  something else to copy ("use this design", "like our other towers"), that's change_build.
 - cancel_build: they don't want the design you're showing.
 - none: anything else (questions, chat, thanks).
 For build and change_build, only acknowledge ("On it!"): the design takes a minute and you'll show it when it's
@@ -251,7 +252,10 @@ class Core:
             elif action == "change_build" and open_task and open_task["state"] == "waiting":
                 await self.signal(open_task["id"], "revise", a.get("build") or "")
             elif action == "accept_build" and open_task and open_task["state"] == "waiting":
-                await self.signal(open_task["id"], "decide", "yes")
+                # words can be misread ("use this design" pointing at a different tower): building takes the click
+                return await asyncio.to_thread(self.reply, ghost, player, "Glad you like it! Click Build it to confirm.",
+                                               (("Build it", f"/ghost yes {open_task['id']}"),
+                                                ("No thanks", f"/ghost no {open_task['id']}")), th["id"])
             elif action == "cancel_build" and open_task:
                 await self.signal(open_task["id"], "decide", "no")
         except tools.Denied as d:
@@ -371,7 +375,8 @@ class Core:
             if not edit:
                 return await asyncio.to_thread(self.reply, ghost, player, "There's nothing built to undo.")
             zone = config.zone_at(t["detail"]["box"][0][0], t["detail"]["box"][0][2])
-            g = Who.ghost(t["ghost"]) if t["ghost"] != "spirit" else None
+            # the ghost of the land it stands on takes it back, as it built it there
+            g = Who.ghost(zone.house) if zone.house else (Who.ghost(t["ghost"]) if t["ghost"] != "spirit" else None)
 
             def undo():
                 import subprocess

@@ -42,6 +42,10 @@ if policy:
         ("ghost builds next door", (LAKE_GHOST, "Build", RIVER, c(40)), False, None),
         ("spirit talks", (policy.SPIRIT, "Say", COMMONS, None), True, "anyone-talks"),
         ("spirit builds", (policy.SPIRIT, "Build", COMMONS, c(1)), False, "spirit-never-builds"),
+        ("build on clear ground", (ALEX, "Build", LAKE, c(40, False, False, False)), True, "member-small-build"),
+        ("build on top of a building", (ALEX, "Build", LAKE, c(40, False, False, True)), False, "no-building-over-builds"),
+        ("owner builds on top of a building", (OWNER, "Build", LAKE, c(40, False, False, True)), False,
+         "no-building-over-builds"),
         ("undo your own build", (ALEX, "Undo", LAKE, {"own_build": True}), True, "undo-own"),
         ("undo someone else's", (ALEX, "Undo", LAKE, {"own_build": False}), False, None),
     ]

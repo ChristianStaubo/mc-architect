@@ -104,8 +104,9 @@ def both(requester, ghost, action, resource, context=None):
     return Decision(b.allowed, a.rules + b.rules, a.errors + b.errors, who=b.who if not b.allowed else a.who)
 
 
-def build_context(blocks, head_approved=False, zone_head_approved=False):
-    return {"blocks": int(blocks), "head_approved": bool(head_approved), "zone_head_approved": bool(zone_head_approved)}
+def build_context(blocks, head_approved=False, zone_head_approved=False, overlaps_build=False):
+    return {"blocks": int(blocks), "head_approved": bool(head_approved), "zone_head_approved": bool(zone_head_approved),
+            "overlaps_build": bool(overlaps_build)}
 
 
 def validate():

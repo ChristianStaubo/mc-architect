@@ -35,6 +35,9 @@ the ghost?"). Everything else in chat never leaves the server.
 - Small builds (up to 2,000 blocks) in your own house's land or the commons; bigger ones (up to 20,000)
   need your house head's yes; another house's land needs *their* head's yes, and their ghost builds it.
 - Guests (no house yet) can talk, not build. Protected places (Lakeside's market) need the owner.
+- Never on top of what's there: a town's plots, walls and roads, or another build (`no-building-over-builds`,
+  for everyone, the owner too). The preview step refuses those spots, so the architect picks clear ground.
+- Saying yes in words gets the [Build it] button back: building always takes the click.
 - A worker acts only if the asker *and* the ghost are both allowed. Who's asking comes from the game,
   block counts from code, approvals from the store; never from the model.
 - Each house gets 40 requests and 60,000 blocks a day (until it runs on the API, then dollars).
@@ -47,8 +50,14 @@ the ghost?"). Everything else in chat never leaves the server.
 | policy pairs (`.venv/bin/python -m unittest tests.test_ghost_policy`) | 22 allowed/denied pairs, schema check, requester-and-ghost | all pass |
 | `guarantees` | the bridge, by code: repeated key, forged / expired / out-of-box / over-cap / wrong-world grant | 6/6 |
 | `listening` | the candidate filter on labelled chat, pass^3 | replied 6/6, stayed quiet 6/6 |
-| `scenarios` | simulated players, graded on the store and the world: follow, guest, injection, build + undo, cross-house approval | 15/15 |
+| `scenarios` | simulated players on each house's testing ground (never in the towns), graded on the store and the world: follow, guest, injection, build + undo, a second build on the same spot, cross-house approval | 16/16 |
 | `chaos` | kill a process mid-task: nothing lost, nothing twice, time to recover | 3/3; recovery: design 45 s, build 26 s, core 61 s |
+
+What went wrong in the first in-game test, and what changed: the scenario spots were inside Lakeside's inn and
+Riverford's fisher's house, and three test benches stayed there (undone; tests now build on testing grounds far
+from the towns); nothing stopped a build landing on an existing one (now a policy rule and a preview check);
+"use this design" was read as yes (building now takes the click); undo in another house's land was checked
+against the wrong ghost.
 
 What the evals caught while building it: an approval loop (approved yet still denied, so it asked again,
 ~700 times; now stopped in the workflow, in the message, and by the watchdog); the other house's ghost

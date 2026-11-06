@@ -62,6 +62,10 @@ forbid (principal, action in [Action::"Build", Action::"Demolish", Action::"Undo
 when { resource.protected }
 unless { principal is Player && principal.role == "owner" };
 
+@id("no-building-over-builds")         // never on top of a town's buildings, walls, roads or another build
+forbid (principal, action == Action::"Build", resource)
+when { context.overlaps_build };
+
 @id("spirit-never-builds")
 forbid (principal is Spirit, action, resource)
 unless { action == Action::"Say" || action == Action::"Move" };

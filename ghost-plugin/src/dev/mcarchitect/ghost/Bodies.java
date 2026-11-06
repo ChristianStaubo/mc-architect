@@ -33,7 +33,9 @@ import static dev.mcarchitect.core.Json.str;
  */
 final class Bodies {
     private static final double SPEED = 0.35;         // blocks per tick
-    private static final double FOLLOW_GAP = 2.5;
+    private static final double FOLLOW_SIDE = 3.0;    // off to the player's side, a little ahead: in view, not in the way
+    private static final double FOLLOW_AHEAD = 1.5;
+    private static final double FOLLOW_SLACK = 6.0;   // closer than this, it just hovers and watches
 
     private static final class Body {
         Mannequin entity;
@@ -152,6 +154,7 @@ final class Bodies {
         return at.getWorld().spawn(at, Mannequin.class, m -> {
             m.customName(Component.text(name, h == null ? net.kyori.adventure.text.format.NamedTextColor.WHITE : h.color()));
             m.setCustomNameVisible(true);
+            m.setDescription(Component.text("say: ghost, ...", net.kyori.adventure.text.format.NamedTextColor.GRAY));  // not "NPC"
             m.setGravity(false);
             m.setInvulnerable(true);
             m.setSilent(true);
@@ -191,6 +194,10 @@ final class Bodies {
         for (var e : bodies.entrySet()) {
             Body b = e.getValue();
             Mannequin m = b.entity;
+            if ((m == null || !m.isValid()) && b.last != null
+                    && b.last.getWorld().isChunkLoaded(b.last.getBlockX() >> 4, b.last.getBlockZ() >> 4)) {
+                b.entity = m = spawn(e.getKey(), b.last);   // its chunk is back (someone came near): so is it
+            }
             if (m == null || !m.isValid()) continue;
             b.ticks++;
             b.last = m.getLocation();
@@ -200,9 +207,13 @@ final class Bodies {
                 Player p = Bukkit.getPlayerExact(b.follow);
                 if (p != null && p.getWorld().equals(m.getWorld())) {
                     face = p;
-                    Vector back = p.getLocation().getDirection().setY(0);
-                    if (back.lengthSquared() < 1e-6) back = new Vector(0, 0, 1);
-                    goal = p.getLocation().subtract(back.normalize().multiply(FOLLOW_GAP)).add(0, 0.6, 0);
+                    if (m.getLocation().distance(p.getLocation()) > FOLLOW_SLACK || b.target != null) {
+                        Vector fwd = p.getLocation().getDirection().setY(0);
+                        if (fwd.lengthSquared() < 1e-6) fwd = new Vector(0, 0, 1);
+                        fwd.normalize();
+                        Vector side = new Vector(-fwd.getZ(), 0, fwd.getX());  // the player's right
+                        goal = p.getLocation().add(side.multiply(FOLLOW_SIDE)).add(fwd.multiply(FOLLOW_AHEAD)).add(0, 0.8, 0);
+                    }
                 }
             } else if (b.lookAt != null) {
                 face = Bukkit.getPlayerExact(b.lookAt);
@@ -227,8 +238,8 @@ final class Bodies {
                 next.setPitch(now.getPitch());
             }
             m.teleport(next);
-            if (b.ticks % 4 == 0)
-                m.getWorld().spawnParticle(Particle.END_ROD, next.clone().add(0, 0.9, 0), 1, 0.2, 0.4, 0.2, 0.005);
+            if (b.ticks % 10 == 0)  // a faint glow drifting off it
+                m.getWorld().spawnParticle(Particle.GLOW, next.clone().add(0, 1.0, 0), 1, 0.3, 0.5, 0.3, 0);
         }
     }
 
