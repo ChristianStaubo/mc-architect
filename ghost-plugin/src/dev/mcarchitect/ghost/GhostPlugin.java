@@ -6,7 +6,6 @@ import dev.mcarchitect.core.Inbox;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import static dev.mcarchitect.core.Json.integer;
 import static dev.mcarchitect.core.Json.map;
 
 /**
@@ -32,14 +31,11 @@ public final class GhostPlugin extends JavaPlugin {
         getCommand("ghost").setExecutor(listen);
         getCommand("ghost").setTabCompleter(listen);
 
-        bridge.route("/ghost/inbox", b -> map("events", inbox.poll(1000L * Math.min(30, integer(b, "wait", 25)))));
-        bridge.route("/ghost/inbox/ack", b -> map("acked", inbox.ack(b.getAsJsonArray("ids"))));
-        bridge.route("/ghost/inbox/post", b -> map("id", inbox.postVirtual(b)));  // simulated players (evals)
+        inbox.routes(bridge, "/ghost/inbox");  // (inbox/post: simulated players, for the evals)
         bridge.route("/ghost/houses", b -> bridge.sync(() -> houses.set(b)));
         bridge.route("/ghost/say", b -> bridge.sync(() -> listen.say(b)));
         bridge.route("/ghost/body", b -> bridge.sync(() -> bodies.act(b)));
         bridge.route("/ghost/bodies", b -> bridge.sync(bodies::describe));
-        bridge.route("/ghost/menu", b -> bridge.sync(() -> houses.openFor(b)));
         bridge.route("/ghost/status", b -> map("listening", inbox.listening(), "houses", houses.count()));
     }
 

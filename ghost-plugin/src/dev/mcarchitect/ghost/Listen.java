@@ -1,16 +1,15 @@
 package dev.mcarchitect.ghost;
 
-import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import dev.mcarchitect.core.Chat;
 import dev.mcarchitect.core.Inbox;
+import dev.mcarchitect.core.Looking;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
@@ -60,18 +59,12 @@ final class Listen implements Listener, TabExecutor {
     /** What ghost-core knows about the player when they speak: where, facing, looking at, their house. */
     static Map<String, Object> context(Player p, Houses houses) {
         Location l = p.getLocation();
-        var eye = p.getEyeLocation();
-        var hit = p.getWorld().rayTraceBlocks(eye, eye.getDirection(), 120, FluidCollisionMode.NEVER, true);
-        Block t = hit == null ? null : hit.getHitBlock();
+        Block t = Looking.target(p);
         return map("player", p.getName(), "uuid", p.getUniqueId().toString(), "world", l.getWorld().getName(),
                 "pos", new int[]{l.getBlockX(), l.getBlockY(), l.getBlockZ()},
-                "facing", facing(l.getYaw()), "house", houses.houseOf(p.getName()), "role", houses.roleOf(p.getName()),
+                "facing", Looking.facing(l.getYaw()), "house", houses.houseOf(p.getName()), "role", houses.roleOf(p.getName()),
                 "target", t == null ? null : map("pos", new int[]{t.getX(), t.getY(), t.getZ()},
                         "block", t.getBlockData().getAsString()));
-    }
-
-    static String facing(float yaw) {
-        return new String[]{"south", "west", "north", "east"}[Math.floorMod(Math.round(yaw / 90f), 4)];
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -79,20 +72,14 @@ final class Listen implements Listener, TabExecutor {
         String text = PlainTextComponentSerializer.plainText().serialize(e.message());
         Player p = e.getPlayer();
         Bukkit.getScheduler().runTask(plugin, () -> {  // context is read on the main thread
-            String addressed;
-            String said = text;
-            if (START.matcher(text).find()) {
-                addressed = "explicit";
-                said = START.matcher(text).replaceFirst("");
-            } else if (MENTION.matcher(text).find() || bodies.near(p, NEAR) != null) {
-                addressed = "candidate";
-            } else {
-                return;  // not for the ghost: never leaves the server
-            }
+            var start = START.matcher(text);
+            String near = bodies.near(p, NEAR);
+            String addressed = start.find() ? "explicit" : (MENTION.matcher(text).find() || near != null) ? "candidate" : null;
+            if (addressed == null) return;  // not for the ghost: never leaves the server
             Map<String, Object> ctx = context(p, houses);
             ctx.put("addressed", addressed);
-            ctx.put("near_ghost", bodies.near(p, NEAR));
-            inbox.post("chat", said, ctx);
+            ctx.put("near_ghost", near);
+            inbox.post("chat", addressed.equals("explicit") ? start.replaceFirst("") : text, ctx);
         });
     }
 
@@ -142,13 +129,8 @@ final class Listen implements Listener, TabExecutor {
         Houses.House h = houses.get(ghost);
         TextColor color = h == null ? NamedTextColor.WHITE : h.color();
         String name = h == null ? "The spirit" : h.name() + " ghost";
-        Component msg = Component.text("[" + name + "] ", color).append(Component.text(str(b, "text"), NamedTextColor.WHITE));
-        if (b.has("buttons"))
-            for (var e : b.getAsJsonArray("buttons")) {
-                JsonArray pair = e.getAsJsonArray();
-                msg = msg.append(Component.text(" ")).append(Chat.button(pair.get(0).getAsString(), pair.get(1).getAsString(),
-                        NamedTextColor.GOLD));
-            }
+        Component msg = Chat.withButtons(Component.text("[" + name + "] ", color)
+                .append(Component.text(str(b, "text"), NamedTextColor.WHITE)), b.has("buttons") ? b.getAsJsonArray("buttons") : null);
         String to = b.has("player") && !b.get("player").isJsonNull() ? str(b, "player") : null;
         if (to == null) {
             Bukkit.broadcast(msg);

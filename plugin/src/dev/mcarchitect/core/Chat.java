@@ -27,6 +27,17 @@ public final class Chat {
         };
     }
 
+    /** msg followed by a button for each [label, command] pair. */
+    public static Component withButtons(Component msg, com.google.gson.JsonArray buttons) {
+        if (buttons == null) return msg;
+        for (var e : buttons) {
+            var pair = e.getAsJsonArray();
+            msg = msg.append(Component.text(" ")).append(button(pair.get(0).getAsString(), pair.get(1).getAsString(),
+                    NamedTextColor.GOLD));
+        }
+        return msg;
+    }
+
     /** A clickable "[label]" that runs a command for whoever clicks it. */
     public static Component button(String label, String command, NamedTextColor color) {
         return Component.text("[" + label + "]", color).clickEvent(ClickEvent.runCommand(command));

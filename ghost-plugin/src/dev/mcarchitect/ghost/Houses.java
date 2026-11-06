@@ -33,7 +33,7 @@ import static dev.mcarchitect.core.Json.str;
  * pick_house event; ghost-core records it and sends the members back.
  */
 final class Houses implements Listener {
-    record House(String id, String name, TextColor color, String motto, List<int[]> zones) {}
+    record House(String id, String name, TextColor color, String motto) {}
 
     private final Plugin plugin;
     private final Inbox inbox;
@@ -46,19 +46,15 @@ final class Houses implements Listener {
         this.inbox = inbox;
     }
 
-    /** body: houses [{id, name, color, motto, zones: [[x0, z0, x1, z1]]}], members {player: {house, role}}. */
+    /** body: houses [{id, name, color, motto}], members {player: {house, role}}. The plugin needs no zones:
+     * every decision about land is ghost-core's. */
     Object set(JsonObject b) {
         if (b.has("houses")) {
             houses.clear();
             for (JsonElement e : b.getAsJsonArray("houses")) {
                 JsonObject h = e.getAsJsonObject();
-                List<int[]> zs = new ArrayList<>();
-                for (JsonElement z : h.getAsJsonArray("zones")) {
-                    var a = z.getAsJsonArray();
-                    zs.add(new int[]{a.get(0).getAsInt(), a.get(1).getAsInt(), a.get(2).getAsInt(), a.get(3).getAsInt()});
-                }
                 houses.put(str(h, "id"), new House(str(h, "id"), str(h, "name"), TextColor.fromHexString(str(h, "color")),
-                        str(h, "motto", ""), zs));
+                        str(h, "motto", "")));
             }
         }
         if (b.has("members")) {
@@ -79,10 +75,6 @@ final class Houses implements Listener {
 
     House get(String id) {
         return houses.get(id);
-    }
-
-    Iterable<House> all() {
-        return houses.values();
     }
 
     String houseOf(String player) {
@@ -122,12 +114,6 @@ final class Houses implements Listener {
             slot += houses.size() == 2 ? 4 : 2;
         }
         p.openInventory(m.inv);
-    }
-
-    Object openFor(JsonObject b) {
-        Player p = Bukkit.getPlayerExact(str(b, "player"));
-        if (p != null) open(p);
-        return map("opened", p != null);
     }
 
     private static Material banner(TextColor c) {

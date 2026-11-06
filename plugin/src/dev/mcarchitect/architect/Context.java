@@ -4,7 +4,7 @@ import com.sk89q.worldedit.IncompleteRegionException;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.regions.Region;
-import org.bukkit.FluidCollisionMode;
+import dev.mcarchitect.core.Looking;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -17,11 +17,8 @@ import static dev.mcarchitect.core.Json.map;
 final class Context {
     private Context() {}
 
-    /** The block under the player's crosshair (through grass and flowers, not water), or null past 200 blocks. */
     static Block target(Player p) {
-        var eye = p.getEyeLocation();
-        var hit = p.getWorld().rayTraceBlocks(eye, eye.getDirection(), 200, FluidCollisionMode.NEVER, true);
-        return hit == null ? null : hit.getHitBlock();
+        return Looking.target(p);
     }
 
     /** aim: also the block under their crosshair (for a request; yes, no and the like don't need it). */
@@ -50,9 +47,7 @@ final class Context {
         return c;
     }
 
-    /** The way a yaw looks: Minecraft's yaw 0 is south, 90 west, 180 north, 270 east. */
     static String facing(float yaw) {
-        int q = Math.floorMod(Math.round(yaw / 90f), 4);
-        return new String[]{"south", "west", "north", "east"}[q];
+        return Looking.facing(yaw);
     }
 }

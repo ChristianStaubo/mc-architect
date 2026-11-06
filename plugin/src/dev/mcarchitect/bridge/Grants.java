@@ -22,7 +22,7 @@ import java.util.Map;
  * <ul>
  * <li><b>Idempotency keys:</b> a /place with a key that was already applied returns the stored result and
  * changes nothing, so a retried step (Temporal retries activities) never builds twice. Keys survive
- * restarts (plugins/MCBridge/keys.json).</li>
+ * restarts: each applied key is appended to plugins/MCBridge/keys.jsonl (one short line, not a rewrite).</li>
  * <li><b>Signed grants:</b> a /place may carry a grant (task, box, block cap, expiry) signed with
  * plugins/MCBridge/grant-key. The build must fit the box and the cap, the grant must not have expired,
  * and the signature must match; the key never reaches a model.</li>
@@ -32,12 +32,12 @@ final class Grants {
     private final Path keysFile;
     private final byte[] secret;
     private final Gson gson = new Gson();
-    private final Map<String, Object> applied = new LinkedHashMap<>();   // key -> the edit summary
+    private final Map<String, Map<String, Object>> applied = new LinkedHashMap<>();   // key -> the edit summary
     private final Map<String, Integer> used = new LinkedHashMap<>();     // task -> blocks placed under grants
 
     Grants(Path dataFolder) throws IOException {
         Files.createDirectories(dataFolder);
-        keysFile = dataFolder.resolve("keys.json");
+        keysFile = dataFolder.resolve("keys.jsonl");
         Path keyFile = dataFolder.resolve("grant-key");
         if (!Files.exists(keyFile)) {
             byte[] k = new byte[32];
@@ -45,15 +45,22 @@ final class Grants {
             Files.writeString(keyFile, HexFormat.of().formatHex(k));
         }
         secret = HexFormat.of().parseHex(Files.readString(keyFile).trim());
-        if (Files.exists(keysFile)) {
-            JsonObject o = JsonParser.parseString(Files.readString(keysFile)).getAsJsonObject();
-            o.getAsJsonObject("applied").entrySet().forEach(e -> applied.put(e.getKey(), gson.fromJson(e.getValue(), Object.class)));
-            o.getAsJsonObject("used").entrySet().forEach(e -> used.put(e.getKey(), e.getValue().getAsInt()));
-        }
+        if (Files.exists(keysFile))
+            for (String line : Files.readAllLines(keysFile)) {
+                if (line.isBlank()) continue;
+                JsonObject o = JsonParser.parseString(line).getAsJsonObject();
+                if (o.has("key")) applied.put(o.get("key").getAsString(), summary(o.getAsJsonObject("summary")));
+                if (o.has("task")) used.merge(o.get("task").getAsString(), o.get("blocks").getAsInt(), Integer::sum);
+            }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> summary(JsonObject o) {
+        return gson.fromJson(o, Map.class);
     }
 
     /** The stored result if this key was already applied, else null. */
-    synchronized Object repeat(String key) {
+    synchronized Map<String, Object> repeat(String key) {
         return key == null ? null : applied.get(key);
     }
 
@@ -75,11 +82,21 @@ final class Grants {
             throw new IllegalArgumentException("grant allows " + cap + " blocks; " + so_far + " used, this adds " + blocks);
     }
 
-    synchronized void record(String key, JsonObject grant, int blocks, Object summary) throws IOException {
-        if (key != null) applied.put(key, summary);
-        if (grant != null) used.merge(grant.get("task").getAsString(), blocks, Integer::sum);
-        while (applied.size() > 20_000) applied.remove(applied.keySet().iterator().next());
-        Files.writeString(keysFile, gson.toJson(Map.of("applied", applied, "used", used)));
+    synchronized void record(String key, JsonObject grant, int blocks, Map<String, Object> summary) throws IOException {
+        Map<String, Object> line = new LinkedHashMap<>();
+        if (key != null) {
+            applied.put(key, summary);
+            line.put("key", key);
+            line.put("summary", summary);
+        }
+        if (grant != null) {
+            String task = grant.get("task").getAsString();
+            used.merge(task, blocks, Integer::sum);
+            line.put("task", task);
+            line.put("blocks", blocks);
+        }
+        Files.writeString(keysFile, gson.toJson(line) + "\n", java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND);
     }
 
     /** HMAC-SHA256 over the grant's fields in a fixed order (ghost/tools.py signs the same way). */

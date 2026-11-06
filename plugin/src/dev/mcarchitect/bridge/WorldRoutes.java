@@ -109,9 +109,9 @@ public final class WorldRoutes {
     /** body: origin, size, palette, rle, label; optional key (idempotency) and grant (see Grants). */
     private Object place(JsonObject b) throws java.io.IOException {
         String key = b.has("key") ? str(b, "key") : null;
-        Object before = grants.repeat(key);
+        Map<String, Object> before = grants.repeat(key);
         if (before != null) {  // already applied: same answer, nothing placed
-            Map<String, Object> again = new java.util.HashMap<>(gsonMap(before));
+            Map<String, Object> again = new java.util.HashMap<>(before);
             again.put("repeat", true);
             return again;
         }
@@ -145,11 +145,6 @@ public final class WorldRoutes {
         }
         if (key != null || grant != null) grants.record(key, grant, cells[0], edit.summary());
         return edit.summary();
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> gsonMap(Object o) {
-        return (Map<String, Object>) o;
     }
 
     /**

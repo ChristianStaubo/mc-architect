@@ -80,6 +80,13 @@ public final class Inbox {
         return System.currentTimeMillis() - lastPoll < 40_000;
     }
 
+    /** prefix (poll), prefix/ack, prefix/post (a virtual player's event) on the bridge. */
+    public void routes(dev.mcarchitect.bridge.HttpBridge bridge, String prefix) {
+        bridge.route(prefix, b -> map("events", poll(1000L * Math.min(30, dev.mcarchitect.core.Json.integer(b, "wait", 25)))));
+        bridge.route(prefix + "/ack", b -> map("acked", ack(b.getAsJsonArray("ids"))));
+        bridge.route(prefix + "/post", b -> map("id", postVirtual(b)));
+    }
+
     /** An event from the bridge, for a player who may not be online (evals' virtual players). */
     public long postVirtual(JsonObject b) {
         @SuppressWarnings("unchecked")

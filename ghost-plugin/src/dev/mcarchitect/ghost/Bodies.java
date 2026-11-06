@@ -2,13 +2,13 @@ package dev.mcarchitect.ghost;
 
 import com.google.gson.JsonObject;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.World;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Mannequin;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -19,7 +19,6 @@ import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Vector;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static dev.mcarchitect.core.Json.map;
@@ -46,12 +45,10 @@ final class Bodies {
         long ticks;
     }
 
-    private final Plugin plugin;
     private final Houses houses;
     private final Map<String, Body> bodies = new HashMap<>();   // by ghost (house id or "spirit")
 
     Bodies(Plugin plugin, Houses houses) {
-        this.plugin = plugin;
         this.houses = houses;
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 1, 1);
     }
@@ -152,9 +149,9 @@ final class Bodies {
         String name = h == null ? "The spirit" : h.name() + " ghost";
         Color c = h == null ? Color.WHITE : Color.fromRGB(h.color().value());
         return at.getWorld().spawn(at, Mannequin.class, m -> {
-            m.customName(Component.text(name, h == null ? net.kyori.adventure.text.format.NamedTextColor.WHITE : h.color()));
+            m.customName(Component.text(name, h == null ? NamedTextColor.WHITE : h.color()));
             m.setCustomNameVisible(true);
-            m.setDescription(Component.text("say: ghost, ...", net.kyori.adventure.text.format.NamedTextColor.GRAY));  // not "NPC"
+            m.setDescription(Component.text("say: ghost, ...", NamedTextColor.GRAY));  // not "NPC"
             m.setGravity(false);
             m.setInvulnerable(true);
             m.setSilent(true);
@@ -183,8 +180,8 @@ final class Bodies {
         String name = "ghost_" + ghost;
         Team t = sb.getTeam(name);
         if (t == null) t = sb.registerNewTeam(name);
-        net.kyori.adventure.text.format.NamedTextColor nc = h == null ? net.kyori.adventure.text.format.NamedTextColor.WHITE
-                : net.kyori.adventure.text.format.NamedTextColor.nearestTo(h.color());
+        NamedTextColor nc = h == null ? NamedTextColor.WHITE
+                : NamedTextColor.nearestTo(h.color());
         t.color(nc);
         t.setOption(Team.Option.COLLISION_RULE, Team.OptionStatus.NEVER);
         return t;
@@ -207,7 +204,7 @@ final class Bodies {
                 Player p = Bukkit.getPlayerExact(b.follow);
                 if (p != null && p.getWorld().equals(m.getWorld())) {
                     face = p;
-                    if (m.getLocation().distance(p.getLocation()) > FOLLOW_SLACK || b.target != null) {
+                    if (m.getLocation().distance(p.getLocation()) > FOLLOW_SLACK) {
                         Vector fwd = p.getLocation().getDirection().setY(0);
                         if (fwd.lengthSquared() < 1e-6) fwd = new Vector(0, 0, 1);
                         fwd.normalize();
@@ -229,7 +226,7 @@ final class Bodies {
             }
             next.add(0, Math.sin(b.ticks / 12.0) * 0.01, 0);                 // a slow bob
             Location lookFrom = next.clone().add(0, 1.6, 0);
-            Location toward = face != null ? face.getEyeLocation() : (goal != null ? goal : null);
+            Location toward = face != null ? face.getEyeLocation() : goal;
             if (toward != null && toward.getWorld().equals(next.getWorld())) {
                 Vector dir = toward.toVector().subtract(lookFrom.toVector());
                 if (dir.lengthSquared() > 1e-6) next.setDirection(dir);
@@ -247,7 +244,4 @@ final class Bodies {
         return Math.round(v * 10) / 10.0;
     }
 
-    List<Entity> entities() {
-        return bodies.values().stream().map(b -> (Entity) b.entity).toList();
-    }
 }
