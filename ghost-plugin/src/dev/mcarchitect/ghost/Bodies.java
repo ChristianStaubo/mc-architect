@@ -137,11 +137,20 @@ final class Bodies {
             World w = Bukkit.getWorld(str(b, "world", "world"));
             return new Location(w, a.get(0).getAsDouble(), a.get(1).getAsDouble(), a.get(2).getAsDouble());
         }
-        if (b.has("player")) {
+        if (b.has("player")) {  // beside them, like when following: in view, never in front of their face
             Player p = Bukkit.getPlayerExact(str(b, "player"));
-            if (p != null) return p.getLocation().add(p.getLocation().getDirection().setY(0).normalize().multiply(2)).add(0, 0.5, 0);
+            if (p != null) return beside(p);
         }
         return null;
+    }
+
+    /** Off to the player's right and a little ahead: where the ghost hovers when it's with someone. */
+    private static Location beside(Player p) {
+        Vector fwd = p.getLocation().getDirection().setY(0);
+        if (fwd.lengthSquared() < 1e-6) fwd = new Vector(0, 0, 1);
+        fwd.normalize();
+        Vector side = new Vector(-fwd.getZ(), 0, fwd.getX());
+        return p.getLocation().add(side.multiply(FOLLOW_SIDE)).add(fwd.multiply(FOLLOW_AHEAD)).add(0, 0.8, 0);
     }
 
     private Mannequin spawn(String ghost, Location at) {
@@ -204,13 +213,7 @@ final class Bodies {
                 Player p = Bukkit.getPlayerExact(b.follow);
                 if (p != null && p.getWorld().equals(m.getWorld())) {
                     face = p;
-                    if (m.getLocation().distance(p.getLocation()) > FOLLOW_SLACK) {
-                        Vector fwd = p.getLocation().getDirection().setY(0);
-                        if (fwd.lengthSquared() < 1e-6) fwd = new Vector(0, 0, 1);
-                        fwd.normalize();
-                        Vector side = new Vector(-fwd.getZ(), 0, fwd.getX());  // the player's right
-                        goal = p.getLocation().add(side.multiply(FOLLOW_SIDE)).add(fwd.multiply(FOLLOW_AHEAD)).add(0, 0.8, 0);
-                    }
+                    if (m.getLocation().distance(p.getLocation()) > FOLLOW_SLACK) goal = beside(p);
                 }
             } else if (b.lookAt != null) {
                 face = Bukkit.getPlayerExact(b.lookAt);

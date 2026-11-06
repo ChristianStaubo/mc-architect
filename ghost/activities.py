@@ -91,7 +91,8 @@ def design(task_id: int, revision: dict | None) -> dict:
     resume = t["detail"].get("claude") if revision else None
     job = agent.Run(player, text, ctx, str((work / "plan.py").relative_to(config.ROOT)), f"ghost:task{task_id}:{n}",
                     model.name("worker"), time.time(), resume=resume, transcript=work / f"design-{n}.jsonl",
-                    site="" if resume else daemon.site_ahead(player, ctx), env={"MC_SAY_FILE": str(said)})
+                    site="" if resume else daemon.site_ahead(player, ctx),
+                    env={"MC_SAY_FILE": str(said), "MC_PREVIEW_HINT": "Build it / No thanks in chat"})
     r = _heartbeating(job.wait)
     lines = [json.loads(x) for x in said.read_text().splitlines()] if said.exists() else []
     pending = sessions.get(player).get("pending")

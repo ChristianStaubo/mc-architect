@@ -42,7 +42,8 @@ final class Preview implements Listener {
         final long until = System.currentTimeMillis() + LIFETIME_MS;
         Frame frame;
 
-        Shown(Body body, Map<Long, Map<Position, BlockData>> chunks, int blocks, int[] fmin, int[] fmax, String label) {
+        Shown(Body body, Map<Long, Map<Position, BlockData>> chunks, int blocks, int[] fmin, int[] fmax, String label,
+              String hint) {
             this.world = body.world();
             this.chunks = chunks;
             this.blocks = blocks;
@@ -51,7 +52,7 @@ final class Preview implements Listener {
             this.fmin = fmin;
             this.fmax = fmax;
             this.bar = BossBar.bossBar(Component.text("Preview: " + label.replace('_', ' ') + " · only you see it · ", NamedTextColor.AQUA)
-                    .append(Component.text("/arc yes · /arc no", NamedTextColor.GRAY)), 1f, BossBar.Color.BLUE, BossBar.Overlay.PROGRESS);
+                    .append(Component.text(hint, NamedTextColor.GRAY)), 1f, BossBar.Color.BLUE, BossBar.Overlay.PROGRESS);
         }
     }
 
@@ -74,6 +75,7 @@ final class Preview implements Listener {
     static Prepared prepare(JsonObject b) {
         String name = dev.mcarchitect.core.Json.str(b, "player");
         String label = dev.mcarchitect.core.Json.str(b, "label", "build");
+        String hint = dev.mcarchitect.core.Json.str(b, "hint", "/arc yes · /arc no");  // how to answer it
         Body body = Body.decode(b);
         Map<Long, Map<Position, BlockData>> chunks = new HashMap<>();
         int[] n = {0};
@@ -84,7 +86,7 @@ final class Preview implements Listener {
         if (n[0] > MAX_CELLS) throw new IllegalArgumentException("preview too large: " + n[0] + " blocks");
         JsonArray f = b.has("frame") ? b.getAsJsonArray("frame") : null;  // the build's own box, from mc preview
         int[] fmin = f == null ? body.origin() : ints(f.get(0).getAsJsonArray()), fmax = f == null ? body.max() : ints(f.get(1).getAsJsonArray());
-        return new Prepared(name, new Shown(body, chunks, n[0], fmin, fmax, label));
+        return new Prepared(name, new Shown(body, chunks, n[0], fmin, fmax, label, hint));
     }
 
     private static int[] ints(JsonArray a) {

@@ -103,4 +103,4 @@ class BuildWorkflow:
         r = await workflow.execute_activity(
             A.place, task_id, start_to_close_timeout=timedelta(minutes=10), heartbeat_timeout=timedelta(seconds=20),
             retry_policy=RetryPolicy(initial_interval=timedelta(seconds=5), maximum_attempts=8))
-        return await self._end(task_id, "done", "built", r, clear=False)
+        return await self._end(task_id, "done", "built", r)  # the real blocks are there now: drop the preview

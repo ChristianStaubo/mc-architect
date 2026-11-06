@@ -202,7 +202,9 @@ class Core:
             recent = c.execute("SELECT player, ghost, request FROM tasks WHERE state = 'done' "
                                "ORDER BY updated_at DESC LIMIT 4").fetchall()
         land = config.zone_of(ctx)
-        lines = [f"Player: {player} (house: {who.house or 'none'}, role: {who.role}).",
+        visitor = who.house and th["ghost"] != who.house
+        lines = [f"Player: {player} (house: {who.house or 'none'}, role: {who.role})"
+                 + (f", a visitor: you're {config.house(th['ghost'])['name']}'s ghost, not theirs." if visitor else "."),
                  f"Where they are: {json.dumps({k: ctx.get(k) for k in ('pos', 'facing', 'target')})}.",
                  "The conversation so far:" if msgs else "This is the start of your conversation.",
                  *[f"  {m['who']}: {m['text']}" for m in msgs],
@@ -218,7 +220,9 @@ class Core:
 
     def route(self, eid, player, ctx, text):
         who = members.who(player)
-        ghost = members.ghost_of(who)
+        # the ghost they're standing next to answers (another house's, for a visitor); else their own
+        near = ctx.get("near_ghost")
+        ghost = near if near and config.house(near) else members.ghost_of(who)
         th = db.one("INSERT INTO threads (player, ghost) VALUES (%s, %s) ON CONFLICT (player, ghost) "
                     "DO UPDATE SET updated_at = now() RETURNING *", player, ghost)
         with db.tx() as c:

@@ -33,7 +33,8 @@ def cmd_preview(a):
     if why:
         sys.exit(f"refused: {why}")
     r = show_on_terrain(build, at, y0, cells)
-    shown = bridge.preview(player, payload(cells, label=build.name) | {"frame": frame})
+    hint = os.environ.get("MC_PREVIEW_HINT")  # the ghost's workers: answered with its buttons, not /arc
+    shown = bridge.preview(player, payload(cells, label=build.name) | {"frame": frame} | ({"hint": hint} if hint else {}))
     args = ["--at", f"{at[0]},{at[1]}", "--y", str(y0), "--foundation", a.foundation]
     args += ["--no-clear"] * a.no_clear + ["--keep-trees"] * a.keep_trees + (["--within", a.within] if a.within else [])
     sessions.set_pending(player, a.plan, args, box, frame, shown["blocks"])
