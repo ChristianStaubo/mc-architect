@@ -101,7 +101,8 @@ class CityWorkflow:
                                                         id=f"city-{run}-{pid}", task_queue=A.QUEUE)
                 pending.add(h)
                 self.running = sorted(self.running + [pid])
-            finished, pending = await workflow.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            finished, still = await workflow.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+            pending = set(still)   # (workflow.wait hands back lists)
             for h in finished:
                 r = h.result()
                 results.append(r)
