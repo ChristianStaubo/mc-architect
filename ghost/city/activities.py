@@ -55,6 +55,9 @@ def run_agent(run, role, key, prompt, writable, agent, resume=None):
     transcript = work / f"{key}-{attempt}.jsonl"
     env = {**os.environ, "MC_RUN_ID": f"city:{run}:{role}:{key}"}
     t0 = time.time()
+    # an earlier attempt that never finished (its worker died) is over now
+    db.run("UPDATE city_agents SET end_at = now(), result = coalesce(result, '{}') || '{\"end\": \"interrupted\"}' "
+           "WHERE run = %s AND role = %s AND key = %s AND end_at IS NULL", run, role, key)
     row = db.one("INSERT INTO city_agents (run, role, key, attempt, model) VALUES (%s, %s, %s, %s, %s) RETURNING id",
                  run, role, key, attempt, model(role))
     proc = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
