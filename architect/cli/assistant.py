@@ -11,7 +11,7 @@ from ..assistant import daemon, policy, sessions
 from ..build import payload
 from ..placement import bounds
 from .build import place_args, resolve, show_on_terrain
-from .common import ints
+from .common import ghost_mode, ints
 
 
 def player_of(a):
@@ -33,19 +33,21 @@ def cmd_preview(a):
     if why:
         sys.exit(f"refused: {why}")
     r = show_on_terrain(build, at, y0, cells)
-    hint = os.environ.get("MC_PREVIEW_HINT")  # the ghost's workers: answered with its buttons, not /arc
-    shown = bridge.preview(player, payload(cells, label=build.name) | {"frame": frame} | ({"hint": hint} if hint else {}))
+    ghost = ghost_mode()
+    hint = ghost["preview_hint"] if ghost else "/arc yes · /arc no"
+    shown = bridge.preview(player, payload(cells, label=build.name) | {"frame": frame, "hint": hint})
     args = ["--at", f"{at[0]},{at[1]}", "--y", str(y0), "--foundation", a.foundation]
     args += ["--no-clear"] * a.no_clear + ["--keep-trees"] * a.keep_trees + (["--within", a.within] if a.within else [])
     sessions.set_pending(player, a.plan, args, box, frame, shown["blocks"])
     print(f"previewed for {player}: the build is {frame[0]}..{frame[1]} ({shown['blocks']} blocks changed), "
           f"{'on their screen now' if shown['shown'] else 'they are not online: it shows when they are'}. "
-          f"audit {r['fails']} fail. Tell them with mc say; they answer /arc yes, /arc no, or ask for changes.")
+          f"audit {r['fails']} fail. Tell them with mc say; they answer with {hint}, or ask for changes.")
 
 
 def cmd_say(a):
-    if os.environ.get("MC_SAY_FILE"):  # a ghost worker: only the house ghost talks to players; it passes this on
-        with open(os.environ["MC_SAY_FILE"], "a") as f:
+    ghost = ghost_mode()
+    if ghost:  # a ghost worker: only the house ghost talks to players; it passes this on
+        with open(ghost["say_file"], "a") as f:
             f.write(json.dumps({"text": a.text, "buttons": a.button}) + "\n")
         print("noted: the ghost will tell them")
         return

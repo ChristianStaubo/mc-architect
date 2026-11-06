@@ -1,5 +1,7 @@
 """Helpers every command group shares: paths, argument parsing, plans, edits and contact sheets."""
 
+import json
+import os
 import argparse
 import re
 import time
@@ -103,3 +105,10 @@ def shots(e, path=None, cells=None, levels=None):
     path = path or out_path(f"{e['label']}-{e['id']}-shots")
     render.sheet(imgs, path, columns=3)
     return path, levels
+
+
+def ghost_mode():
+    """When the mc CLI runs inside a ghost worker (MC_GHOST, set by ghost/activities.py): where `mc say`
+    goes instead of chat, and how a preview is answered. None otherwise. One context, not a flag per feature."""
+    raw = os.environ.get("MC_GHOST")
+    return json.loads(raw) if raw else None

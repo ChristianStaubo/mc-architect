@@ -36,8 +36,15 @@ def approver(house):
 
 
 def ghost_of(who):
-    """The ghost a player talks to: their house's, or the spirit."""
+    """A player's own ghost: their house's, or the spirit."""
     return who.house or "spirit"
+
+
+def answering(who, ctx):
+    """The ghost that answers what they say: the one they're standing next to (another house's, for a
+    visitor), else their own. Once a thread or task exists, its stored ghost is used instead."""
+    near = ctx.get("near_ghost")
+    return near if near and config.house(near) else ghost_of(who)
 
 
 def sync():

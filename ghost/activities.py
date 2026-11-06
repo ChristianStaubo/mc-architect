@@ -1,8 +1,9 @@
 """What a build workflow's steps actually do (ghost/workflows.py). Activities do the I/O; Temporal retries
 them, so each is safe to run again: the store remembers what's done and the bridge remembers keys.
 
-Workers never talk to players: what the architect agent wanted to say is recorded (MC_SAY_FILE) and the
-house ghost says it (tell)."""
+Workers never talk to players: the architect agent runs with MC_GHOST (architect/cli/common.ghost_mode),
+so what it says is recorded and the house ghost says it (tell), and its previews are answered with the
+ghost's buttons."""
 
 import json
 import re
@@ -92,7 +93,7 @@ def design(task_id: int, revision: dict | None) -> dict:
     job = agent.Run(player, text, ctx, str((work / "plan.py").relative_to(config.ROOT)), f"ghost:task{task_id}:{n}",
                     model.name("worker"), time.time(), resume=resume, transcript=work / f"design-{n}.jsonl",
                     site="" if resume else daemon.site_ahead(player, ctx),
-                    env={"MC_SAY_FILE": str(said), "MC_PREVIEW_HINT": "Build it / No thanks in chat"})
+                    env={"MC_GHOST": json.dumps({"say_file": str(said), "preview_hint": outbox.PREVIEW_HINT})})
     r = _heartbeating(job.wait)
     lines = [json.loads(x) for x in said.read_text().splitlines()] if said.exists() else []
     pending = sessions.get(player).get("pending")
@@ -113,7 +114,7 @@ def tell(task_id: int, what: str, data: dict) -> None:
     words = " ".join(data.get("said") or [])
     if what == "preview":
         outbox.say(g, p, words or f"Here's my design ({d.get('blocks', '?')} blocks). Only you can see it.",
-                   [("Build it", f"/ghost yes {task_id}"), ("No thanks", f"/ghost no {task_id}")])
+                   outbox.preview_buttons(task_id))
     elif what == "failed":
         outbox.say(g, p, words or "I couldn't draw that one. Try describing it differently?")
     elif what == "needs":

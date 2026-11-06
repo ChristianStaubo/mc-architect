@@ -170,7 +170,7 @@ class Core:
             if not verdict:
                 return
         if not text.strip():  # just "ghost": no model needed
-            return outbox.say(members.ghost_of(members.who(player)), player, "Yes?")
+            return outbox.say(members.answering(members.who(player), ctx), player, "Yes?")
         self.route(eid, player, ctx, text)
 
     def in_conversation(self, player):
@@ -202,7 +202,7 @@ class Core:
             recent = c.execute("SELECT player, ghost, request FROM tasks WHERE state = 'done' "
                                "ORDER BY updated_at DESC LIMIT 4").fetchall()
         land = config.zone_of(ctx)
-        visitor = who.house and th["ghost"] != who.house
+        visitor = th["ghost"] != members.ghost_of(who)
         lines = [f"Player: {player} (house: {who.house or 'none'}, role: {who.role})"
                  + (f", a visitor: you're {config.house(th['ghost'])['name']}'s ghost, not theirs." if visitor else "."),
                  f"Where they are: {json.dumps({k: ctx.get(k) for k in ('pos', 'facing', 'target')})}.",
@@ -211,7 +211,7 @@ class Core:
                  f"The design you're working on for them: #{open_task['id']} {open_task['request']!r}, {open_task['state']}"
                  if open_task else "You're not working on any design for them.",
                  f"Their last finished build: {last_done['request']!r} ({last_done['edit']})." if last_done else "",
-                 f"You (your body): {self.body_state(members.ghost_of(who), ctx)}.",
+                 f"You (your body): {self.body_state(th['ghost'], ctx)}.",
                  f"They're standing in {config.house(land.house)['name'] + chr(39) + 's land' if land.house else 'the commons'}.",
                  "Recent builds on the server: " + "; ".join(f"{r['player']} ({r['ghost']}): {r['request'][:50]!r}"
                                                              for r in recent) if recent else "No builds yet.",
@@ -220,9 +220,7 @@ class Core:
 
     def route(self, eid, player, ctx, text):
         who = members.who(player)
-        # the ghost they're standing next to answers (another house's, for a visitor); else their own
-        near = ctx.get("near_ghost")
-        ghost = near if near and config.house(near) else members.ghost_of(who)
+        ghost = members.answering(who, ctx)
         th = db.one("INSERT INTO threads (player, ghost) VALUES (%s, %s) ON CONFLICT (player, ghost) "
                     "DO UPDATE SET updated_at = now() RETURNING *", player, ghost)
         with db.tx() as c:
@@ -255,8 +253,8 @@ class Core:
                 self.signal(open_task["id"], "revise", {"words": words, "note": a.get("build") or "", "context": ctx})
             elif action == "accept_build":
                 # words can be misread ("use this design" pointing at a different tower): building takes the click
-                reply = "Glad you like it! Click Build it to confirm."
-                buttons = (("Build it", f"/ghost yes {open_task['id']}"), ("No thanks", f"/ghost no {open_task['id']}"))
+                reply = f"Glad you like it! Click {outbox.YES} to confirm."
+                buttons = outbox.preview_buttons(open_task["id"])
             elif action == "cancel_build":
                 self.signal(open_task["id"], "decide", "no")
         except tools.Denied as d:
@@ -328,8 +326,8 @@ class Core:
     def on_button(self, player, text):
         verb, _, arg = text.partition(" ")
         who = members.who(player)
-        ghost = members.ghost_of(who)
         t = tasks.get(int(arg)) if arg.strip().isdigit() else None
+        ghost = t["ghost"] if t else members.ghost_of(who)   # a button answers in the voice of its task's ghost
         handler = {"stop": self.b_stop, "status": self.b_status, "yes": self.b_answer, "no": self.b_answer,
                    "approve": self.b_approve, "deny": self.b_approve, "undo": self.b_undo}.get(verb)
         if verb not in ("stop", "status") and not t:

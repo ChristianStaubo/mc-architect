@@ -11,6 +11,12 @@ from . import bridge, config, db
 from .db import J
 
 MAX_CHARS = 440
+YES, NO = "Build it", "No thanks"   # a preview's answers: the buttons, and the hint on the preview bar
+PREVIEW_HINT = f"{YES} / {NO} in chat"
+
+
+def preview_buttons(task_id):
+    return ((YES, f"/ghost yes {task_id}"), (NO, f"/ghost no {task_id}"))
 
 
 def say(ghost, player, text, buttons=(), thread_id=None, conn=None):

@@ -43,9 +43,8 @@ class BuildWorkflow:
     def status(self) -> str:
         return self.state
 
-    async def _end(self, task_id, state, what=None, data=None, clear=True):
-        if clear:
-            await workflow.execute_activity(A.clear_preview, task_id, **QUICK)
+    async def _end(self, task_id, state, what=None, data=None):
+        await workflow.execute_activity(A.clear_preview, task_id, **QUICK)  # whatever the ending, no preview stays up
         if what:
             await workflow.execute_activity(A.tell, args=[task_id, what, data or {}], **QUICK)
         await workflow.execute_activity(A.finish, args=[task_id, state], **QUICK)
@@ -61,7 +60,7 @@ class BuildWorkflow:
                 A.design, args=[task_id, revision], start_to_close_timeout=timedelta(minutes=20),
                 heartbeat_timeout=timedelta(seconds=30), retry_policy=RetryPolicy(maximum_attempts=3))
             if not d["ok"]:
-                return await self._end(task_id, "failed", "failed", d, clear=False)
+                return await self._end(task_id, "failed", "failed", d)
             if self.revisions:  # they asked for changes while it was being drawn: redo it before showing anything
                 revision = self.revisions.pop(0)
                 continue

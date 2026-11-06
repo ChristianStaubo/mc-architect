@@ -137,7 +137,7 @@ final class Bodies {
             World w = Bukkit.getWorld(str(b, "world", "world"));
             return new Location(w, a.get(0).getAsDouble(), a.get(1).getAsDouble(), a.get(2).getAsDouble());
         }
-        if (b.has("player")) {  // beside them, like when following: in view, never in front of their face
+        if (b.has("player")) {
             Player p = Bukkit.getPlayerExact(str(b, "player"));
             if (p != null) return beside(p);
         }
