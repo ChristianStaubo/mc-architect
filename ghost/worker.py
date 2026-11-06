@@ -5,7 +5,6 @@ import asyncio
 import concurrent.futures
 import os
 import threading
-import time
 
 from temporalio.client import Client
 from temporalio.worker import Worker
@@ -16,18 +15,9 @@ from . import config, db
 from .workflows import BuildWorkflow
 
 
-def _beat(name):
-    while True:
-        try:
-            db.heartbeat(name, pid=os.getpid())
-        except Exception:  # noqa: BLE001 (the watchdog notices missing beats)
-            pass
-        time.sleep(5)
-
-
 async def main():
     name = f"ghost-worker-{os.getpid()}"
-    threading.Thread(target=_beat, args=(name,), daemon=True).start()
+    threading.Thread(target=db.beat_forever, args=(name,), daemon=True).start()
     client = await Client.connect(config.TEMPORAL)
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
         worker = Worker(client, task_queue=config.TASK_QUEUE, workflows=[BuildWorkflow],

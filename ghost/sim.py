@@ -4,7 +4,6 @@ real player's take, and we read the outcome from the store (docs/ghost/design.md
 import time
 
 from . import bridge, db
-from .config import ROOT  # noqa: F401 (evals use sim.ROOT)
 
 
 class Player:
@@ -39,9 +38,13 @@ def said_to(player, since_id=0):
                   player.lower(), since_id)
 
 
+def max_id(table):
+    """The newest row's id in a store table (outbox, tasks, audit, events): 'what's new since' marks."""
+    return db.one(f"SELECT coalesce(max(id), 0) AS n FROM {table}")["n"]
+
+
 def last_outbox_id():
-    r = db.one("SELECT coalesce(max(id), 0) AS n FROM outbox")
-    return r["n"]
+    return max_id("outbox")
 
 
 def wait_for(pred, timeout=60, every=1.0):

@@ -8,14 +8,23 @@ import hashlib
 import json
 import os
 import subprocess
+import sys
 import time
 import uuid
 
-from . import db
+from . import config, db
 
-LEAN = ["--strict-mcp-config", "--mcp-config", '{"mcpServers": {}}', "--disable-slash-commands",
-        "--no-session-persistence", "--tools", ""]
+sys.path.insert(0, str(config.ROOT))
+from architect import claude  # noqa: E402
+
+LEAN = [*claude.LEAN, "--no-session-persistence", "--tools", ""]
 MODELS = {"filter": "haiku", "router": "haiku", "worker": "sonnet"}
+_stored = set()
+
+
+def name(role):
+    """The model for a job: GHOST_MODEL_<ROLE> overrides the default."""
+    return os.environ.get(f"GHOST_MODEL_{role.upper()}", MODELS[role])
 
 
 class ModelError(RuntimeError):
@@ -24,13 +33,15 @@ class ModelError(RuntimeError):
 
 def _prompt_hash(system):
     h = hashlib.sha256(system.encode()).hexdigest()[:16]
-    db.run("INSERT INTO prompts (hash, body) VALUES (%s, %s) ON CONFLICT DO NOTHING", h, system)
+    if h not in _stored:
+        db.run("INSERT INTO prompts (hash, body) VALUES (%s, %s) ON CONFLICT DO NOTHING", h, system)
+        _stored.add(h)
     return h
 
 
 def ask(role, system, prompt, schema, task_id=None, trace_id=None, timeout=90):
     """The model's answer as a dict matching `schema`. Raises ModelError (after recording the trace)."""
-    model = os.environ.get(f"GHOST_MODEL_{role.upper()}", MODELS[role])
+    model = name(role)
     trace_id = trace_id or uuid.uuid4().hex
     cmd = ["claude", "-p", prompt, "--model", model, "--system-prompt", system, *LEAN,
            "--json-schema", json.dumps(schema), "--output-format", "json"]

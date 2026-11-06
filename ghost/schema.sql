@@ -27,7 +27,6 @@ CREATE TABLE IF NOT EXISTS threads (            -- a player's conversation with 
   id         bigserial PRIMARY KEY,
   player     text NOT NULL,
   ghost      text NOT NULL,                     -- house id, or 'spirit'
-  task_id    bigint,                            -- the task that owns it right now (follow-ups go there)
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (player, ghost)
 );
@@ -47,7 +46,7 @@ CREATE TABLE IF NOT EXISTS tasks (              -- a piece of work a worker does
   ghost      text NOT NULL,
   thread_id  bigint REFERENCES threads,
   request    text NOT NULL,
-  state      text NOT NULL DEFAULT 'new',       -- new | designing | waiting | approved | building | done | dropped | failed | blocked
+  state      text NOT NULL DEFAULT 'new',       -- ghost/tasks.py: new designing waiting approval building done | dropped failed denied undone
   detail     jsonb NOT NULL DEFAULT '{}',       -- plan, box, blocks, preview, edit ids
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
@@ -134,7 +133,6 @@ CREATE TABLE IF NOT EXISTS heartbeats (         -- each process says it's alive;
   detail     jsonb NOT NULL DEFAULT '{}'
 );
 
-ALTER TABLE events ALTER COLUMN plugin_id TYPE text;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS handled_at timestamptz;   -- set when its work is done
 
 CREATE INDEX IF NOT EXISTS outbox_unsent ON outbox (id) WHERE sent_at IS NULL;

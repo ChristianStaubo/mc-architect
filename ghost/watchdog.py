@@ -6,13 +6,12 @@ when it dies or its heartbeat goes stale: the crash-recovery path chaos tests ex
 
 import asyncio
 import json
-import os
 import signal
 import subprocess
 import sys
 import time
 
-from . import config, db
+from . import config, db, outbox, tasks
 
 STALE_S = 30
 STUCK = {"designing": 25 * 60, "building": 15 * 60, "new": 5 * 60}   # seconds without progress
@@ -28,7 +27,7 @@ def check(log=print):
         if b["age"] > STALE_S and b["age"] < 3600:
             found.append(f"{b['process']}: no heartbeat for {b['age']} s")
     for t in db.all("SELECT id, state, player, ghost, extract(epoch FROM now() - updated_at)::int AS age FROM tasks "
-                    "WHERE state IN ('new', 'designing', 'building')"):
+                    "WHERE state = ANY(%s)", list(STUCK)):
         if t["age"] > STUCK[t["state"]]:
             found.append(f"task {t['id']} {t['state']} for {t['age'] // 60} min")
             stuck(t, f"stopped moving while {t['state']}")
@@ -36,8 +35,8 @@ def check(log=print):
             found.append(f"task {t['id']}: the design keeps repeating the same step")
             stuck(t, "kept repeating the same step")
     for t in db.all("SELECT a.task_id AS id, count(*) AS n, t.state, t.player, t.ghost FROM audit a JOIN tasks t ON t.id = a.task_id "
-                    "WHERE a.at > now() - interval '5 minutes' AND t.state NOT IN ('done', 'failed', 'dropped', 'denied', 'undone') "
-                    "GROUP BY a.task_id, t.state, t.player, t.ghost HAVING count(*) > %s", LOOP_CALLS):
+                    "WHERE a.at > now() - interval '5 minutes' AND t.state = ANY(%s) "
+                    "GROUP BY a.task_id, t.state, t.player, t.ghost HAVING count(*) > %s", list(tasks.OPEN), LOOP_CALLS):
         found.append(f"task {t['id']}: {t['n']} tool calls in 5 minutes (looping)")
         stuck(t, "was looping")
     for f in found:
@@ -47,12 +46,16 @@ def check(log=print):
 
 
 def circling(task_id):
-    work = config.ROOT / "local" / "ghost-tasks" / str(task_id)
-    files = sorted(work.glob("design-*.jsonl"))
+    """The newest design transcript's last tool calls all the same? (Reads only its tail.)"""
+    files = sorted((config.ROOT / "local" / "ghost-tasks" / str(task_id)).glob("design-*.jsonl"),
+                   key=lambda f: int(f.stem.split("-")[1]))
     if not files:
         return False
+    with open(files[-1], "rb") as f:
+        f.seek(max(0, f.seek(0, 2) - 64_000))
+        tail = f.read().decode(errors="replace").splitlines()[1:]
     calls = []
-    for line in files[-1].read_text().splitlines():
+    for line in tail:
         try:
             ev = json.loads(line)
         except ValueError:
@@ -60,8 +63,8 @@ def circling(task_id):
         if ev.get("type") == "assistant":
             calls += [json.dumps([c["name"], c["input"]], sort_keys=True)
                       for c in ev["message"]["content"] if c.get("type") == "tool_use"]
-    tail = calls[-REPEATS:]
-    return len(tail) == REPEATS and len(set(tail)) == 1
+    last = calls[-REPEATS:]
+    return len(last) == REPEATS and len(set(last)) == 1
 
 
 def stuck(t, why):
@@ -76,11 +79,8 @@ def stuck(t, why):
         except Exception:  # noqa: BLE001 (already gone)
             pass
     asyncio.run(cancel())
-    with db.tx() as c:
-        c.execute("UPDATE tasks SET state = 'failed', detail = detail || %s, updated_at = now() WHERE id = %s",
-                  (db.J({"watchdog": why}), t["id"]))
-        c.execute("INSERT INTO outbox (ghost, player, text) VALUES (%s, %s, %s)",
-                  (t["ghost"], t["player"], "I got stuck on that one, sorry. Want to try asking a simpler way?"))
+    if tasks.move(t["id"], "failed", watchdog=why):  # (not if it finished meanwhile)
+        outbox.say(t["ghost"], t["player"], "I got stuck on that one, sorry. Want to try asking a simpler way?")
 
 
 def main():
@@ -144,8 +144,8 @@ def status():
     for b in db.all("SELECT process, extract(epoch FROM now() - at)::int AS age, detail FROM heartbeats ORDER BY process"):
         print(f"  {b['process']:<22} {b['age']:>6} s ago")
     print("open tasks:")
-    for t in db.all("SELECT id, player, ghost, state, request FROM tasks WHERE state NOT IN ('done', 'dropped', 'failed', "
-                    "'denied', 'undone') ORDER BY id"):
+    for t in db.all("SELECT id, player, ghost, state, request FROM tasks WHERE state = ANY(%s) ORDER BY id",
+                    list(tasks.OPEN)):
         print(f"  #{t['id']} {t['player']} ({t['ghost']}) {t['state']}: {t['request'][:60]}")
     print("today:")
     for r in db.all("SELECT house, kind, sum(amount) AS n FROM budget WHERE day = current_date AND state <> 'released' "

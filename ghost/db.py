@@ -47,6 +47,18 @@ def migrate():
         c.execute("GRANT SELECT ON ALL TABLES IN SCHEMA public TO ghost_ops")
 
 
+def beat_forever(process, every=5, **detail):
+    """A daemon thread's loop: say `process` is alive every few seconds (the watchdog reads these)."""
+    import os
+    import time
+    while True:
+        try:
+            heartbeat(process, pid=os.getpid(), **detail)
+        except Exception:  # noqa: BLE001 (a missed beat is what the watchdog is for)
+            pass
+        time.sleep(every)
+
+
 def heartbeat(process, **detail):
     run("INSERT INTO heartbeats (process, at, detail) VALUES (%s, now(), %s) "
         "ON CONFLICT (process) DO UPDATE SET at = now(), detail = EXCLUDED.detail", process, J(detail))

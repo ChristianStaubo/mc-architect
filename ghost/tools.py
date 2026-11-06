@@ -41,11 +41,10 @@ def act(action, requester, ghost, resource, context=None, task_id=None, trace_id
                  "untrusted, detail, result) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
                  trace_id, task_id, ghost and ghost.id, f"{requester.kind}:{requester.id}", action, res,
                  "allow" if d.allowed else "deny", d.rules, untrusted, J({"context": context, **(detail or {})}),
-                 None if d.allowed else "skipped")
+                 ("ok" if run is None else None) if d.allowed else "skipped")
     if not d.allowed:
         raise Denied(d)
     if run is None:
-        db.run("UPDATE audit SET result = 'ok' WHERE id = %s", row["id"])
         return d
     try:
         out = run()
@@ -58,23 +57,26 @@ def act(action, requester, ghost, resource, context=None, task_id=None, trace_id
 
 # ---- budgets: reserve before, settle after ----
 
-def reserve(house, kind, amount, task_id):
+def reserve(house, kind, amount, task_id, state="reserved", conn=None):
+    """Hold `amount` of today's allowance (state 'settled' for an instant spend). Raises OverBudget."""
+    if conn:
+        return _reserve(conn, house, kind, amount, task_id, state)
     with db.tx() as c:
-        c.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"budget:{house}",))
-        used = c.execute("SELECT coalesce(sum(amount), 0) AS n FROM budget WHERE house = %s AND day = current_date "
-                         "AND kind = %s AND state <> 'released'", (house, kind)).fetchone()["n"]
-        if used + amount > LIMITS[kind]:
-            raise OverBudget(f"{house} has used {used} of {LIMITS[kind]} {kind} today; this needs {amount}")
-        return c.execute("INSERT INTO budget (house, task_id, kind, amount) VALUES (%s, %s, %s, %s) RETURNING id",
-                         (house, task_id, kind, amount)).fetchone()["id"]
+        return _reserve(c, house, kind, amount, task_id, state)
+
+
+def _reserve(c, house, kind, amount, task_id, state):
+    c.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (f"budget:{house}",))
+    used = c.execute("SELECT coalesce(sum(amount), 0) AS n FROM budget WHERE house = %s AND day = current_date "
+                     "AND kind = %s AND state <> 'released'", (house, kind)).fetchone()["n"]
+    if used + amount > LIMITS[kind]:
+        raise OverBudget(f"{house} has used {used} of {LIMITS[kind]} {kind} today; this needs {amount}")
+    return c.execute("INSERT INTO budget (house, task_id, kind, amount, state) VALUES (%s, %s, %s, %s, %s) "
+                     "RETURNING id", (house, task_id, kind, amount, state)).fetchone()["id"]
 
 
 def settle(budget_id, amount=None):
     db.run("UPDATE budget SET state = 'settled', amount = coalesce(%s, amount) WHERE id = %s", amount, budget_id)
-
-
-def release(budget_id):
-    db.run("UPDATE budget SET state = 'released' WHERE id = %s", budget_id)
 
 
 def used_today(house):
@@ -120,6 +122,5 @@ def grant(task, world, lo, hi, max_blocks, seconds=600):
 
 
 def plan_hash(plan_path, args):
-    from pathlib import Path
-    body = (config.ROOT / plan_path).read_bytes() if not Path(plan_path).is_absolute() else Path(plan_path).read_bytes()
-    return hashlib.sha256(body + json.dumps(args).encode()).hexdigest()[:20]
+    """The plan's content and placement: an approval is bound to this, so the plan can't change after it."""
+    return hashlib.sha256((config.ROOT / plan_path).read_bytes() + json.dumps(args).encode()).hexdigest()[:20]

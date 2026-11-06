@@ -26,7 +26,8 @@
             63
           ]
         }
-      ]
+      ],
+      "town": "lakeside"
     },
     {
       "id": "riverford",
@@ -52,7 +53,8 @@
             63
           ]
         }
-      ]
+      ],
+      "town": "riverford"
     }
   ],
   "protected": [

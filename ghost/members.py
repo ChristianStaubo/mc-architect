@@ -25,19 +25,25 @@ def join(player, uuid, house):
            player.lower(), uuid, house, role)
 
 
-def set_role(player, role):
-    db.run("UPDATE members SET role = %s, updated_at = now() WHERE player = %s", role, player.lower())
-
-
 def head_of(house):
     row = db.one("SELECT player FROM members WHERE house = %s AND role = 'head' ORDER BY updated_at LIMIT 1", house)
     return row and row["player"]
 
 
+def approver(house):
+    """Who approves for a house: its head, or the owner while it has none."""
+    return head_of(house) or config.houses()["owner"].lower()
+
+
+def ghost_of(who):
+    """The ghost a player talks to: their house's, or the spirit."""
+    return who.house or "spirit"
+
+
 def sync():
     """Send the houses and members to the plugin (on start and after every change)."""
-    hs = [{"id": h["id"], "name": h["name"], "color": h["color"], "motto": h.get("motto", ""),
-           "zones": [z["box"] for z in h["zones"]]} for h in config.houses()["houses"]]
+    hs = [{"id": h["id"], "name": h["name"], "color": h["color"], "motto": h.get("motto", "")}
+          for h in config.houses()["houses"]]
     ms = {r["player"]: {"house": r["house"], "role": r["role"]} for r in db.all("SELECT player, house, role FROM members")}
     owner = config.houses()["owner"].lower()
     ms.setdefault(owner, {"house": None, "role": "owner"})["role"] = "owner"

@@ -16,6 +16,7 @@ TEMPORAL = os.environ.get("GHOST_TEMPORAL", "127.0.0.1:7233")
 TASK_QUEUE = "ghost-builds"
 
 
+@lru_cache
 def db_password():
     """The local database password: generated once into local/ghost/db-password (gitignored)."""
     f = LOCAL / "db-password"
@@ -56,12 +57,36 @@ def house(hid):
     return next((h for h in houses()["houses"] if h["id"] == hid), None)
 
 
+def style(hid):
+    """A house's building style, in words, from its town (towns/<town>/town.json and layout.json)."""
+    h = house(hid)
+    if not h:
+        return ""
+    town = ROOT / "towns" / h.get("town", hid)
+    t = json.loads((town / "town.json").read_text()) if (town / "town.json").exists() else {}
+    pal = json.loads((town / "layout.json").read_text()).get("palette", {}) if (town / "layout.json").exists() else {}
+    blocks = ", ".join(f"{k} {v}" for k, v in pal.items() if k != "notes")
+    return f"{h['name']}: {t.get('style') or pal.get('notes', '')}" + (f" (palette: {blocks})" if blocks else "")
+
+
+def zone_of(ctx):
+    """The zone a player's context puts them in."""
+    pos = ctx.get("pos") or [0, 0, 0]
+    return zone_at(pos[0], pos[2])
+
+
 def zones():
     """Protected zones first: they win where they overlap a house's zone."""
     out = [Zone(p["id"], p.get("house"), True, tuple(p["box"])) for p in houses().get("protected", [])]
     for h in houses()["houses"]:
         out += [Zone(z["id"], h["id"], False, tuple(z["box"])) for z in h["zones"]]
     return out
+
+
+def home_column(hid):
+    """The middle of a house's first zone (its body's home), as (x, z)."""
+    x0, z0, x1, z1 = house(hid)["zones"][0]["box"]
+    return (x0 + x1) // 2, (z0 + z1) // 2
 
 
 def zone_at(x, z):

@@ -31,8 +31,9 @@ class BuildWorkflow:
         self.decision = d
 
     @workflow.signal
-    def revise(self, text: str):
-        self.revisions.append(text)
+    def revise(self, change: dict):
+        """{words: what they said, note: the router's reading, context: where they are and look now}."""
+        self.revisions.append(change)
 
     @workflow.signal
     def approved(self, kind: str):
@@ -53,7 +54,7 @@ class BuildWorkflow:
 
     @workflow.run
     async def run(self, task_id: int) -> str:
-        revision = None
+        revision: dict | None = None
         while True:  # design, show, wait for yes / no / a change
             self.state = "designing"
             d = await workflow.execute_activity(
@@ -61,6 +62,9 @@ class BuildWorkflow:
                 heartbeat_timeout=timedelta(seconds=30), retry_policy=RetryPolicy(maximum_attempts=3))
             if not d["ok"]:
                 return await self._end(task_id, "failed", "failed", d, clear=False)
+            if self.revisions:  # they asked for changes while it was being drawn: redo it before showing anything
+                revision = self.revisions.pop(0)
+                continue
             await workflow.execute_activity(A.tell, args=[task_id, "preview", d], **QUICK)
             self.state, self.decision = "waiting", None
             try:

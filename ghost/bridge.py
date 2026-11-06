@@ -1,11 +1,12 @@
 """The ghost plugin's routes, over MCBridge's bridge (same token)."""
 
 import sys
+from functools import lru_cache
 
 from . import config
 
 sys.path.insert(0, str(config.ROOT))
-from architect.bridge import BridgeError, call  # noqa: E402,F401
+from architect.bridge import BridgeError, call, heightmap  # noqa: E402,F401
 
 
 def inbox(wait=25):
@@ -33,18 +34,16 @@ def bodies():
     return call("/ghost/bodies", {})["bodies"]
 
 
-def houses(houses=None, members=None):
-    b = {}
-    if houses is not None:
-        b["houses"] = houses
-    if members is not None:
-        b["members"] = members
-    return call("/ghost/houses", b)
+def houses(houses, members):
+    return call("/ghost/houses", {"houses": houses, "members": members})
 
 
-def menu(player):
-    return call("/ghost/menu", {"player": player})
+def ground(x, z):
+    return heightmap((x, z), (x, z))[(x, z)][0]
 
 
-def status():
-    return call("/ghost/status", {})
+@lru_cache
+def home(house):
+    """Where a house ghost's body rests: above the middle of its first zone."""
+    x, z = config.home_column(house)
+    return [x + 0.5, ground(x, z) + 2, z + 0.5]

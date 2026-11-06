@@ -34,7 +34,6 @@ class Decision:
     allowed: bool
     rules: list = field(default_factory=list)   # the @ids of the policies that decided
     errors: list = field(default_factory=list)
-    who: str = ""
 
     def reason(self):
         return ", ".join(self.rules) or ("no rule allows it" if not self.allowed else "")
@@ -42,9 +41,9 @@ class Decision:
 
 @lru_cache
 def _policies():
+    """The policy set, parsed once, and its @ids in order (Cedar reports policies as policy0, policy1, ...)."""
     text = (config.POLICY_DIR / "ghost.cedar").read_text()
-    ids = re.findall(r'@id\("([^"]+)"\)', text)
-    return text, ids
+    return cedarpy.PolicySet.from_str(text), re.findall(r'@id\("([^"]+)"\)', text)
 
 
 def _uid(t, i):
@@ -75,7 +74,8 @@ def _entities(principal, resource):
         add("Zone", resource.id, attrs)
     else:  # a memory: ("memory", id, owner name)
         _, mid, owner = resource
-        add("Player", owner, {"role": "member"}) if (("Player", owner) not in ents) else None
+        if ("Player", owner) not in ents:
+            add("Player", owner, {"role": "member"})
         add("Memory", mid, {"owner": _uid("Player", owner)})
     return list(ents.values())
 
@@ -87,12 +87,12 @@ def _ref(who):
 def authorize(who, action, resource, context=None):
     """May `who` do `action` (Say, Move, Preview, Build, Demolish, Undo, ApproveBuild, ReadMemory) to
     `resource` (a config.Zone, or ("memory", id, owner))?"""
-    text, ids = _policies()
+    policies, ids = _policies()
     res = (f'Zone::"{resource.id}"' if isinstance(resource, config.Zone) else f'Memory::"{resource[1]}"')
     r = cedarpy.is_authorized({"principal": _ref(who), "action": f'Action::"{action}"', "resource": res,
-                               "context": context or {}}, text, _entities(who, resource))
+                               "context": context or {}}, policies, _entities(who, resource))
     rules = [ids[int(p[len("policy"):])] if p.startswith("policy") else p for p in r.diagnostics.reasons]
-    return Decision(r.allowed, rules, list(r.diagnostics.errors), who=f"{who.kind}:{who.id}")
+    return Decision(r.allowed, rules, list(r.diagnostics.errors))
 
 
 def both(requester, ghost, action, resource, context=None):
@@ -101,7 +101,15 @@ def both(requester, ghost, action, resource, context=None):
     if not a.allowed:
         return a
     b = authorize(ghost, action, resource, context)
-    return Decision(b.allowed, a.rules + b.rules, a.errors + b.errors, who=b.who if not b.allowed else a.who)
+    return Decision(b.allowed, a.rules + b.rules, a.errors + b.errors)
+
+
+def acting_ghost(zone, task_ghost):
+    """Who does the work in a zone: that house's ghost in its own land; in the commons, the asker's ghost
+    (None for the spirit, which never builds)."""
+    if zone.house:
+        return Who.ghost(zone.house)
+    return Who.ghost(task_ghost) if task_ghost != "spirit" else None
 
 
 def build_context(blocks, head_approved=False, zone_head_approved=False, overlaps_build=False):
@@ -111,7 +119,7 @@ def build_context(blocks, head_approved=False, zone_head_approved=False, overlap
 
 def validate():
     """Policy errors against the schema (empty = fine). Run in tests and before deploying policy changes."""
-    text, _ = _policies()
+    text = (config.POLICY_DIR / "ghost.cedar").read_text()
     schema = (config.POLICY_DIR / "ghost.cedarschema").read_text()
     r = cedarpy.validate_policies(text, schema)
     return [] if r.validation_passed else [str(e) for e in r.errors]

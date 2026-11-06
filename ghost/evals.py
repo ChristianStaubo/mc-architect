@@ -11,12 +11,9 @@ Run: .venv/bin/python -m ghost eval <suite> [--k N]
 """
 
 import copy
-import json
-import subprocess
 import time
 
-from . import bridge, db, sim, tools
-from .config import ROOT
+from . import bridge, tools
 
 SPOT = (230, 250, -300)   # a sky block in the commons, far from everything
 
@@ -113,21 +110,25 @@ def report(name, checks):
     return n == len(checks)
 
 
-SUITES = {"guarantees": guarantees, "listening": listening}
+def _scenarios(a):
+    from .evals_scenarios import scenarios
+    return scenarios(a.only)
+
+
+def _chaos(a):
+    from .evals_scenarios import chaos
+    return chaos()
+
+
+SUITES = {"guarantees": lambda a: guarantees(), "listening": lambda a: listening(a.k), "scenarios": _scenarios,
+          "chaos": _chaos}
 
 
 def main(argv):
     import argparse
     ap = argparse.ArgumentParser(prog="ghost eval")
-    ap.add_argument("suite", choices=sorted(SUITES) + ["scenarios", "chaos"])
-    ap.add_argument("--k", type=int, default=3)
+    ap.add_argument("suite", choices=sorted(SUITES))
+    ap.add_argument("--k", type=int, default=3, help="listening: runs per message (pass^k)")
+    ap.add_argument("--only", nargs="*", help="scenarios: just these (follow, guest, injection, build_and_undo, ...)")
     a = ap.parse_args(argv)
-    if a.suite == "scenarios":
-        from .evals_scenarios import scenarios
-        return 0 if report("scenarios", scenarios()) else 1
-    if a.suite == "chaos":
-        from .evals_scenarios import chaos
-        return 0 if report("chaos", chaos()) else 1
-    fn = SUITES[a.suite]
-    checks = fn(a.k) if a.suite == "listening" else fn()
-    return 0 if report(a.suite, checks) else 1
+    return 0 if report(a.suite, SUITES[a.suite](a)) else 1

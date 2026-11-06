@@ -9,18 +9,14 @@ import signal
 import time
 
 from . import bridge, db, sim
+from .activities import TASKS
 
 LAKE = (2030, 30)         # Lakeside's testing ground (config/ghost/houses.json): evals never build in the towns
 RIVER = (2130, 30)        # Riverford's testing ground
 
 
-def ground(x, z):
-    return bridge.call("/heightmap", {"min": [x, z], "max": [x, z]})["heights"][0]
-
-
 def at(x, z, dz=-6):
-    y = ground(x, z) + 1
-    return [x, y, z], [x, ground(x, z + dz), z + dz]
+    return [x, bridge.ground(x, z) + 1, z], [x, bridge.ground(x, z + dz), z + dz]
 
 
 def player(name, house, spot=LAKE):
@@ -41,7 +37,7 @@ def task_of(name, after):
 
 
 def max_task():
-    return db.one("SELECT coalesce(max(id), 0) AS n FROM tasks")["n"]
+    return sim.max_id("tasks")
 
 
 def audit(task_id=None, requester=None, since=0):
@@ -50,7 +46,7 @@ def audit(task_id=None, requester=None, since=0):
 
 
 def max_audit():
-    return db.one("SELECT coalesce(max(id), 0) AS n FROM audit")["n"]
+    return sim.max_id("audit")
 
 
 def wait_state(name, after, states, timeout=420):
@@ -179,7 +175,40 @@ def s_cross_house():
              ap and (ap["kind"], ap["approver"]))]
 
 
-SCENARIOS = [s_follow, s_guest, s_injection, s_build_and_undo, s_cross_house]
+def _design_prompts(task_id):
+    """What the designer was told on each attempt (the task records every brief)."""
+    return db.one("SELECT detail FROM tasks WHERE id = %s", task_id)["detail"].get("briefs") or []
+
+
+def s_conversation():
+    """The first in-game conversation, replayed: follow-ups said near the ghost without "ghost" must reach it,
+    a change asked while it's still drawing must not be lost, and the designer gets the player's own words
+    and their house's style."""
+    a = player("sim_alex", "lakeside")
+    t0, e0 = max_task(), sim.max_id("events")
+    a.command("build a small tower on this hill")
+    t = wait_state(a.name, t0, ("designing",), 90)
+    a.chat("nice, but make it more our style", "candidate", "lakeside")          # while it's still drawing
+    t = wait_state(a.name, t0, ("waiting", "failed"))
+    a.chat("look at our other houses, we use dark oak and white plaster", "candidate", "lakeside")
+    time.sleep(20)
+    t = wait_state(a.name, t0, ("waiting", "failed"))
+    evs = db.all("SELECT text, verdict, handled_at FROM events WHERE id > %s AND player = %s AND kind = 'chat'", e0, a.name)
+    prompts = _design_prompts(t["id"]) if t else []
+    if t and t["state"] == "waiting":
+        a.click(f"no {t['id']}")
+    return [("conversation: follow-ups without 'ghost' stayed in the conversation",
+             len(evs) == 2 and all(e["verdict"] == "conversation" for e in evs), [(e["text"][:30], e["verdict"]) for e in evs]),
+            ("conversation: the change asked mid-design was used before showing it",
+             len(prompts) >= 2 and "make it more our style" in prompts[1], f"{len(prompts)} designs"),
+            ("conversation: the designer got their own words and their house's style",
+             bool(prompts) and all("in their words" in p and "dark oak" in p for p in prompts),
+             [p[:80] for p in prompts[:1]]),
+            ("conversation: the second follow-up reached the designer too",
+             any("dark oak and white plaster" in p for p in prompts), f"{len(prompts)} designs")]
+
+
+SCENARIOS = [s_follow, s_guest, s_injection, s_build_and_undo, s_cross_house, s_conversation]
 
 
 def scenarios(names=None):
@@ -217,7 +246,7 @@ def chaos():
     if pid and still:
         os.kill(pid, signal.SIGKILL)
     t = wait_state(a.name, t0, ("waiting", "failed"), 600)
-    attempts = len(list((sim.ROOT / "local" / "ghost-tasks" / str(t["id"])).glob("design-*.jsonl"))) if t else 0
+    attempts = len(list((TASKS / str(t["id"])).glob("design-*.jsonl"))) if t else 0
     out.append(("chaos: worker killed mid-design, the design was redone and the preview arrived",
                 bool(pid) and still and t and t["state"] == "waiting" and attempts >= 2,
                 f"killed {pid} while designing; {t and t['state']} {round(time.time() - killed_at)} s after the kill, "
@@ -238,7 +267,7 @@ def chaos():
     # 3. kill ghost-core with an event in flight: it's delivered again and answered once
     time.sleep(10)  # let the last test's replies (the undo) arrive first
     n = sim.last_outbox_id()
-    e0 = db.one("SELECT coalesce(max(id), 0) AS n FROM events")["n"]
+    e0 = sim.max_id("events")
     a.chat("wait here for me")
     # in flight: stored (step one of the flow) but not answered yet (the router call takes seconds)
     sim.wait_for(lambda: db.one("SELECT id FROM events WHERE id > %s AND player = %s", e0, a.name), 30, 0.1)
