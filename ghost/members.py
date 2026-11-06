@@ -42,9 +42,11 @@ def ghost_of(who):
 
 def answering(who, ctx):
     """The ghost that answers what they say: the one they're standing next to (another house's, for a
-    visitor), else their own. Once a thread or task exists, its stored ghost is used instead."""
-    near = ctx.get("near_ghost")
-    return near if near and config.house(near) else ghost_of(who)
+    visitor), else the one they're mid-conversation with, else their own."""
+    for g in (ctx.get("near_ghost"), ctx.get("talking_to")):
+        if g and (config.house(g) or g == "spirit"):
+            return g
+    return ghost_of(who)
 
 
 def sync():

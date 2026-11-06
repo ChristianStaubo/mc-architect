@@ -35,14 +35,18 @@ ACTION_HELP = {
                     'style"), or they point at something to copy ("use this design", "like our other houses").',
     "accept_build": 'accept_build: they clearly say yes to the design you\'re showing ("looks good, build it").',
     "cancel_build": "cancel_build: they don't want the design you're working on.",
-    "none": "none: anything else (questions, chat, thanks).",
+    "none": "none: anything else for you (questions, chat with you, thanks).",
+    "stay_quiet": "stay_quiet: it isn't for you: they're talking to other players ('sam ...', 'anyone up for ...', "
+                  "'guys ...'), or to nobody ('brb', 'lol'). Say nothing (reply empty). You're listening in, so only "
+                  "answer what follows your conversation or is clearly meant for you.",
 }
 
 
-def actions_for(open_task):
+def actions_for(open_task, may_ignore=False):
     """The actions the router may choose, given the design it has open: the schema allows only what can
-    actually happen, so it can't promise a change to a design that's already being built."""
-    acts = ["none", *MOVES, "build"]
+    actually happen, so it can't promise a change to a design that's already being built. When the line
+    wasn't addressed to it directly (it's just listening), it may also stay quiet."""
+    acts = ["none", *MOVES, "build"] + (["stay_quiet"] if may_ignore else [])
     if open_task and open_task["state"] in ("designing", "waiting"):
         acts += ["change_build", "cancel_build"]
     if open_task and open_task["state"] == "waiting":
@@ -160,18 +164,18 @@ class Core:
             return self.on_pick(player, ctx, text)
         if kind == "button":
             return self.on_button(player, text)
-        if ctx.get("addressed") == "candidate":
-            # mid-conversation (they spoke to the ghost moments ago, or a design of theirs is open), what they
-            # say next belongs to that conversation: no filter (DeepSeek's thread subscription, in code)
-            talking = self.in_conversation(player)
-            verdict = talking or self.for_ghost(text, ctx)
-            db.run("UPDATE events SET verdict = %s WHERE id = %s",
-                   "conversation" if talking else "for_ghost" if verdict else "not_for_ghost", eid)
-            if not verdict:
-                return
+        listening = ctx.get("addressed") in ("candidate", "conversation")
+        if listening:
+            # mid-conversation (the plugin's listening window, or a design of theirs is open): the router
+            # judges the line with the whole conversation in front of it and may stay quiet. Otherwise a
+            # candidate is first checked by the small filter (one line, no history).
+            talking = ctx.get("addressed") == "conversation" or self.in_conversation(player)
+            if not talking and not self.for_ghost(text, ctx):
+                return db.run("UPDATE events SET verdict = 'not_for_ghost' WHERE id = %s", eid)
+            db.run("UPDATE events SET verdict = %s WHERE id = %s", "conversation" if talking else "for_ghost", eid)
         if not text.strip():  # just "ghost": no model needed
             return outbox.say(members.answering(members.who(player), ctx), player, "Yes?")
-        self.route(eid, player, ctx, text)
+        self.route(eid, player, ctx, text, may_ignore=listening)
 
     def in_conversation(self, player):
         return bool(db.one("SELECT 1 FROM messages m JOIN threads t ON t.id = m.thread_id WHERE t.player = %s "
@@ -218,7 +222,7 @@ class Core:
                  "You know nothing else about the world: if asked, say you don't know rather than guess."]
         return "\n".join(x for x in lines if x), open_task
 
-    def route(self, eid, player, ctx, text):
+    def route(self, eid, player, ctx, text, may_ignore=False):
         who = members.who(player)
         ghost = members.answering(who, ctx)
         th = db.one("INSERT INTO threads (player, ghost) VALUES (%s, %s) ON CONFLICT (player, ghost) "
@@ -227,7 +231,7 @@ class Core:
             c.execute("UPDATE events SET thread_id = %s WHERE id = %s", (th["id"], eid))
             c.execute("INSERT INTO messages (thread_id, who, text) VALUES (%s, 'player', %s)", (th["id"], text))
         context, open_task = self.context_for(th, player, who, ctx)
-        acts, trace = actions_for(open_task), uuid.uuid4().hex
+        acts, trace = actions_for(open_task, may_ignore), uuid.uuid4().hex
         try:
             a = model.ask("router", router_system(ghost, acts), f'{context}\n\nThey just said: "{text}"',
                           router_schema(acts), None, trace)
@@ -235,6 +239,8 @@ class Core:
             print(f"router failed: {ex}", flush=True)
             return outbox.say(ghost, player, "Sorry, I lost my train of thought. Say that again?", (), th["id"])
         print(f"  -> {ghost}: {a['action']} {a.get('build') or ''} | {a['reply'][:80]}", flush=True)
+        if a["action"] == "stay_quiet":
+            return db.run("UPDATE events SET verdict = 'quiet' WHERE id = %s", eid)
         self.act(a, player, who, ghost, ctx, th, open_task, trace, text)
 
     def act(self, a, player, who, ghost, ctx, th, open_task, trace, words):

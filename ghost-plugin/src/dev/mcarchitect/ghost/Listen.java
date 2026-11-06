@@ -35,12 +35,15 @@ import static dev.mcarchitect.core.Json.str;
  * <li><b>explicit</b>: /ghost ..., chat starting with "ghost" or "@ghost", button clicks;</li>
  * <li><b>candidate</b>: chat mentioning "ghost" anywhere, or said within NEAR blocks of a ghost's body
  *     (ghost-core asks a small model whether it's for the ghost);</li>
+ * <li><b>conversation</b>: anything they say within WINDOW_MS of their last exchange with a ghost, wherever
+ *     they are (the ghost listens for a while, like a person would; it decides whether a line is for it);</li>
  * <li>everything else is never sent anywhere.</li>
  * </ul>
  * /ghost stop never waits on a model: the body stops here, and ghost-core is told.
  */
 final class Listen implements Listener, TabExecutor {
     private static final double NEAR = 10;
+    private static final long WINDOW_MS = 90_000;   // after an exchange, the ghost keeps listening this long
     private static final Pattern START = Pattern.compile("^\\s*@?ghost\\b[\\s,:!]*", Pattern.CASE_INSENSITIVE);
     private static final Pattern MENTION = Pattern.compile("\\bghosts?\\b", Pattern.CASE_INSENSITIVE);
 
@@ -48,6 +51,8 @@ final class Listen implements Listener, TabExecutor {
     private final Inbox inbox;
     private final Houses houses;
     private final Bodies bodies;
+    private final Map<String, Long> listening = new java.util.concurrent.ConcurrentHashMap<>();  // player -> until
+    private final Map<String, String> talkingTo = new java.util.concurrent.ConcurrentHashMap<>();  // player -> ghost
 
     Listen(Plugin plugin, Inbox inbox, Houses houses, Bodies bodies) {
         this.plugin = plugin;
@@ -72,15 +77,31 @@ final class Listen implements Listener, TabExecutor {
         String text = PlainTextComponentSerializer.plainText().serialize(e.message());
         Player p = e.getPlayer();
         Bukkit.getScheduler().runTask(plugin, () -> {  // context is read on the main thread
-            var start = START.matcher(text);
+            var start = start(text);
             String near = bodies.near(p, NEAR);
-            String addressed = start.find() ? "explicit" : (MENTION.matcher(text).find() || near != null) ? "candidate" : null;
+            String addressed = start.find() ? "explicit" : (MENTION.matcher(text).find() || near != null) ? "candidate"
+                    : inWindow(p) ? "conversation" : null;
             if (addressed == null) return;  // not for the ghost: never leaves the server
             Map<String, Object> ctx = context(p, houses);
             ctx.put("addressed", addressed);
             ctx.put("near_ghost", near);
+            ctx.put("talking_to", inWindow(p) ? talkingTo.get(p.getName().toLowerCase()) : null);
+            if (addressed.equals("explicit")) listen(p.getName());  // the window opens when you address it, or it answers
             inbox.post("chat", addressed.equals("explicit") ? start.replaceFirst("") : text, ctx);
         });
+    }
+
+    private static java.util.regex.Matcher start(String text) {
+        return START.matcher(text);
+    }
+
+    private boolean inWindow(Player p) {
+        return listening.getOrDefault(p.getName().toLowerCase(), 0L) > System.currentTimeMillis();
+    }
+
+    /** Keep listening to this player for WINDOW_MS more (each exchange, either way, renews it). */
+    private void listen(String player) {
+        listening.put(player.toLowerCase(), System.currentTimeMillis() + WINDOW_MS);
     }
 
     @Override
@@ -97,6 +118,7 @@ final class Listen implements Listener, TabExecutor {
         String first = args[0].toLowerCase();
         Map<String, Object> ctx = context(p, houses);
         ctx.put("addressed", "explicit");
+        listen(p.getName());
         switch (first) {
             case "stop" -> {  // the kill switch: never waits on a model
                 String g = houses.houseOf(p.getName());
@@ -139,6 +161,8 @@ final class Listen implements Listener, TabExecutor {
         Player p = Bukkit.getPlayerExact(to);
         if (p == null) return map("delivered", false, "to", to);
         p.sendMessage(msg);
+        listen(to);                               // it spoke to them: it's listening for their answer
+        talkingTo.put(to.toLowerCase(), ghost);
         return map("delivered", true, "to", to);
     }
 }

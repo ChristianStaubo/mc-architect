@@ -208,7 +208,37 @@ def s_conversation():
              any("dark oak and white plaster" in p for p in prompts), f"{len(prompts)} designs")]
 
 
-SCENARIOS = [s_follow, s_guest, s_injection, s_build_and_undo, s_cross_house, s_conversation]
+WINDOW = [  # (what they say during the listening window, should the ghost answer?)
+    ("can you come over here", True),
+    ("brb grabbing dinner", False),
+    ("sam did you see the castle lol", False),
+    ("what do you think of my tower?", True),
+    ("anyone up for mining later?", False),
+    ("thanks ghost", True),
+]
+
+
+def s_listening_window():
+    """After you talk to the ghost it keeps listening for a while (the plugin forwards your chat as
+    'conversation'); it answers what's for it and stays quiet for the rest."""
+    a = player("sim_alex", "lakeside")
+    n = sim.last_outbox_id()
+    a.chat("hi there", "explicit")
+    sim.wait_for(lambda: sim.said_to(a.name, n), 60)
+    out = []
+    for text, want in WINDOW:
+        n, e0 = sim.last_outbox_id(), sim.max_id("events")
+        bridge.post("chat", text, a.ctx("conversation") | {"talking_to": "lakeside"})
+        done = sim.wait_for(lambda: (e := db.one("SELECT verdict, handled_at FROM events WHERE id > %s AND player = %s",
+                                                 e0, a.name)) and e["handled_at"] and e, 60, 0.5)
+        time.sleep(1.5)
+        replied = bool(sim.said_to(a.name, n))
+        out.append((f"window: {text!r} -> {'answer' if want else 'quiet'}", replied == want,
+                    f"{'answered' if replied else 'quiet'} (verdict {done and done['verdict']})"))
+    return out
+
+
+SCENARIOS = [s_follow, s_guest, s_injection, s_build_and_undo, s_cross_house, s_conversation, s_listening_window]
 
 
 def scenarios(names=None):
