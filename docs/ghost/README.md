@@ -49,9 +49,16 @@ the ghost?"). Everything else in chat never leaves the server.
 |---|---|---|
 | policy pairs (`.venv/bin/python -m unittest tests.test_ghost_policy`) | 22 allowed/denied pairs, schema check, requester-and-ghost | all pass |
 | `guarantees` | the bridge, by code: repeated key, forged / expired / out-of-box / over-cap / wrong-world grant | 6/6 |
-| `listening` | the candidate filter on labelled chat, pass^3 | replied 6/6, stayed quiet 6/6 |
-| `scenarios` | simulated players on each house's testing ground (never in the towns), graded on the store and the world: follow, guest, injection, build + undo, a second build on the same spot, cross-house approval | 16/16 |
-| `chaos` | kill a process mid-task: nothing lost, nothing twice, time to recover | 3/3; recovery: design 45 s, build 26 s, core 61 s |
+| `listening` | the candidate filter on labelled chat, pass^3 | stayed quiet 6/6; replied 5-6/6 ("where did the ghost go" is judged for the ghost 2 times in 3: a borderline case pass^3 keeps visible) |
+| `scenarios` | simulated players on each house's testing ground (never in the towns), graded on the store and the world: follow, guest, injection, build + undo, a second build on the same spot, cross-house approval, and the first in-game conversation replayed (follow-ups without "ghost" stay in the conversation, a change asked mid-design isn't lost, the designer gets the player's own words and their house's style) | 20/20 |
+| `chaos` | kill a process mid-task: nothing lost, nothing twice, time to recover | 3/3; recovery: design 45 s, build 26 s, core 56 s |
+
+The conversation fixes after the first real chat: chat said near the ghost while you're talking to it skips the
+"is this for the ghost?" check (it was dropping "look at our other houses, we use brick"); a change asked while
+the first design is still being drawn is applied before anything is shown (it was lost); the designer gets the
+player's exact words, the router's reading as a note, the house's style and the land's style, and where they're
+looking now; the router knows where its body is and what was built lately, and says it doesn't know otherwise;
+its action list only offers what the open design allows.
 
 What went wrong in the first in-game test, and what changed: the scenario spots were inside Lakeside's inn and
 Riverford's fisher's house, and three test benches stayed there (undone; tests now build on testing grounds far
