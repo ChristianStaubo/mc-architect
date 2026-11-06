@@ -40,13 +40,13 @@ def player_pos(name):
     raise SystemExit(f"{name} is not online")
 
 
-def load_plan(name):
+def load_plan(name, params=None):
     path = Path(name)
     if not path.exists():
         path = ROOT / "plans" / f"{name.removesuffix('.py')}.py"
     if not path.exists():
         raise SystemExit(f"no plan {name}")
-    b = load_build(path)
+    b = load_build(path, params)
     if not b.blocks:
         raise SystemExit(f"plan {name} built nothing")
     return b

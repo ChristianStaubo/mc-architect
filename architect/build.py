@@ -3,6 +3,7 @@ the bridge's /place takes. Block names are Minecraft block-data strings ("oak_st
 the "minecraft:" prefix is optional."""
 
 import importlib.util
+import inspect
 from collections import Counter
 from pathlib import Path
 
@@ -80,13 +81,15 @@ def payload(cells, label="build"):
     return {"origin": list(lo), "size": list(size), "palette": palette, "rle": rle, "label": label}
 
 
-def load(path):
+def load(path, params=None):
     """Run a plan file's build(); its optional PLACE (the `mc place` arguments a reference plan goes on
-    its task's plot with) rides along as build.place_args."""
+    its task's plot with) rides along as build.place_args. A kit (kits/README.md) takes parameters:
+    build(w, d, door, kind, seed, ...) gets those of `params` its signature names."""
     spec = importlib.util.spec_from_file_location(Path(path).stem, path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    b = mod.build()
+    takes = inspect.signature(mod.build).parameters
+    b = mod.build(**{k: v for k, v in (params or {}).items() if k in takes})
     b.place_args = getattr(mod, "PLACE", [])
     return b
 

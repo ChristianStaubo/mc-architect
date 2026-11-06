@@ -5,6 +5,7 @@ import sys
 import json
 import os
 import time
+import zlib
 from collections import Counter
 
 from .. import blocks, bridge, edits, evals, journal, render, terrain
@@ -63,7 +64,7 @@ def cmd_site(a):
 def resolve(a):
     """A place-style command's plan put on the ground: (build, task or plot, at, cells, y0). Shared by place
     and preview, so a preview and the build placed from it are the same blocks."""
-    build = load_plan(a.plan)
+    build = load_plan(a.plan, kit_params(a))
     t = evals.task(a.task) if a.task else None
     if getattr(a, "within", None) and not t:  # an area (a player's selection): fit inside, clear trees only there
         x0, z0, x1, z1 = ints(a.within)
@@ -97,6 +98,21 @@ def resolve(a):
     if not a.keep_trees:
         cells = clear_trees(cells, (t["plot"]["min"], t["plot"]["max"]) if t else None)
     return build, t, at, cells, y0
+
+
+def kit_params(a):
+    """What a kit (kits/README.md) is built for: the plot's size, door side and type, a seed from its id,
+    then any --kit k=v,... overrides. Plain plans ignore these."""
+    params = {}
+    if a.plot:
+        p = towns.plot(*a.plot.split("/"))
+        params = {"w": p["max"][0] - p["min"][0] + 1, "d": p["max"][1] - p["min"][1] + 1,
+                  "door": p.get("door") or "south", "kind": p.get("kind") or p.get("type") or "house",
+                  "seed": zlib.crc32(a.plot.encode())}
+    for kv in filter(None, (getattr(a, "kit", None) or "").split(",")):
+        k, v = kv.split("=", 1)
+        params[k.strip()] = int(v) if v.strip().lstrip("-").isdigit() else v.strip()
+    return params
 
 
 def show_on_terrain(build, at, y0, cells, stem="preview"):
@@ -155,6 +171,7 @@ def place_args(sp):
     sp.add_argument("--y", type=int, help="world y of the plan's y 0 (default: one above the median ground)")
     sp.add_argument("--no-clear", action="store_true", help="keep terrain inside the build's box")
     sp.add_argument("--keep-trees", action="store_true", help="don't remove trees touching the build")
+    sp.add_argument("--kit", help="a kit's parameters, k=v,... (w, d, door, kind, seed; --plot fills them from the plot)")
     sp.add_argument("--within", help="X0,Z0,X1,Z1: an area the build must fit (trees are cleared only inside it)")
 
 
