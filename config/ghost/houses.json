@@ -1,0 +1,13 @@
+{
+  "_doc": "The ghost's houses (docs/ghost/design.md). Zones are [x0, z0, x1, z1], full world height. Outside every zone is the commons. Protected zones need the owner.",
+  "owner": "batmanenjoyer1",
+  "houses": [
+    {"id": "lakeside", "name": "Lakeside", "color": "#55D6FF", "motto": "Harbour, causeway and the long view over the water.",
+     "zones": [{"id": "lakeside", "box": [310, -272, 399, -150]}]},
+    {"id": "riverford", "name": "Riverford", "color": "#FF6B5B", "motto": "The walled river town on the trade road.",
+     "zones": [{"id": "riverford", "box": [250, -130, 390, -20]}]}
+  ],
+  "protected": [
+    {"id": "lakeside_market", "house": "lakeside", "box": [340, -199, 356, -185]}
+  ]
+}

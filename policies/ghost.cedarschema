@@ -1,0 +1,21 @@
+// What the ghost's policy engine knows about (docs/ghost/design.md, "Who may do what").
+// Facts come from the store and the game, never from a model.
+
+entity House = { "name": String, "head"?: Player };
+entity Player in [House] = { "role": String, "house"?: House };   // owner | head | member | guest
+entity Ghost = { "house": House };
+entity Spirit;
+entity Zone = { "house"?: House, "protected": Bool };             // no house = the commons
+entity Memory = { "owner": Player };
+
+action Say, Move appliesTo { principal: [Player, Ghost, Spirit], resource: [Zone] };
+action Preview appliesTo {
+  principal: [Player, Ghost], resource: [Zone], context: { "blocks": Long }
+};
+action Build, Demolish appliesTo {
+  principal: [Player, Ghost], resource: [Zone],
+  context: { "blocks": Long, "head_approved": Bool, "zone_head_approved": Bool }
+};
+action Undo appliesTo { principal: [Player, Ghost], resource: [Zone], context: { "own_build": Bool } };
+action ApproveBuild appliesTo { principal: [Player], resource: [Zone] };
+action ReadMemory appliesTo { principal: [Player, Ghost, Spirit], resource: [Memory] };
