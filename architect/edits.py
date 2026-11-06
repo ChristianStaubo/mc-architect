@@ -74,22 +74,38 @@ def undo(eid=None, run=""):
         return _undo(eid, run)
 
 
-def _place(cells, label, run="", task="", **extra):
-    """Snapshot the box, place, record (with any `extra` fields). Returns the edit record."""
+def _place(cells, label, run="", task="", key=None, grant=None, **extra):
+    """Snapshot the box, place, record (with any `extra` fields). Returns the edit record.
+
+    With an idempotency `key` (the ghost's workers: a retried step must never build twice) the record is
+    written *pending* with its snapshot before the blocks change, then marked applied. A retry with the
+    same key finds that record: applied, it's returned as it is; pending (a crash in between), the same
+    snapshot is kept and the bridge, which remembers keys, either places the blocks or says it already did.
+    `grant` rides along to the bridge (see plugin Grants.java)."""
     body = payload(cells, label=label)
     lo = body["origin"]
     hi = [lo[i] + body["size"][i] - 1 for i in range(3)]
-    # the bridge's own compact form (palette + run lengths): undo sends it straight back
-    before = bridge.call("/region", {"min": lo, "max": hi})
-    eid = f"e{len(_all()) + 1}"
-    snap = DIR / f"{eid}.json.gz"
-    with gzip.open(snap, "wt") as f:
-        json.dump({"min": lo, "max": hi, "region": before}, f)
-    r = bridge.place(body)
-    e = {"id": eid, "server_id": r["id"], "label": label, "run": run, "task": task, "min": lo, "max": hi,
-         "changed": r["changed"], "t": time.strftime("%Y-%m-%dT%H:%M:%S"), "snapshot": snap.name, **extra}
+    mine = next((e for e in _all() if key and e.get("key") == key), None)
+    if mine and mine.get("state", "applied") == "applied":
+        return mine | {"repeat": True}
+    if mine:
+        eid, snap = mine["id"], DIR / mine["snapshot"]
+    else:
+        # the bridge's own compact form (palette + run lengths): undo sends it straight back
+        before = bridge.call("/region", {"min": lo, "max": hi})
+        eid = f"e{len(_all()) + 1}"
+        snap = DIR / f"{eid}.json.gz"
+        with gzip.open(snap, "wt") as f:
+            json.dump({"min": lo, "max": hi, "region": before}, f)
+    e = {"id": eid, "label": label, "run": run, "task": task, "min": lo, "max": hi,
+         "t": time.strftime("%Y-%m-%dT%H:%M:%S"), "snapshot": snap.name, **extra}
+    if key:
+        e |= {"key": key, "state": "pending"}
+        _write(e)
+    r = bridge.place(body | ({"key": key} if key else {}) | ({"grant": grant} if grant else {}))
+    e |= {"server_id": r["id"], "changed": r["changed"]} | ({"state": "applied"} if key else {})
     _write(e)
-    return e
+    return e | ({"repeat": True} if r.get("repeat") else {})
 
 
 def _snapshot_file(e):

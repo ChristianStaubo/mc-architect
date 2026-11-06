@@ -38,6 +38,7 @@ public final class WorldRoutes {
     private final Plugin plugin;
     private final Deque<Edit> history = new ArrayDeque<>();
     private int nextEditId = 1;
+    private final Grants grants;
 
     private record Edit(int id, String label, String world, int[] min, int[] max, int changed, long time,
                         EditSession session) {
@@ -49,6 +50,11 @@ public final class WorldRoutes {
 
     public WorldRoutes(Plugin plugin, HttpBridge bridge) {
         this.plugin = plugin;
+        try {
+            this.grants = new Grants(plugin.getDataFolder().toPath());
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("can't read the grant key or keys.json", e);
+        }
         bridge.route("/region", b -> bridge.sync(() -> region(b)));
         bridge.route("/heightmap", b -> bridge.sync(() -> heightmap(b)));
         bridge.route("/place", b -> bridge.sync(() -> place(b)));
@@ -100,9 +106,23 @@ public final class WorldRoutes {
                 "heights", heights, "tops", tops, "palette", new ArrayList<>(palette.keySet()));
     }
 
-    private Object place(JsonObject b) {
+    /** body: origin, size, palette, rle, label; optional key (idempotency) and grant (see Grants). */
+    private Object place(JsonObject b) throws java.io.IOException {
+        String key = b.has("key") ? str(b, "key") : null;
+        Object before = grants.repeat(key);
+        if (before != null) {  // already applied: same answer, nothing placed
+            Map<String, Object> again = new java.util.HashMap<>(gsonMap(before));
+            again.put("repeat", true);
+            return again;
+        }
         Body body = Body.decode(b);
         World w = body.world();
+        JsonObject grant = b.has("grant") ? b.getAsJsonObject("grant") : null;
+        int[] cells = {0};
+        if (grant != null) {
+            body.forEach((x, y, z, d) -> cells[0]++);
+            grants.check(grant, w.getName(), body.origin(), body.max(), cells[0]);
+        }
         if (body.origin()[1] < w.getMinHeight() || body.max()[1] >= w.getMaxHeight())
             throw new IllegalArgumentException("build outside world height " + w.getMinHeight() + ".." + w.getMaxHeight());
         EditSession session = WorldEdit.getInstance().newEditSessionBuilder()
@@ -123,7 +143,13 @@ public final class WorldRoutes {
             history.push(edit);
             while (history.size() > MAX_HISTORY) history.removeLast();
         }
+        if (key != null || grant != null) grants.record(key, grant, cells[0], edit.summary());
         return edit.summary();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> gsonMap(Object o) {
+        return (Map<String, Object>) o;
     }
 
     /**

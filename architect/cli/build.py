@@ -2,6 +2,8 @@
 
 import statistics
 import sys
+import json
+import os
 import time
 from collections import Counter
 
@@ -118,8 +120,14 @@ def cmd_place(a):
         return
     t0 = time.time()
     ents = [(at[0] + x, y0 + y, at[1] + z, k) for (x, y, z, k) in build.entities]
-    e = edits.place(cells, label=build.name, run=journal.run_id(), task=a.task or "",
+    # the ghost's workers (ghost/activities.py) pass an idempotency key and a signed grant this way
+    key, grant = os.environ.get("MC_PLACE_KEY"), os.environ.get("MC_PLACE_GRANT")
+    e = edits.place(cells, label=build.name, run=journal.run_id(), task=a.task or "", key=key,
+                    grant=json.loads(grant) if grant else None,
                     floor_y=y0, at=list(at), plan=str(a.plan), entities=ents)
+    if e.get("repeat"):
+        print(f"already placed {e['id']} (key {key}): nothing changed")
+        return
     for (x, y, z, k) in ents:  # after the blocks, so boats sit on water, not inside the old terrain
         bridge.command(f"summon minecraft:{k} {centre(x)} {y} {centre(z)}")
     for (x, y, z, lines, side) in build.signs:
