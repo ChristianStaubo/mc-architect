@@ -84,11 +84,12 @@ def run_agent(run, role, key, prompt, writable, agent, resume=None):
     out = {"end": end, "session": res.get("session_id"), "usd": res.get("total_cost_usd"),
            "turns": res.get("num_turns"), "minutes": round((time.time() - t0) / 60, 1), "denials": denials,
            "report": (res.get("result") or "")[-1200:]}
+    full = res.get("result") or ""
     db.run("UPDATE city_agents SET end_at = now(), result = %s WHERE id = %s", J(out), row["id"])
     if end not in ("done", "budget"):
         # usage limits and crashes are worth retrying later; Temporal backs off
         raise ApplicationError(f"{role} {key} ended {end}: {out['report'][-200:]}")
-    return out
+    return {**out, "full": full}   # (the stored row keeps the tail; the caller gets the whole answer)
 
 
 # ---- planning ----
@@ -291,7 +292,7 @@ def judge_plot(run: str, name: str, pid: str) -> dict:
         return {"score": None, "fix": "", "error": out[-200:]}
     _, brief = mcrun.mc("town", "brief", name, pid)
     o = run_agent(run, "critic", pid, CRITIC.format(sheet=m.group(1), brief=brief), [], "mc-critic")
-    j = re.search(r"\{.*\}", o["report"], re.S)
+    j = re.search(r"\{.*\}", o["full"], re.S)
     try:
         v = json.loads(j.group(0)) if j else {}
     except ValueError:
