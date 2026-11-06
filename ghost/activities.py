@@ -86,12 +86,14 @@ def design(task_id: int, revision: dict | None) -> dict:
     text, ctx = brief(t, revision)
     briefs = (t["detail"].get("briefs") or []) + [text]   # what each attempt was told (evals and replays read it)
     tasks.move(task_id, "designing", briefs=briefs, **({"context": ctx} if revision else {}))
-    with sessions.edit(player) as s:  # mc preview reads the player's context from here
-        s.update(context=ctx)
-        s.pop("pending", None)
     resume = t["detail"].get("claude") if revision else None
     live = t["detail"].get("claude_live")
-    if not resume and live and activity.info().attempt > 1:
+    interrupted = not resume and live and activity.info().attempt > 1
+    with sessions.edit(player) as s:  # mc preview reads the player's context from here
+        s.update(context=ctx)
+        if not interrupted:  # (an interrupted attempt may already have shown its preview: keep it)
+            s.pop("pending", None)
+    if interrupted:
         # the last attempt died mid-design: carry on in its session instead of starting over
         resume, text = live, ("You were interrupted (the worker restarted). Check your plan file and whether a "
                               "preview is showing before redoing anything, then finish the design.\n" + text)

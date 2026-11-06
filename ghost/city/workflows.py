@@ -86,7 +86,7 @@ class CityWorkflow:
             return {"phase": "planned", "plots": chk["plots"], "left": chk}
 
         self.phase = "laying the ground"
-        await workflow.execute_activity(A.lay_ground, args=[run, name], start_to_close_timeout=timedelta(hours=3),
+        await workflow.execute_activity(A.lay_ground, args=[run, name, only], start_to_close_timeout=timedelta(hours=3),
                                         heartbeat_timeout=timedelta(minutes=15), retry_policy=RetryPolicy(maximum_attempts=3))
 
         self.phase = "building"

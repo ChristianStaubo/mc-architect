@@ -198,8 +198,9 @@ def merge_and_check(name: str) -> dict:
 # ---- the ground: roads and terraces, by code ----
 
 @activity.defn
-def lay_ground(run: str, name: str) -> dict:
-    """Every road, then every plot's terrace, each once (an edit with the same task is skipped)."""
+def lay_ground(run: str, name: str, only: list | None = None) -> dict:
+    """Every road, then the terraces of the plots about to be built (`only`: their districts or ids; all when
+    None), each once (an edit with the same task is skipped)."""
     lay = _read(city_dir(name) / "layout.json", {})
     done = {e.get("task") for e in edits.listing()}
     n = 0
@@ -211,6 +212,8 @@ def lay_ground(run: str, name: str) -> dict:
             n += 1
         activity.heartbeat()
     for p in lay.get("plots", []):
+        if only and p.get("district") not in only and p["id"] not in only:
+            continue
         if f"town:{name}:{p['id']}:terrace" not in done:
             ok, out = mcrun.mc("town", name, "terrace", p["id"], timeout=600, MC_RUN_ID=f"city:{run}:ground")
             if not ok:
