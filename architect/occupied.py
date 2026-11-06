@@ -2,37 +2,30 @@
 by the architect or the ghost (the edit journal). New builds may not land on any of them: the /arc preview
 refuses the spot, and the ghost's policy forbids the build (context `overlaps_build`)."""
 
-import json
 from functools import lru_cache
 from pathlib import Path
 
-from . import terrain
+from . import terrain, town
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 @lru_cache
 def _towns():
-    """[(name, set of (x, z) cells)] for every town's plots, wall and roads."""
+    """[(name, set of (x, z) cells)] for every town's plots, wall and roads (as town.py lays them)."""
     out = []
     for f in sorted((ROOT / "towns").glob("*/layout.json")):
-        town = f.parent.name
-        layout = json.loads(f.read_text())
+        name, layout = f.parent.name, town.layout(f.parent.name)
         for p in layout.get("plots", []):
             (x0, z0), (x1, z1) = p["min"], p["max"]
-            out.append((f"{town}'s {p['id'].replace('_', ' ')}",
+            out.append((f"{name}'s {p['id'].replace('_', ' ')}",
                         {(x, z) for x in range(x0, x1 + 1) for z in range(z0, z1 + 1)}))
         for key in ("points", "river_side"):
             pts = (layout.get("wall") or {}).get(key)
             if pts:
-                out.append((f"{town}'s wall", set(map(tuple, terrain.polyline(pts)))))
+                out.append((f"{name}'s wall", set(map(tuple, terrain.polyline(pts)))))
         for r in layout.get("roads", []):
-            pts = r.get("points") or r.get("path")
-            if pts:
-                half = max(1, int(r.get("width", 3)) // 2)
-                cells = {(x + dx, z + dz) for (x, z) in terrain.polyline(pts)
-                         for dx in range(-half, half + 1) for dz in range(-half, half + 1)}
-                out.append((f"{town}'s {str(r.get('id', 'road')).replace('_', ' ')}", cells))
+            out.append((f"{name}'s {str(r.get('id', 'road')).replace('_', ' ')}", set(town.road_cells(r))))
     return out
 
 

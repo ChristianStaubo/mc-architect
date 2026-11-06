@@ -85,7 +85,8 @@ def _place(cells, label, run="", task="", key=None, grant=None, **extra):
     body = payload(cells, label=label)
     lo = body["origin"]
     hi = [lo[i] + body["size"][i] - 1 for i in range(3)]
-    mine = next((e for e in _all() if key and e.get("key") == key), None)
+    known = _all()
+    mine = next((e for e in known if key and e.get("key") == key), None)
     if mine and mine.get("state", "applied") == "applied":
         return mine | {"repeat": True}
     if mine:
@@ -93,7 +94,7 @@ def _place(cells, label, run="", task="", key=None, grant=None, **extra):
     else:
         # the bridge's own compact form (palette + run lengths): undo sends it straight back
         before = bridge.call("/region", {"min": lo, "max": hi})
-        eid = f"e{len(_all()) + 1}"
+        eid = f"e{len(known) + 1}"
         snap = DIR / f"{eid}.json.gz"
         with gzip.open(snap, "wt") as f:
             json.dump({"min": lo, "max": hi, "region": before}, f)
