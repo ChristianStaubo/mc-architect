@@ -28,7 +28,7 @@ import static dev.mcarchitect.core.Json.str;
  */
 public final class Architect implements Feature, TabExecutor {
     static final Set<String> WORDS = Set.of("yes", "no", "undo", "cancel", "status");  // for the daemon
-    static final Set<String> LOCAL = Set.of("mark", "clear");                           // handled here
+    private static final List<String> COMPLETIONS = List.of("cancel", "clear", "mark", "no", "status", "undo", "yes");
     private static final Component NAME = Component.text("[Architect] ", NamedTextColor.AQUA);
 
     private final Inbox inbox = new Inbox();
@@ -52,9 +52,11 @@ public final class Architect implements Feature, TabExecutor {
             Preview.Prepared ready = Preview.prepare(b);  // decoding stays off the main thread
             return bridge.sync(() -> preview.show(ready));
         });
-        bridge.route("/preview/clear", b -> bridge.sync(() -> map("cleared", preview.clear(str(b, "player")))));
+        bridge.route("/preview/clear", b -> bridge.sync(() -> {  // area: true also drops their selection (used up by a build)
+            if (b.has("area") && b.get("area").getAsBoolean()) areas.clear(str(b, "player"));
+            return map("cleared", preview.clear(str(b, "player")));
+        }));
         bridge.route("/preview/get", b -> bridge.sync(() -> preview.describe(str(b, "player"))));
-        bridge.route("/area/clear", b -> bridge.sync(() -> map("cleared", areas.clear(str(b, "player")))));
     }
 
     @Override
@@ -69,17 +71,20 @@ public final class Architect implements Feature, TabExecutor {
                     + "opposite corner, /arc mark. Then /arc yes, /arc no, or say what to change; /arc undo.");
             return true;
         }
-        String first = args[0].toLowerCase();
-        if (args.length == 1 && first.equals("mark")) {
-            areas.mark(p);
-            return true;
+        String first = args.length == 1 ? args[0].toLowerCase() : "";
+        switch (first) {
+            case "mark" -> {
+                areas.mark(p);
+                return true;
+            }
+            case "clear" -> {
+                Chat.say(p, areas.clear(p.getName()) ? "Area cleared." : "You have no marked area.");
+                return true;
+            }
+            default -> {}
         }
-        if (args.length == 1 && first.equals("clear")) {
-            Chat.say(p, areas.clear(p.getName()) ? "Area cleared." : "You have no marked area.");
-            return true;
-        }
-        boolean word = args.length == 1 && WORDS.contains(first);
-        inbox.post(word ? first : "request", word ? "" : String.join(" ", args), Context.of(p, areas));
+        boolean word = WORDS.contains(first);
+        inbox.post(word ? first : "request", word ? "" : String.join(" ", args), Context.of(p, !word));
         p.sendMessage(Component.text(inbox.listening() ? "(sent to the architect)"
                 : "(the architect isn't at the drawing board right now; it'll get this when it's back)", NamedTextColor.GRAY));
         return true;
@@ -88,8 +93,7 @@ public final class Architect implements Feature, TabExecutor {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length != 1) return List.of();
-        return java.util.stream.Stream.concat(WORDS.stream(), LOCAL.stream())
-                .filter(w -> w.startsWith(args[0].toLowerCase())).sorted().toList();
+        return COMPLETIONS.stream().filter(w -> w.startsWith(args[0].toLowerCase())).toList();
     }
 
     /** body: player, text, tone (info|done|warn|thinking), buttons [[label, command], ...]. */

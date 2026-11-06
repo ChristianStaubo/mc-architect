@@ -11,7 +11,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -19,7 +18,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.Plugin;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -42,7 +40,7 @@ final class Preview implements Listener {
         final int[] min, max, fmin, fmax;
         final BossBar bar;
         final long until = System.currentTimeMillis() + LIFETIME_MS;
-        List<Entity> frame = List.of();
+        Frame frame;
 
         Shown(Body body, Map<Long, Map<Position, BlockData>> chunks, int blocks, int[] fmin, int[] fmax, String label) {
             this.world = body.world();
@@ -101,7 +99,7 @@ final class Preview implements Listener {
         if (old != null) restore(old, p, s);
         if (p != null && p.getWorld().equals(s.world)) {
             s.chunks.values().forEach(p::sendMultiBlockChange);
-            s.frame = Frame.show(plugin, s.world, s.fmin, s.fmax, p);
+            s.frame = new Frame(plugin, s.world, s.fmin, s.fmax, Frame.PREVIEW).show(p);
             p.showBossBar(s.bar);
         }
         return Map.of("player", name, "blocks", s.blocks, "shown", p != null, "min", s.min, "max", s.max);
@@ -118,7 +116,7 @@ final class Preview implements Listener {
     /** Undo what an old preview showed: frame, bar, and the real blocks back, except where the next
      * preview covers them anyway, and only in chunks the server has loaded (others reload real later). */
     private void restore(Shown old, Player p, Shown next) {
-        Frame.remove(old.frame);
+        if (old.frame != null) old.frame.remove();
         if (p == null) return;
         p.hideBossBar(old.bar);
         if (!p.getWorld().equals(old.world)) return;
@@ -148,10 +146,7 @@ final class Preview implements Listener {
         if (part == null) return;
         Bukkit.getScheduler().runTaskLater(plugin, () -> {  // after the chunk itself reaches the client
             p.sendMultiBlockChange(part);
-            if (!Frame.intact(s.frame)) {  // display entities go when their chunk unloads
-                Frame.remove(s.frame);
-                s.frame = Frame.show(plugin, s.world, s.fmin, s.fmax, p);
-            }
+            if (s.frame != null) s.frame.repairSoon(p);
         }, 2);
     }
 
@@ -161,7 +156,7 @@ final class Preview implements Listener {
         Shown s = shown.get(p.getName().toLowerCase());
         if (s == null) return;
         p.showBossBar(s.bar);
-        s.frame.forEach(rod -> p.showEntity(plugin, rod));  // a rejoined player is a new viewer; cells come per chunk
+        if (s.frame != null) s.frame.showTo(p);  // cells come per chunk
     }
 
     private void expire() {

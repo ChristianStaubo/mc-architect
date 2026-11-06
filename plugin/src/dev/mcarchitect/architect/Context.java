@@ -13,7 +13,7 @@ import java.util.Map;
 
 import static dev.mcarchitect.core.Json.map;
 
-/** What the architect knows about a player when they ask: where they are, what they face, what they selected. */
+/** What the architect knows about a player when they ask: where they are, what they face, what they selected (with the wand or /arc mark), where they look. */
 final class Context {
     private Context() {}
 
@@ -24,7 +24,8 @@ final class Context {
         return hit == null ? null : hit.getHitBlock();
     }
 
-    static Map<String, Object> of(Player p, Areas areas) {
+    /** aim: also the block under their crosshair (for a request; yes, no and the like don't need it). */
+    static Map<String, Object> of(Player p, boolean aim) {
         Location l = p.getLocation();
         Block ground = l.getBlock().getRelative(0, -1, 0);
         while (ground.isPassable() && ground.getY() > l.getWorld().getMinHeight()) ground = ground.getRelative(0, -1, 0);
@@ -41,9 +42,9 @@ final class Context {
             var hi = r.getMaximumPoint();
             c.put("selection", map("min", new int[]{lo.x(), lo.y(), lo.z()}, "max", new int[]{hi.x(), hi.y(), hi.z()}));
         } catch (IncompleteRegionException e) {
-            c.put("selection", areas.selection(p));  // no WorldEdit selection: the area marked with /arc mark
+            c.put("selection", null);
         }
-        Block t = target(p);  // "here", "there", "on this hill": where they're looking
+        Block t = aim ? target(p) : null;  // "here", "there", "on this hill": where they're looking
         c.put("target", t == null ? null : map("pos", new int[]{t.getX(), t.getY(), t.getZ()},
                 "block", t.getBlockData().getAsString(), "distance", (int) Math.round(t.getLocation().distance(l))));
         return c;
