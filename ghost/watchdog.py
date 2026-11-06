@@ -6,6 +6,7 @@ when it dies or its heartbeat goes stale: the crash-recovery path chaos tests ex
 
 import asyncio
 import json
+import os
 import signal
 import subprocess
 import sys
@@ -106,7 +107,8 @@ def supervise():
     def start(name):
         out = open(logs / f"{name}.log", "a")
         kids[name] = (subprocess.Popen([sys.executable, "-m", "ghost", *PROCS[name]], cwd=config.ROOT,
-                                       stdout=out, stderr=subprocess.STDOUT), time.time())
+                                       stdout=out, stderr=subprocess.STDOUT,
+                                       env={**os.environ, "GHOST_SUPERVISED": "1"}), time.time())
         print(f"started {name} (pid {kids[name][0].pid})", flush=True)
 
     def stop(*_):  # SIGTERM too, so the children never outlive the supervisor

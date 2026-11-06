@@ -10,7 +10,25 @@
 import sys
 
 
+def _die_with_parent():
+    """A supervised child (GHOST_SUPERVISED=1) exits when its supervisor is gone, so a crashed supervisor
+    never leaves orphans running beside the next one (macOS has no parent-death signal)."""
+    import os
+    import threading
+    import time
+    parent = os.getppid()
+
+    def watch():
+        while os.getppid() == parent:
+            time.sleep(2)
+        os._exit(0)
+    threading.Thread(target=watch, daemon=True).start()
+
+
 def main(argv):
+    import os
+    if os.environ.get("GHOST_SUPERVISED"):
+        _die_with_parent()
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__)
         return 0
