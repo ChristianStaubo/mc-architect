@@ -12,6 +12,8 @@ from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner, SandboxR
 
 from . import activities as A
 from . import config, db
+from .city import activities as C
+from .city.workflows import CityWorkflow, PlotWorkflow
 from .workflows import BuildWorkflow
 
 
@@ -19,7 +21,7 @@ async def main():
     name = f"ghost-worker-{os.getpid()}"
     threading.Thread(target=db.beat_forever, args=(name,), daemon=True).start()
     client = await Client.connect(config.TEMPORAL)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
         worker = Worker(client, task_queue=config.TASK_QUEUE, workflows=[BuildWorkflow],
                         activities=[A.design, A.tell, A.clear_preview, A.check, A.place, A.finish],
                         activity_executor=pool, max_concurrent_activities=6,
@@ -27,8 +29,14 @@ async def main():
                         workflow_runner=SandboxedWorkflowRunner(
                             restrictions=SandboxRestrictions.default.with_passthrough_modules("ghost", "architect",
                                                                                               "psycopg", "cedarpy")))
-        print(f"{name}: waiting for work on {config.TASK_QUEUE}", flush=True)
-        await worker.run()
+        # the city harness: its own queue, so long builder runs never starve the ghosts' quick steps
+        city = Worker(client, task_queue=C.QUEUE, workflows=[CityWorkflow, PlotWorkflow], activities=C.ACTIVITIES,
+                      activity_executor=pool, max_concurrent_activities=12,
+                      workflow_runner=SandboxedWorkflowRunner(
+                          restrictions=SandboxRestrictions.default.with_passthrough_modules("ghost", "architect",
+                                                                                            "psycopg", "cedarpy")))
+        print(f"{name}: waiting for work on {config.TASK_QUEUE} and {C.QUEUE}", flush=True)
+        await asyncio.gather(worker.run(), city.run())
 
 
 if __name__ == "__main__":

@@ -4,6 +4,8 @@
   run                          all three, restarted if one dies (Ctrl-C stops them)
   status                       heartbeats, open tasks, today's budgets, recent audit
   eval <suite> [--k N]         guarantees | listening | scenarios | chaos  (see ghost/evals.py)
+  city start NAME [--plan-only] [--districts a,b] [--max-plots N] [--concurrency N] [--run ID]
+  city status NAME [--run ID]  the city harness (docs/ghost/city.md): plan, fan out, build in parallel
   migrate                      apply ghost/schema.sql
 """
 
@@ -51,6 +53,9 @@ def main(argv):
         return status()
     if cmd == "eval":
         from .evals import main as m
+        return m(rest)
+    if cmd == "city":
+        from .city.cli import main as m
         return m(rest)
     if cmd == "migrate":
         from . import db

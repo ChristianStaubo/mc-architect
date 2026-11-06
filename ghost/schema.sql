@@ -145,3 +145,25 @@ CREATE OR REPLACE FUNCTION outbox_notify() RETURNS trigger AS $$
 BEGIN PERFORM pg_notify('outbox', NEW.id::text); RETURN NEW; END $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS outbox_notify ON outbox;
 CREATE TRIGGER outbox_notify AFTER INSERT ON outbox FOR EACH ROW EXECUTE FUNCTION outbox_notify();
+
+-- The city harness (ghost/city): one row per agent run, one per plot.
+CREATE TABLE IF NOT EXISTS city_agents (
+  id         bigserial PRIMARY KEY,
+  run        text NOT NULL,
+  role       text NOT NULL,                     -- macro | district | builder | critic
+  key        text NOT NULL,                     -- the district or plot it worked on
+  attempt    integer NOT NULL,
+  model      text,
+  start_at   timestamptz NOT NULL DEFAULT now(),
+  end_at     timestamptz,
+  result     jsonb                              -- end, minutes, usd, turns, denials (tools it tried and was refused)
+);
+CREATE TABLE IF NOT EXISTS city_plots (
+  run        text NOT NULL,
+  city       text NOT NULL,
+  plot       text NOT NULL,
+  state      text NOT NULL,                     -- building | done | flawed
+  detail     jsonb NOT NULL DEFAULT '{}',
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (run, plot)
+);

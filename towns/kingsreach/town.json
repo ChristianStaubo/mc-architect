@@ -1,0 +1,8 @@
+{
+ "name": "kingsreach",
+ "area": {"min": [-3000, 0], "max": [-2400, 600]},
+ "brief": "Kingsreach, a capital city far from the river towns: about ten times Riverford's size, built by many builders at once. A walled city on gentle land with water at its edge: a royal quarter on the highest ground (a palace and a cathedral you can see from everywhere), a grand market where the main roads meet, a canal or harbour quarter on the water with warehouses, bridges and boathouses, a craftsmen's quarter of workshops and forges, a scholars' quarter (library, school, observatory), garden squares and fountains, and residential districts that ring the centre: rows and terraces of town houses, from fine stone houses near the palace to plainer ones near the walls. Main avenues radiate from the market to the gates; smaller lanes fill the districts. Every district has its own character but one city style.",
+ "style": "grand northern capital: pale stone (calcite, diorite, smooth and chiselled stone, stone bricks) on cut-stone plinths, dark roofs in deepslate tiles or blackstone, oxidised copper domes, spires and gutters, spruce and dark oak for doors, shutters and market stalls, tall windows with stone mullions, arcades and colonnades on the important streets, banners in deep blue; finer and taller toward the palace, plainer toward the walls",
+ "scope": "about 140 plots across 8 to 10 districts, main avenues and lanes, a city wall with gates; landmarks: palace, cathedral, grand market, harbour or canal, library",
+ "max_plots": 150
+}
