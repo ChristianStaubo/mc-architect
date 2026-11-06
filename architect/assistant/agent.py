@@ -45,10 +45,11 @@ def prompt(player, text, ctx, plan, resume, site=""):
 class Run:
     """A running request; cancel() stops it. t0: when the player's wait began (all timings count from it)."""
 
-    def __init__(self, player, text, ctx, plan, run_id, model, t0, resume=None, budget=3.0, transcript=None, site=""):
+    def __init__(self, player, text, ctx, plan, run_id, model, t0, resume=None, budget=3.0, transcript=None, site="",
+                 env=None):
         cmd = claude.command(prompt(player, text, ctx, plan, bool(resume), site), model, claude.MC_TOOLS, budget,
                              agent="mc-architect", settings=SETTINGS, resume=resume)
-        env = {**os.environ, "MC_RUN_ID": run_id, "MC_PLAYER": player, "MC_ROLE": "architect"}
+        env = {**os.environ, **(env or {}), "MC_RUN_ID": run_id, "MC_PLAYER": player, "MC_ROLE": "architect"}
         self.t0, self.transcript, self.cancelled = t0, transcript, False
         self.stderr = open(transcript.with_suffix(".stderr"), "w") if transcript else subprocess.DEVNULL
         self.proc = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=subprocess.PIPE, stderr=self.stderr, text=True)

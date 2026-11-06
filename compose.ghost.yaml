@@ -1,0 +1,61 @@
+# The ghost's services (optional; docs/ghost/design.md). Run with the server:
+#   ./mc.py ghost up      (= docker compose -f compose.yaml -f compose.ghost.yaml up -d)
+# Images are pinned by digest, each at least a week old when locked (deps.lock.json's rule).
+# Every port is on 127.0.0.1 only. The database password is generated into local/ghost/db-password.
+services:
+  mc:
+    environment:
+      GHOST_PLUGIN: "1"     # the server loads plugin/build/ghost.jar too
+
+  ghost-db:
+    image: postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15
+    container_name: ghost-db
+    environment:
+      POSTGRES_USER: ghost
+      POSTGRES_PASSWORD_FILE: /run/ghost/db-password
+    volumes:
+      - ghost-db:/var/lib/postgresql
+      - ./local/ghost/db-password:/run/ghost/db-password:ro
+      - ./docker/ghost/initdb:/docker-entrypoint-initdb.d:ro
+    ports: ["127.0.0.1:5433:5432"]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "ghost"]
+      interval: 2s
+      retries: 30
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  temporal:
+    # Temporal's development image (the one its official docker-compose uses): the server plus the
+    # schema setup for Postgres, in one container. The password comes from the same file.
+    image: temporalio/auto-setup:1.29.7@sha256:f14912b699cf73015ad5c4fc18d522d4b014db90e794039214dfb7c022c2644f
+    container_name: ghost-temporal
+    depends_on:
+      ghost-db: {condition: service_healthy}
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_SEEDS: ghost-db
+      POSTGRES_USER: ghost
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/ghost.yaml
+    entrypoint: ["/bin/sh", "/run/ghost/temporal-start.sh"]
+    volumes:
+      - ./local/ghost/db-password:/run/ghost/db-password:ro
+      - ./docker/ghost/temporal-start.sh:/run/ghost/temporal-start.sh:ro
+      - ./docker/ghost/temporal-dynamic.yaml:/etc/temporal/config/dynamicconfig/ghost.yaml:ro
+    ports: ["127.0.0.1:7233:7233"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  temporal-ui:
+    image: temporalio/ui:2.57.0@sha256:d944f959d0923c35cd991a17a0edbe087770eff843724b181933e0cfdd563ab2
+    container_name: ghost-temporal-ui
+    depends_on: [temporal]
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+    ports: ["127.0.0.1:8233:8080"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+volumes:
+  ghost-db:

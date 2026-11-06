@@ -43,6 +43,11 @@ def cmd_preview(a):
 
 
 def cmd_say(a):
+    if os.environ.get("MC_SAY_FILE"):  # a ghost worker: only the house ghost talks to players; it passes this on
+        with open(os.environ["MC_SAY_FILE"], "a") as f:
+            f.write(json.dumps({"text": a.text, "buttons": a.button}) + "\n")
+        print("noted: the ghost will tell them")
+        return
     buttons = [b.split("=", 1) for b in a.button]
     r = bridge.say(a.player, a.text, a.tone, buttons)
     print("said" if r["delivered"] else f"{a.player} isn't online: not delivered")

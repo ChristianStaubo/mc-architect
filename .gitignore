@@ -20,3 +20,4 @@ plugin/build/
 
 # Private planning: what we are doing and why (designs that ship go in docs/)
 plans/
+.venv/

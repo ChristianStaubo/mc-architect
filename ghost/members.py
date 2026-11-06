@@ -1,0 +1,44 @@
+"""Who is in which house, with which role. The store is the truth; the plugin gets a copy."""
+
+from . import bridge, config, db
+from .policy import Who
+
+
+def who(player):
+    """The requester as the policy engine sees them: from the members table and config, never from a model."""
+    name = player.lower()
+    row = db.one("SELECT house, role FROM members WHERE player = %s", name)
+    if name == config.houses()["owner"].lower():
+        return Who("player", name, "owner", row and row["house"])
+    if not row or not row["house"]:
+        return Who("player", name, "guest")
+    return Who("player", name, row["role"], row["house"])
+
+
+def join(player, uuid, house):
+    if not config.house(house):
+        raise ValueError(f"no house {house}")
+    role = "owner" if player.lower() == config.houses()["owner"].lower() else "member"
+    db.run("INSERT INTO members (player, uuid, house, role) VALUES (%s, %s, %s, %s) "
+           "ON CONFLICT (player) DO UPDATE SET house = EXCLUDED.house, uuid = EXCLUDED.uuid, "
+           "role = CASE WHEN members.role IN ('head', 'owner') THEN members.role ELSE EXCLUDED.role END, updated_at = now()",
+           player.lower(), uuid, house, role)
+
+
+def set_role(player, role):
+    db.run("UPDATE members SET role = %s, updated_at = now() WHERE player = %s", role, player.lower())
+
+
+def head_of(house):
+    row = db.one("SELECT player FROM members WHERE house = %s AND role = 'head' ORDER BY updated_at LIMIT 1", house)
+    return row and row["player"]
+
+
+def sync():
+    """Send the houses and members to the plugin (on start and after every change)."""
+    hs = [{"id": h["id"], "name": h["name"], "color": h["color"], "motto": h.get("motto", ""),
+           "zones": [z["box"] for z in h["zones"]]} for h in config.houses()["houses"]]
+    ms = {r["player"]: {"house": r["house"], "role": r["role"]} for r in db.all("SELECT player, house, role FROM members")}
+    owner = config.houses()["owner"].lower()
+    ms.setdefault(owner, {"house": None, "role": "owner"})["role"] = "owner"
+    return bridge.houses(hs, ms)

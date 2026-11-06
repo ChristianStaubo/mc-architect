@@ -6,7 +6,15 @@
       "Bash(./mc.py cmd:*)",
       "Bash(./mc.py restart:*)",
       "Bash(./mc.py eval:*)",
-      "Bash(./mc.py town:*)"
+      "Bash(./mc.py town:*)",
+      "Bash(./mc.py ghost:*)",
+      "Read(server/plugins/MCBridge/**)",
+      "Read(local/ghost/**)",
+      "Edit(server/**)",
+      "Edit(local/ghost/**)",
+      "Edit(policies/**)",
+      "Edit(config/**)",
+      "Edit(ghost/**)"
     ]
   }
 }
