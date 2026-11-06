@@ -116,27 +116,32 @@ def supervise():
         start(n)
     try:
         while True:
-            for name, (p, since) in list(kids.items()):
-                beat = db.one("SELECT extract(epoch FROM now() - at)::int AS age FROM heartbeats WHERE process = %s",
-                              f"{name}-{p.pid}" if name == "ghost-worker" else name)
-                stale = beat and beat["age"] > STALE_S and time.time() - since > STALE_S
-                if p.poll() is not None or stale:
-                    print(f"{name} {'exited ' + str(p.returncode) if p.poll() is not None else 'stopped beating'}; restarting",
-                          flush=True)
-                    if p.poll() is None:
-                        p.kill()
-                    db.run("DELETE FROM heartbeats WHERE process = %s", f"{name}-{p.pid}")  # it's gone, not late
-                    start(name)
             try:
-                check()
-            except Exception as e:  # noqa: BLE001
-                print(f"watchdog: {e}", flush=True)
+                supervise_once(kids, start)
+            except Exception as e:  # noqa: BLE001 (the database or Docker away: keep the children, retry)
+                print(f"supervisor: {e}; retrying", flush=True)
             time.sleep(5)
     except KeyboardInterrupt:
         for p, _ in kids.values():
             p.send_signal(signal.SIGTERM)
         for p, _ in kids.values():
             p.wait(10)
+
+
+def supervise_once(kids, start):
+    """Restart a child that exited or stopped beating; then run the watchdog's checks."""
+    for name, (p, since) in list(kids.items()):
+        beat = db.one("SELECT extract(epoch FROM now() - at)::int AS age FROM heartbeats WHERE process = %s",
+                      f"{name}-{p.pid}" if name == "ghost-worker" else name)
+        stale = beat and beat["age"] > STALE_S and time.time() - since > STALE_S
+        if p.poll() is not None or stale:
+            print(f"{name} {'exited ' + str(p.returncode) if p.poll() is not None else 'stopped beating'}; restarting",
+                  flush=True)
+            if p.poll() is None:
+                p.kill()
+            db.run("DELETE FROM heartbeats WHERE process = %s", f"{name}-{p.pid}")  # it's gone, not late
+            start(name)
+    check()
 
 
 def status():
