@@ -7,7 +7,7 @@ optional AI architect you can ask for a build from inside the game.
 
 ## The architect
 
-Stand somewhere and ask in chat:
+Look at the spot (or mark an area: `/arc mark` at one corner, then the opposite one) and ask in chat:
 
 ```
 /arc a small wooden market stall with a striped awning

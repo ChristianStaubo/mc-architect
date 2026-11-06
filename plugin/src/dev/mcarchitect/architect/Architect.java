@@ -27,16 +27,20 @@ import static dev.mcarchitect.core.Json.str;
  * never decides anything itself: it carries words, context and ghost blocks.
  */
 public final class Architect implements Feature, TabExecutor {
-    static final Set<String> WORDS = Set.of("yes", "no", "undo", "cancel", "status");
+    static final Set<String> WORDS = Set.of("yes", "no", "undo", "cancel", "status");  // for the daemon
+    static final Set<String> LOCAL = Set.of("mark", "clear");                           // handled here
     private static final Component NAME = Component.text("[Architect] ", NamedTextColor.AQUA);
 
     private final Inbox inbox = new Inbox();
     private Preview preview;
+    private Areas areas;
 
     @Override
     public void enable(MCBridgePlugin plugin) {
         preview = new Preview(plugin);
         Bukkit.getPluginManager().registerEvents(preview, plugin);
+        areas = new Areas(plugin);
+        Bukkit.getPluginManager().registerEvents(areas, plugin);
         plugin.getCommand("arc").setExecutor(this);
         plugin.getCommand("arc").setTabCompleter(this);
         HttpBridge bridge = plugin.bridge();
@@ -50,6 +54,7 @@ public final class Architect implements Feature, TabExecutor {
         });
         bridge.route("/preview/clear", b -> bridge.sync(() -> map("cleared", preview.clear(str(b, "player")))));
         bridge.route("/preview/get", b -> bridge.sync(() -> preview.describe(str(b, "player"))));
+        bridge.route("/area/clear", b -> bridge.sync(() -> map("cleared", areas.clear(str(b, "player")))));
     }
 
     @Override
@@ -59,13 +64,22 @@ public final class Architect implements Feature, TabExecutor {
             return true;
         }
         if (args.length == 0) {
-            Chat.warn(p, "Tell the architect what to build: /arc a stone well with a little roof, right here. "
-                    + "Then /arc yes, /arc no, or say what to change. /arc undo takes your last build back.");
+            Chat.warn(p, "Tell the architect what to build: /arc a stone well with a little roof, right here "
+                    + "(it builds where you look). To pick an area: look at one corner, /arc mark, then the "
+                    + "opposite corner, /arc mark. Then /arc yes, /arc no, or say what to change; /arc undo.");
             return true;
         }
         String first = args[0].toLowerCase();
+        if (args.length == 1 && first.equals("mark")) {
+            areas.mark(p);
+            return true;
+        }
+        if (args.length == 1 && first.equals("clear")) {
+            Chat.say(p, areas.clear(p.getName()) ? "Area cleared." : "You have no marked area.");
+            return true;
+        }
         boolean word = args.length == 1 && WORDS.contains(first);
-        inbox.post(word ? first : "request", word ? "" : String.join(" ", args), Context.of(p));
+        inbox.post(word ? first : "request", word ? "" : String.join(" ", args), Context.of(p, areas));
         p.sendMessage(Component.text(inbox.listening() ? "(sent to the architect)"
                 : "(the architect isn't at the drawing board right now; it'll get this when it's back)", NamedTextColor.GRAY));
         return true;
@@ -74,7 +88,8 @@ public final class Architect implements Feature, TabExecutor {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length != 1) return List.of();
-        return WORDS.stream().filter(w -> w.startsWith(args[0].toLowerCase())).sorted().toList();
+        return java.util.stream.Stream.concat(WORDS.stream(), LOCAL.stream())
+                .filter(w -> w.startsWith(args[0].toLowerCase())).sorted().toList();
     }
 
     /** body: player, text, tone (info|done|warn|thinking), buttons [[label, command], ...]. */

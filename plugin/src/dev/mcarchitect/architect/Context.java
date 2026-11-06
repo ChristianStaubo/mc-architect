@@ -4,6 +4,7 @@ import com.sk89q.worldedit.IncompleteRegionException;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldedit.regions.Region;
+import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -16,7 +17,14 @@ import static dev.mcarchitect.core.Json.map;
 final class Context {
     private Context() {}
 
-    static Map<String, Object> of(Player p) {
+    /** The block under the player's crosshair (through grass and flowers, not water), or null past 200 blocks. */
+    static Block target(Player p) {
+        var eye = p.getEyeLocation();
+        var hit = p.getWorld().rayTraceBlocks(eye, eye.getDirection(), 200, FluidCollisionMode.NEVER, true);
+        return hit == null ? null : hit.getHitBlock();
+    }
+
+    static Map<String, Object> of(Player p, Areas areas) {
         Location l = p.getLocation();
         Block ground = l.getBlock().getRelative(0, -1, 0);
         while (ground.isPassable() && ground.getY() > l.getWorld().getMinHeight()) ground = ground.getRelative(0, -1, 0);
@@ -33,8 +41,11 @@ final class Context {
             var hi = r.getMaximumPoint();
             c.put("selection", map("min", new int[]{lo.x(), lo.y(), lo.z()}, "max", new int[]{hi.x(), hi.y(), hi.z()}));
         } catch (IncompleteRegionException e) {
-            c.put("selection", null);
+            c.put("selection", areas.selection(p));  // no WorldEdit selection: the area marked with /arc mark
         }
+        Block t = target(p);  // "here", "there", "on this hill": where they're looking
+        c.put("target", t == null ? null : map("pos", new int[]{t.getX(), t.getY(), t.getZ()},
+                "block", t.getBlockData().getAsString(), "distance", (int) Math.round(t.getLocation().distance(l))));
         return c;
     }
 

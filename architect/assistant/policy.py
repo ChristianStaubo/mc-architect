@@ -7,7 +7,7 @@ from .. import blocks
 from ..parts import FACE_STEP
 from ..placement import bounds
 
-RADIUS = 32        # without a selection, a build stays this close to where the player stood
+RADIUS = 32        # without a selection, a build stays this close to where the player looked (or stood)
 MAX_SIDE = 48      # ... and this wide
 MAX_HEIGHT = 64
 GAP = 3            # blocks between the player and the near side of a build put "in front of" them
@@ -41,8 +41,10 @@ def limits(ctx, frame, at=None):
     pos = ctx.get("pos")
     if not pos or ctx.get("selection"):
         return None
-    if max(abs(v - pos[0]) for v in (x0, x1)) > RADIUS or max(abs(v - pos[2]) for v in (z0, z1)) > RADIUS:
-        return f"too far from {ctx.get('player')} (at {pos[0]},{pos[2]}): keep it within {RADIUS} blocks of them"
+    # Near where they're looking (the crosshair: "this hill"), else near where they stand.
+    spot, what = (ctx["target"]["pos"], "the spot they're looking at") if ctx.get("target") else (pos, "them")
+    if max(abs(v - spot[0]) for v in (x0, x1)) > RADIUS or max(abs(v - spot[2]) for v in (z0, z1)) > RADIUS:
+        return f"too far from {what} (at {spot[0]},{spot[2]}): keep it within {RADIUS} blocks of it"
     px, pz = math.floor(pos[0]), math.floor(pos[2])
     if x0 - 1 <= px <= x1 + 1 and z0 - 1 <= pz <= z1 + 1:
         hint = f": use --at {','.join(map(str, ahead(ctx, frame, at)))}" if at else ""

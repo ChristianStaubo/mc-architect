@@ -14,7 +14,9 @@ architect  Built it.                                              [Undo]
 
 | Command | What happens |
 |---|---|
-| `/arc <idea>` | a new design, or a change to the one you're looking at |
+| `/arc <idea>` | a new design where you're looking, or a change to the one you're looking at |
+| `/arc mark` | look at a corner and mark it, then the opposite corner: that area glows gold and the next build goes in it |
+| `/arc clear` | forget the marked area |
 | `/arc yes` | builds exactly what the preview showed |
 | `/arc no` | drops the preview |
 | `/arc undo` | takes your last build back, block for block |
@@ -26,8 +28,9 @@ architect  Built it.                                              [Undo]
   player, sees nothing until you say yes.
 - **A glowing frame** around the build, visible through walls and from far away, and a bar at the top of
   your screen while a preview is waiting.
-- **It builds where you mean.** Without a selection, the build goes a few blocks in front of you, facing
-  you. With a WorldEdit selection, it fills the selection.
+- **It builds where you mean.** "Here", "there" or "on this hill" is the block under your crosshair (up to
+  200 blocks away). Marked an area (`/arc mark`, or a WorldEdit selection)? It builds inside that. Looking
+  at the sky? A few blocks in front of you, facing you.
 
 ## How it works
 ```
@@ -48,8 +51,8 @@ Minecraft                          your machine
 
 ## Limits
 The tools enforce these, not the agent's good manners:
-- Without a selection: at most 48 blocks wide and 64 tall, within 32 blocks of you, and never on the
-  spot you're standing.
+- Without a marked area: at most 48 blocks wide and 64 tall, within 32 blocks of the spot you're looking
+  at, and never on the spot you're standing.
 - The agent can only preview and talk. Placing, undoing and console commands are refused to it.
 - Two requests run at a time; the rest wait their turn. Operators only for now (`mcbridge.architect`).
 

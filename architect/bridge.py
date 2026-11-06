@@ -147,3 +147,8 @@ def preview_clear(player):
 
 def preview_get(player):
     return call("/preview/get", {"player": player})
+
+
+def area_clear(player):
+    """Drop the area a player marked with /arc mark (and its gold frame)."""
+    return call("/area/clear", {"player": player})

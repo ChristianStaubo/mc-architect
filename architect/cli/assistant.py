@@ -57,6 +57,8 @@ def cmd_architect(a):
         if a.selection:
             v = ints(a.selection)
             ctx["selection"] = {"min": v[:3], "max": v[3:]}
+        if a.target:
+            ctx["target"] = {"pos": ints(a.target), "block": "minecraft:grass_block", "distance": 0}
         kind = a.text if a.text in daemon.HANDLERS else "request"
         print(f"posted event {bridge.post_event(ctx, '' if kind != 'request' else a.text, kind)}")
 
@@ -107,6 +109,7 @@ def register(sub):
     ar.add_argument("--at", default="300,90,-233", help="ask: X,Y,Z where the virtual player stands")
     ar.add_argument("--facing", default="south")
     ar.add_argument("--selection", help="ask: X0,Y0,Z0,X1,Y1,Z1")
+    ar.add_argument("--target", help="ask: X,Y,Z the virtual player is looking at")
     ar.add_argument("--model", default="sonnet")
     ar.add_argument("--all", action="store_true", help="status: every player's full state")
     ar.set_defaults(fn=cmd_architect)

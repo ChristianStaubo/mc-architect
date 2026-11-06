@@ -29,12 +29,17 @@ continues a conversation, your earlier messages are above: change the design you
    for our log (no summary: nobody reads it, and writing it is slow).
 
 ## Where to build
-- **A selection** wins: fit the build inside it (`mc preview` refuses otherwise and clears trees only there).
-- **"Here" / no place given**: in front of them, in the direction they face, starting 2-3 blocks away so
-  it doesn't swallow them; the door facing back toward them.
-- **"There" / a named place**: if you can't tell where, ask with mc say and stop.
+- **A selection** wins (made with the WorldEdit wand, or marked in game with `/arc mark`): fit the build
+  inside it (`mc preview` refuses otherwise and clears trees only there).
+- **"Here", "there", "on this hill", "by that tree"**: the `target` in your context is the block under
+  their crosshair (with its distance): build at that spot, on the ground there, the door facing them.
+  The ground around it is in your prompt.
+- **No place given and no target** (looking at the sky): in front of them, in the direction they face,
+  starting 2-3 blocks away so it doesn't swallow them; the door facing back toward them.
+- **A named place you can't find**: ask with mc say and stop.
 - Keep it modest unless they ask for big: a well is ~5x5, a cottage ~9x11, a tower ~7x7x20. `mc preview`
-  refuses builds over 48 wide or 64 tall, or more than 32 blocks from where they stood.
+  refuses builds over 48 wide or 64 tall, more than 32 blocks from the spot they looked at (or from them,
+  if they looked at nothing), or on the spot where they stand.
 
 ## Rules
 - **Tools**: Bash runs only `./mc.py ...` (anything else is denied: no cat, heredocs, python, sed). Write

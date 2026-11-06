@@ -49,8 +49,13 @@ def context(sc, name):
     sel = sc.get("selection")
     if sel:
         sel = {k: [sel[k][0], g + sel[k][1], sel[k][2]] for k in ("min", "max")}
+    target = None
+    if sc.get("target"):  # [dx, dz] from where they stand: the ground block they're looking at
+        tx, tz = x + sc["target"][0], z + sc["target"][1]
+        ty, tblock = bridge.heightmap((tx, tz), (tx, tz))[(tx, tz)]
+        target = {"pos": [tx, ty, tz], "block": tblock, "distance": max(abs(sc["target"][0]), abs(sc["target"][1]))}
     return {"player": name, "world": "world", "pos": [x, g + 1, z], "facing": sc["facing"],
-            "ground": {"y": g, "block": block}, "selection": sel}
+            "ground": {"y": g, "block": block}, "selection": sel, "target": target}
 
 
 def _gap(box, pos):
@@ -82,6 +87,8 @@ CHECKS = {
     "no_place": lambda o, w: (not o["new_edits"]) == w,
     "said": lambda o, w: bool(o["said"]) == w,
     "near": lambda o, w: bool(o["pending"]) and _gap(_frame(o["pending"]), o["pos"]) <= w,
+    "near_target": lambda o, w: bool(o["pending"] and o["ctx"].get("target"))
+    and _gap(_frame(o["pending"]), o["ctx"]["target"]["pos"]) <= w,
     "inside_selection": lambda o, w: bool(o["pending"]) and _inside(o["selection"], _frame(o["pending"])) == w,
     "taller": lambda o, w: bool(o["pending"] and o["pending_before"])
     and _frame(o["pending"])[1][1] - _frame(o["pending_before"])[1][1] >= w,
@@ -102,6 +109,8 @@ def _detail(key, o):
     """What the step left, for this expectation (shown on a fail)."""
     p, b = o["pending"], o["pending_before"]
     return {"near": lambda: p and f"{_gap(_frame(p), o['pos'])} blocks from where they stood",
+            "near_target": lambda: p and o["ctx"].get("target") and
+            f"{_gap(_frame(p), o['ctx']['target']['pos'])} blocks from where they looked {o['ctx']['target']['pos']}",
             "taller": lambda: p and b and f"top {_frame(b)[1][1]} -> {_frame(p)[1][1]}",
             "inside_selection": lambda: p and f"build {_frame(p)} vs selection {o['selection']}",
             "matches_preview": lambda: f"placed {[(e['min'], e['max']) for e in o['new_edit_records']]} vs previewed {b and b['box']}",

@@ -22,20 +22,25 @@ import java.util.List;
  */
 final class Frame {
     private static final float T = 0.08f;                       // rod thickness, in blocks
-    private static final Color GLOW = Color.fromRGB(0x55, 0xD6, 0xFF);
+    static final Color PREVIEW = Color.fromRGB(0x55, 0xD6, 0xFF);   // light blue: a design waiting for a yes
+    static final Color AREA = Color.fromRGB(0xFF, 0xC8, 0x3C);      // gold: the area a player marked
 
     private Frame() {}
 
     /** min..max inclusive block corners. */
     static List<Entity> show(Plugin plugin, World w, int[] min, int[] max, Player viewer) {
+        return show(plugin, w, min, max, viewer, PREVIEW);
+    }
+
+    static List<Entity> show(Plugin plugin, World w, int[] min, int[] max, Player viewer, Color glow) {
         float x0 = min[0], y0 = min[1], z0 = min[2], x1 = max[0] + 1, y1 = max[1] + 1, z1 = max[2] + 1;
         List<Entity> rods = new ArrayList<>();
         for (float y : new float[]{y0, y1})
-            for (float z : new float[]{z0, z1}) rods.add(rod(plugin, w, x0, y, z, x1 - x0, T, T, viewer));
+            for (float z : new float[]{z0, z1}) rods.add(rod(plugin, w, x0, y, z, x1 - x0, T, T, viewer, glow));
         for (float x : new float[]{x0, x1})
-            for (float z : new float[]{z0, z1}) rods.add(rod(plugin, w, x, y0, z, T, y1 - y0, T, viewer));
+            for (float z : new float[]{z0, z1}) rods.add(rod(plugin, w, x, y0, z, T, y1 - y0, T, viewer, glow));
         for (float x : new float[]{x0, x1})
-            for (float y : new float[]{y0, y1}) rods.add(rod(plugin, w, x, y, z0, T, T, z1 - z0, viewer));
+            for (float y : new float[]{y0, y1}) rods.add(rod(plugin, w, x, y, z0, T, T, z1 - z0, viewer, glow));
         return rods;
     }
 
@@ -47,13 +52,14 @@ final class Frame {
         rods.forEach(Entity::remove);
     }
 
-    private static Entity rod(Plugin plugin, World w, float x, float y, float z, float sx, float sy, float sz, Player viewer) {
+    private static Entity rod(Plugin plugin, World w, float x, float y, float z, float sx, float sy, float sz, Player viewer,
+                              Color glow) {
         return w.spawn(new Location(w, x, y, z), BlockDisplay.class, d -> {
             d.setBlock(Material.WHITE_CONCRETE.createBlockData());
             d.setTransformation(new Transformation(new Vector3f(-T / 2 * (sx == T ? 1 : 0), -T / 2 * (sy == T ? 1 : 0),
                     -T / 2 * (sz == T ? 1 : 0)), new AxisAngle4f(), new Vector3f(sx, sy, sz), new AxisAngle4f()));
             d.setGlowing(true);
-            d.setGlowColorOverride(GLOW);
+            d.setGlowColorOverride(glow);
             d.setBrightness(new Display.Brightness(15, 15));
             d.setViewRange(4f);                  // x64 blocks: visible from across a valley
             d.setPersistent(false);              // never saved: a crash can't leave frames behind
