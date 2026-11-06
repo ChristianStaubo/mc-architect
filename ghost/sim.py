@@ -4,6 +4,7 @@ real player's take, and we read the outcome from the store (docs/ghost/design.md
 import time
 
 from . import bridge, db
+from .config import ROOT  # noqa: F401 (evals use sim.ROOT)
 
 
 class Player:

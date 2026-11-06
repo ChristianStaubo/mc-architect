@@ -119,7 +119,9 @@ def tell(task_id: int, what: str, data: dict) -> None:
     elif what == "failed":
         say(g, p, words or "I couldn't draw that one. Try describing it differently?", (), task_id)
     elif what == "needs":
-        update(task_id, need=data["needs"])
+        if d.get("asked") == data["needs"]:  # once per task and approval: a retried step doesn't ask twice
+            return
+        update(task_id, "approval", need=data["needs"], asked=data["needs"])
         approver = data["approver"]
         say(g, p, f"That needs {data['who']}'s yes first ({data['why']}). I've asked them.", (), task_id)
         if approver:
@@ -158,9 +160,12 @@ def _approved(task_id, kind, plan_hash):
 def _decide(t, audit=True):
     """Every zone the build touches must allow it, for the asker and for their house's ghost."""
     d = t["detail"]
-    requester, ghost = members.who(t["player"]), Who.ghost(t["ghost"]) if t["ghost"] != "spirit" else None
+    requester = members.who(t["player"])
     head = _approved(t["id"], "head", d["plan_hash"])
     for z in _zones(d):
+        # each zone's own ghost does the work there (the commons: the asker's ghost); the asker must be
+        # allowed too, so building in another house's land still needs that house's head
+        ghost = Who.ghost(z.house) if z.house else (Who.ghost(t["ghost"]) if t["ghost"] != "spirit" else None)
         zh = _approved(t["id"], f"zone_head:{z.house}", d["plan_hash"]) if z.house else False
         ctx = build_context(d["blocks"], head, zh)
         try:

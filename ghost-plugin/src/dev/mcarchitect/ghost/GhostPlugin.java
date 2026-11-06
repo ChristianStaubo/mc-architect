@@ -15,7 +15,8 @@ import static dev.mcarchitect.core.Json.map;
  * ghost-core tells it to. Its routes ride on MCBridge's bridge (same token).
  */
 public final class GhostPlugin extends JavaPlugin {
-    private final Inbox inbox = new Inbox();
+    // ghost-core drops repeats itself (events are stored by plugin id), so a lost event can come back fast
+    private final Inbox inbox = new Inbox(20_000);
     private Houses houses;
     private Bodies bodies;
 

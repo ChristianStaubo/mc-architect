@@ -150,13 +150,22 @@ class Core:
     async def _handle(self, e):
         ctx, kind, text = e.get("context") or {}, e["kind"], e.get("text") or ""
         player = (e.get("player") or "").lower()
+        # stored first; a repeat delivery finds the row: done already -> skip, never finished (we died
+        # mid-way) -> handle it now
         row = await asyncio.to_thread(db.one, "INSERT INTO events (plugin_id, kind, player, house, addressed, text, context) "
-                                      "VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (plugin_id) DO NOTHING RETURNING id",
+                                      "VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (plugin_id) DO UPDATE "
+                                      "SET plugin_id = EXCLUDED.plugin_id RETURNING id, handled_at",
                                       f"{e['id']}-{e.get('time', 0)}", kind, player, ctx.get("house"),
                                       ctx.get("addressed", "explicit"), text, db.J(ctx))
-        if not row:  # delivered twice: already handled
+        if row["handled_at"]:
             return
         eid = row["id"]
+        try:
+            await self._work(eid, e, ctx, kind, text, player)
+        finally:
+            await asyncio.to_thread(db.run, "UPDATE events SET handled_at = now() WHERE id = %s", eid)
+
+    async def _work(self, eid, e, ctx, kind, text, player):
         print(f"[{kind}] {player}: {text[:80]}", flush=True)
         if kind == "join":
             return await asyncio.to_thread(self.on_join, player, ctx)
@@ -229,11 +238,12 @@ class Core:
         g = Who.ghost(ghost) if ghost != "spirit" else SPIRIT
         zone = config.zone_at(*(ctx.get("pos") or [0, 0, 0])[0::2])
         action, reply = a["action"], a["reply"]
-        body = {"follow": ("follow", {"player": player}), "come": ("go_to", {"player": player}),
-                "stay": ("stop", {}), "go_home": ("go_to", {"pos": self.home(ghost)})}
+        body = {"follow": ("follow", lambda: {"player": player}), "come": ("go_to", lambda: {"player": player}),
+                "stay": ("stop", dict), "go_home": ("go_to", lambda: {"pos": self.home(ghost)})}
         try:
             if action in body and ghost != "spirit":
-                verb, kw = body[action]
+                verb, args = body[action]
+                kw = args()
                 await asyncio.to_thread(tools.act, "Move", who, g, zone, None, None, trace, False, {"verb": verb},
                                         lambda: bridge.body(ghost, verb, **kw))
             elif action == "build":

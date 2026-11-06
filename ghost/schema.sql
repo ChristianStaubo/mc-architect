@@ -135,6 +135,7 @@ CREATE TABLE IF NOT EXISTS heartbeats (         -- each process says it's alive;
 );
 
 ALTER TABLE events ALTER COLUMN plugin_id TYPE text;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS handled_at timestamptz;   -- set when its work is done
 
 CREATE INDEX IF NOT EXISTS outbox_unsent ON outbox (id) WHERE sent_at IS NULL;
 CREATE INDEX IF NOT EXISTS audit_task ON audit (task_id);

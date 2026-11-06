@@ -1,5 +1,5 @@
 # The ghost's services (optional; docs/ghost/design.md). Run with the server:
-#   ./mc.py ghost up      (= docker compose -f compose.yaml -f compose.ghost.yaml up -d)
+#   docker compose -f compose.yaml -f compose.ghost.yaml up -d   then   .venv/bin/python -m ghost run
 # Images are pinned by digest, each at least a week old when locked (deps.lock.json's rule).
 # Every port is on 127.0.0.1 only. The database password is generated into local/ghost/db-password.
 services:

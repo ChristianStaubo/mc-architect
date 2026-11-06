@@ -58,7 +58,7 @@ class BuildWorkflow:
             self.state = "designing"
             d = await workflow.execute_activity(
                 A.design, args=[task_id, revision], start_to_close_timeout=timedelta(minutes=20),
-                heartbeat_timeout=timedelta(minutes=2), retry_policy=RetryPolicy(maximum_attempts=2))
+                heartbeat_timeout=timedelta(seconds=30), retry_policy=RetryPolicy(maximum_attempts=3))
             if not d["ok"]:
                 return await self._end(task_id, "failed", "failed", d, clear=False)
             await workflow.execute_activity(A.tell, args=[task_id, "preview", d], **QUICK)
@@ -81,6 +81,9 @@ class BuildWorkflow:
                 break
             if not c.get("needs"):
                 return await self._end(task_id, "denied", "denied", c)
+            if c["needs"] in self.approvals:  # approved, yet still not allowed: never ask again (no loops)
+                return await self._end(task_id, "denied", "denied",
+                                       {"why": f"even with that approval it isn't allowed ({', '.join(c.get('rules') or [])})"})
             self.state = "approval"
             await workflow.execute_activity(A.tell, args=[task_id, "needs", c], **QUICK)
             need = c["needs"]
@@ -94,6 +97,6 @@ class BuildWorkflow:
 
         self.state = "building"
         r = await workflow.execute_activity(
-            A.place, task_id, start_to_close_timeout=timedelta(minutes=10), heartbeat_timeout=timedelta(minutes=1),
+            A.place, task_id, start_to_close_timeout=timedelta(minutes=10), heartbeat_timeout=timedelta(seconds=20),
             retry_policy=RetryPolicy(initial_interval=timedelta(seconds=5), maximum_attempts=8))
         return await self._end(task_id, "done", "built", r, clear=False)

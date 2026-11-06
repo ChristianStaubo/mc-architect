@@ -1,6 +1,6 @@
 # The ghost: design
 
-Status: decided, being built. The ghost is optional: its own Paper plugin (`ghost-plugin/`, depends on
+Status: milestones 1-2 built and evaluated (see README.md for what runs and how it differs). The ghost is optional: its own Paper plugin (`ghost-plugin/`, depends on
 MCBridge) and its own services, added to a server only if wanted.
 
 The ghost is an AI that lives on the server. Players chat with it; it builds, guides and looks after

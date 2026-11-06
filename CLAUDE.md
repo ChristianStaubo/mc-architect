@@ -21,6 +21,9 @@ server only gets builds the user approves.
 - `evals/scenarios/`: scripted `/arc` conversations checked by code (`mc eval scenarios`).
 - `plugin/`: the Paper plugin (Java), one package per feature: `bridge/` (the agent's API), `travel/`
   (homes, /tpa), `architect/` (/arc, inbox, previews); a new feature implements `core/Feature`. `docker/`, `compose.yaml`: the server. `tests/`: `python3 -m unittest discover tests`.
+  The ghost (optional; docs/ghost/README.md): `ghost/` (Python, run from `.venv`), `ghost-plugin/`, `policies/`,
+  `compose.ghost.yaml`; its evals: `.venv/bin/python -m ghost eval guarantees|listening|scenarios|chaos` and
+  `.venv/bin/python -m unittest tests.test_ghost_policy`.
 - `local/` (gitignored): renders, edits + snapshots, notes, eval results, and the flight recorder:
   `runs/commands.jsonl` (every mc command), `runs/trace/` (every bridge request), `runs/incidents/`
   (a failure's error, stack, recent requests and commands, plan copy, server log), `runs/friction/`.

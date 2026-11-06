@@ -18,11 +18,20 @@ import static dev.mcarchitect.core.Json.str;
  * again, so a daemon that restarts mid-job loses nothing. Kept in memory: a server restart drops them.
  */
 public final class Inbox {
-    private static final long STALE_MS = 60_000;     // handed out but not acknowledged: hand out again
+    private final long staleMs;   // handed out but not acknowledged this long ago: hand out again
     private final Map<Long, Map<String, Object>> pending = new LinkedHashMap<>();
     private final Map<Long, Long> handedOut = new LinkedHashMap<>();
     private long nextId = 1;
     private volatile long lastPoll = 0;
+
+    public Inbox() {
+        this(60_000);
+    }
+
+    /** staleMs: how long before an unacknowledged event is handed out again (a daemon that died mid-event). */
+    public Inbox(long staleMs) {
+        this.staleMs = staleMs;
+    }
 
     public synchronized long post(String kind, String text, Map<String, Object> context) {
         long id = nextId++;
@@ -52,7 +61,7 @@ public final class Inbox {
         List<Map<String, Object>> out = new ArrayList<>();
         for (var e : pending.entrySet()) {
             Long at = handedOut.get(e.getKey());
-            if (at == null || now - at > STALE_MS) out.add(e.getValue());
+            if (at == null || now - at > staleMs) out.add(e.getValue());
         }
         return out;
     }
