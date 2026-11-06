@@ -2,9 +2,9 @@
 
 import json
 
-from .. import blocks, bridge, edits, journal, render, terrain
+from .. import blocks, bridge, edits, highway, journal, render, terrain
 from .. import town as towns
-from ..placement import original_ground, whole_trees
+from ..placement import check_blocks, original_ground, whole_trees
 from .common import out_path, ROOT
 
 
@@ -87,12 +87,30 @@ def cmd_town(a):
         zs = [p[1] for p in r["points"]]
         cols = original_ground(bridge.heightmap((min(xs) - 6, min(zs) - 6), (max(xs) + 6, max(zs) + 6)),
                                task=f"town:{name}:road:{a.id}")
-        cells, prof = terrain.road([tuple(p) for p in r["points"]], cols, width=r.get("width", 3))
+        style = {"surface": highway.HIGHWAY_MIX, "support": "stone_bricks", "lamp_every": 24} \
+            if r.get("style") == "highway" else {}
+        cells, prof = terrain.road([tuple(p) for p in r["points"]], cols, width=r.get("width", 3), **style)
         if a.dry_run:
             print(f"road {a.id}: {len(prof)} blocks long, walk y {prof[0][1]}..{prof[-1][1]}, {len(cells)} cells; nothing placed")
             return
         e = edits.place(cells, label=f"road-{a.id}", run=journal.run_id(), task=f"town:{name}:road:{a.id}")
         print(f"placed road {a.id} as {e['id']}: {e['changed']} blocks changed")
+    elif a.action == "bridge":  # a crossing, built by the town's bridge kit fitted to the real water
+        br = next((b for b in towns.layout(name).get("bridges", []) if b["id"] == a.id), None)
+        if not br:
+            raise SystemExit(f"no bridge {a.id}")
+        kit = br.get("kit") or towns.town(name).get("kits", {}).get("bridge")
+        if not kit:
+            raise SystemExit(f"bridge {a.id}: no kit (layout bridges[].kit or town.json kits.bridge)")
+        cells, c = highway.bridge_cells(br, kit, seed=br.get("seed", 1))
+        print(f"bridge {a.id}: {c['length']} long ({c['ramp_a']}+{c['ramp_b']} ramp), deck {c['rise']} over the water "
+              f"at y {c['water_y']}, {c['depth']} deep; {len(cells)} cells")
+        check_blocks(cells)
+        if a.dry_run:
+            print("nothing placed")
+            return
+        e = edits.place(cells, label=f"bridge-{a.id}", run=journal.run_id(), task=f"town:{name}:bridge:{a.id}")
+        print(f"placed bridge {a.id} as {e['id']}: {e['changed']} blocks changed")
     elif a.action == "terrace":
         p = towns.plot(name, a.id)
         (x0, z0), (x1, z1) = p["min"], p["max"]
@@ -173,7 +191,7 @@ def cmd_town(a):
 def register(sub):
     tw = sub.add_parser("town")
     tw.add_argument("action", choices=["site", "show", "road", "terrace", "brief", "shots", "tidy", "status",
-                                       "plots", "check"])
+                                       "plots", "check", "bridge"])
     tw.add_argument("--district", help="plots: only this district; check: merge towns/NAME/districts/D.json first")
     tw.add_argument("--tile", type=int, default=5)
     tw.add_argument("name")

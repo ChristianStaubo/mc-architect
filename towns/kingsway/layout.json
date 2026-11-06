@@ -1,0 +1,1629 @@
+{
+ "roads": [
+  {
+   "id": "hw-001",
+   "points": [
+    [
+     -2472,
+     232
+    ],
+    [
+     -2448,
+     232
+    ],
+    [
+     -2432,
+     208
+    ],
+    [
+     -2425,
+     207
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-002",
+   "points": [
+    [
+     -2425,
+     207
+    ],
+    [
+     -2400,
+     204
+    ],
+    [
+     -2375,
+     179
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-003",
+   "points": [
+    [
+     -2375,
+     179
+    ],
+    [
+     -2360,
+     164
+    ],
+    [
+     -2332,
+     164
+    ],
+    [
+     -2324,
+     156
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-004",
+   "points": [
+    [
+     -2324,
+     156
+    ],
+    [
+     -2308,
+     140
+    ],
+    [
+     -2292,
+     140
+    ],
+    [
+     -2277,
+     125
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-005",
+   "points": [
+    [
+     -2277,
+     125
+    ],
+    [
+     -2235,
+     83
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-006",
+   "points": [
+    [
+     -2235,
+     83
+    ],
+    [
+     -2216,
+     64
+    ],
+    [
+     -2204,
+     64
+    ],
+    [
+     -2188,
+     50
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-007",
+   "points": [
+    [
+     -2188,
+     50
+    ],
+    [
+     -2144,
+     12
+    ],
+    [
+     -2142,
+     12
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-008",
+   "points": [
+    [
+     -2142,
+     12
+    ],
+    [
+     -2082,
+     7
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-009",
+   "points": [
+    [
+     -2082,
+     7
+    ],
+    [
+     -2022,
+     2
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-010",
+   "points": [
+    [
+     -2022,
+     2
+    ],
+    [
+     -1996,
+     0
+    ],
+    [
+     -1980,
+     -30
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-011",
+   "points": [
+    [
+     -1980,
+     -30
+    ],
+    [
+     -1976,
+     -36
+    ],
+    [
+     -1960,
+     -24
+    ],
+    [
+     -1927,
+     -24
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-012",
+   "points": [
+    [
+     -1927,
+     -24
+    ],
+    [
+     -1867,
+     -24
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-013",
+   "points": [
+    [
+     -1867,
+     -24
+    ],
+    [
+     -1807,
+     -24
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-014",
+   "points": [
+    [
+     -1807,
+     -24
+    ],
+    [
+     -1792,
+     -24
+    ],
+    [
+     -1780,
+     -12
+    ],
+    [
+     -1752,
+     -12
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-015",
+   "points": [
+    [
+     -1752,
+     -12
+    ],
+    [
+     -1748,
+     -12
+    ],
+    [
+     -1724,
+     12
+    ],
+    [
+     -1703,
+     18
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-016",
+   "points": [
+    [
+     -1703,
+     18
+    ],
+    [
+     -1696,
+     20
+    ],
+    [
+     -1659,
+     57
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-017",
+   "points": [
+    [
+     -1659,
+     57
+    ],
+    [
+     -1652,
+     64
+    ],
+    [
+     -1624,
+     64
+    ],
+    [
+     -1608,
+     80
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-018",
+   "points": [
+    [
+     -1608,
+     80
+    ],
+    [
+     -1568,
+     120
+    ],
+    [
+     -1565,
+     120
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-019",
+   "points": [
+    [
+     -1565,
+     120
+    ],
+    [
+     -1505,
+     117
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-020",
+   "points": [
+    [
+     -1505,
+     117
+    ],
+    [
+     -1445,
+     114
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-021",
+   "points": [
+    [
+     -1445,
+     114
+    ],
+    [
+     -1385,
+     111
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-022",
+   "points": [
+    [
+     -1385,
+     111
+    ],
+    [
+     -1325,
+     108
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-023",
+   "points": [
+    [
+     -1325,
+     108
+    ],
+    [
+     -1324,
+     108
+    ],
+    [
+     -1282,
+     66
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-024",
+   "points": [
+    [
+     -1282,
+     66
+    ],
+    [
+     -1276,
+     60
+    ],
+    [
+     -1252,
+     52
+    ],
+    [
+     -1226,
+     52
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-025",
+   "points": [
+    [
+     -1226,
+     52
+    ],
+    [
+     -1166,
+     52
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-026",
+   "points": [
+    [
+     -1166,
+     52
+    ],
+    [
+     -1148,
+     52
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-027",
+   "points": [
+    [
+     -1112,
+     52
+    ],
+    [
+     -1068,
+     52
+    ],
+    [
+     -1055,
+     61
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-028",
+   "points": [
+    [
+     -1055,
+     61
+    ],
+    [
+     -1040,
+     72
+    ],
+    [
+     -1024,
+     72
+    ],
+    [
+     -1007,
+     91
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-029",
+   "points": [
+    [
+     -1007,
+     91
+    ],
+    [
+     -966,
+     135
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-030",
+   "points": [
+    [
+     -966,
+     135
+    ],
+    [
+     -932,
+     172
+    ],
+    [
+     -924,
+     178
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-031",
+   "points": [
+    [
+     -924,
+     178
+    ],
+    [
+     -888,
+     204
+    ],
+    [
+     -877,
+     215
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-032",
+   "points": [
+    [
+     -877,
+     215
+    ],
+    [
+     -835,
+     257
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-033",
+   "points": [
+    [
+     -835,
+     257
+    ],
+    [
+     -793,
+     299
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-034",
+   "points": [
+    [
+     -793,
+     299
+    ],
+    [
+     -788,
+     304
+    ],
+    [
+     -735,
+     303
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-035",
+   "points": [
+    [
+     -735,
+     303
+    ],
+    [
+     -675,
+     302
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-036",
+   "points": [
+    [
+     -675,
+     302
+    ],
+    [
+     -615,
+     300
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-037",
+   "points": [
+    [
+     -615,
+     300
+    ],
+    [
+     -600,
+     300
+    ],
+    [
+     -592,
+     308
+    ],
+    [
+     -560,
+     308
+    ],
+    [
+     -559,
+     309
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-038",
+   "points": [
+    [
+     -559,
+     309
+    ],
+    [
+     -540,
+     328
+    ],
+    [
+     -507,
+     333
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-039",
+   "points": [
+    [
+     -507,
+     333
+    ],
+    [
+     -488,
+     336
+    ],
+    [
+     -464,
+     312
+    ],
+    [
+     -464,
+     305
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-040",
+   "points": [
+    [
+     -464,
+     305
+    ],
+    [
+     -461,
+     245
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-041",
+   "points": [
+    [
+     -461,
+     245
+    ],
+    [
+     -460,
+     228
+    ],
+    [
+     -429,
+     198
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-042",
+   "points": [
+    [
+     -429,
+     198
+    ],
+    [
+     -385,
+     157
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-043",
+   "points": [
+    [
+     -385,
+     157
+    ],
+    [
+     -380,
+     152
+    ],
+    [
+     -336,
+     152
+    ],
+    [
+     -330,
+     146
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-044",
+   "points": [
+    [
+     -330,
+     146
+    ],
+    [
+     -320,
+     136
+    ],
+    [
+     -284,
+     136
+    ],
+    [
+     -277,
+     129
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-045",
+   "points": [
+    [
+     -277,
+     129
+    ],
+    [
+     -268,
+     120
+    ],
+    [
+     -221,
+     120
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-046",
+   "points": [
+    [
+     -221,
+     120
+    ],
+    [
+     -161,
+     120
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-047",
+   "points": [
+    [
+     -161,
+     120
+    ],
+    [
+     -160,
+     120
+    ],
+    [
+     -118,
+     78
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-048",
+   "points": [
+    [
+     -118,
+     78
+    ],
+    [
+     -116,
+     76
+    ],
+    [
+     -60,
+     76
+    ],
+    [
+     -59,
+     75
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-049",
+   "points": [
+    [
+     -59,
+     75
+    ],
+    [
+     -48,
+     64
+    ],
+    [
+     -12,
+     60
+    ],
+    [
+     -6,
+     55
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-050",
+   "points": [
+    [
+     -6,
+     55
+    ],
+    [
+     36,
+     20
+    ],
+    [
+     41,
+     20
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-051",
+   "points": [
+    [
+     41,
+     20
+    ],
+    [
+     101,
+     20
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-052",
+   "points": [
+    [
+     101,
+     20
+    ],
+    [
+     108,
+     20
+    ],
+    [
+     151,
+     -10
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-053",
+   "points": [
+    [
+     151,
+     -10
+    ],
+    [
+     188,
+     -36
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  },
+  {
+   "id": "hw-054",
+   "points": [
+    [
+     232,
+     -36
+    ],
+    [
+     280,
+     -48
+    ]
+   ],
+   "width": 5,
+   "style": "highway"
+  }
+ ],
+ "bridges": [
+  {
+   "id": "br-1",
+   "a": [
+    -1148,
+    52
+   ],
+   "b": [
+    -1112,
+    52
+   ],
+   "width": 7,
+   "seed": 1
+  },
+  {
+   "id": "br-2",
+   "a": [
+    188,
+    -36
+   ],
+   "b": [
+    232,
+    -36
+   ],
+   "width": 7,
+   "seed": 2
+  }
+ ],
+ "plots": [
+  {
+   "type": "watchtower",
+   "kind": "watchtower",
+   "kit": "waystation",
+   "min": [
+    -1961,
+    -37
+   ],
+   "max": [
+    -1955,
+    -31
+   ],
+   "floor_y": 71,
+   "door": "west",
+   "landmark": false,
+   "id": "h1_watchtower_1",
+   "district": "h1",
+   "brief": "watchtower at Harrowford Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "inn",
+   "kind": "inn",
+   "kit": "waystation",
+   "min": [
+    -1961,
+    -52
+   ],
+   "max": [
+    -1947,
+    -41
+   ],
+   "floor_y": 76,
+   "door": "south",
+   "landmark": true,
+   "id": "h1_inn_2",
+   "district": "h1",
+   "brief": "inn at Harrowford Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -1997,
+    -35
+   ],
+   "max": [
+    -1988,
+    -27
+   ],
+   "floor_y": 66,
+   "door": "east",
+   "landmark": false,
+   "id": "h1_house_3",
+   "district": "h1",
+   "brief": "house at Harrowford Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "stable",
+   "kind": "stable",
+   "kit": "waystation",
+   "min": [
+    -1946,
+    -19
+   ],
+   "max": [
+    -1935,
+    -11
+   ],
+   "floor_y": 64,
+   "door": "north",
+   "landmark": false,
+   "id": "h1_stable_4",
+   "district": "h1",
+   "brief": "stable at Harrowford Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "smithy",
+   "kind": "smithy",
+   "kit": "waystation",
+   "min": [
+    -1945,
+    -37
+   ],
+   "max": [
+    -1935,
+    -29
+   ],
+   "floor_y": 73,
+   "door": "south",
+   "landmark": false,
+   "id": "h1_smithy_5",
+   "district": "h1",
+   "brief": "smithy at Harrowford Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -1931,
+    -19
+   ],
+   "max": [
+    -1922,
+    -11
+   ],
+   "floor_y": 67,
+   "door": "north",
+   "landmark": false,
+   "id": "h1_house_6",
+   "district": "h1",
+   "brief": "house at Harrowford Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -1931,
+    -37
+   ],
+   "max": [
+    -1921,
+    -29
+   ],
+   "floor_y": 73,
+   "door": "south",
+   "landmark": false,
+   "id": "h1_house_7",
+   "district": "h1",
+   "brief": "house at Harrowford Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "inn",
+   "kind": "inn",
+   "kit": "waystation",
+   "min": [
+    -1346,
+    114
+   ],
+   "max": [
+    -1332,
+    125
+   ],
+   "floor_y": 74,
+   "door": "north",
+   "landmark": true,
+   "id": "h2_inn_1",
+   "district": "h2",
+   "brief": "inn at Saltmere Crossing, a waystation on the Kingsway"
+  },
+  {
+   "type": "stable",
+   "kind": "stable",
+   "kit": "waystation",
+   "min": [
+    -1345,
+    94
+   ],
+   "max": [
+    -1334,
+    102
+   ],
+   "floor_y": 75,
+   "door": "south",
+   "landmark": false,
+   "id": "h2_stable_2",
+   "district": "h2",
+   "brief": "stable at Saltmere Crossing, a waystation on the Kingsway"
+  },
+  {
+   "type": "watchtower",
+   "kind": "watchtower",
+   "kit": "waystation",
+   "min": [
+    -1356,
+    116
+   ],
+   "max": [
+    -1350,
+    122
+   ],
+   "floor_y": 74,
+   "door": "north",
+   "landmark": false,
+   "id": "h2_watchtower_3",
+   "district": "h2",
+   "brief": "watchtower at Saltmere Crossing, a waystation on the Kingsway"
+  },
+  {
+   "type": "smithy",
+   "kind": "smithy",
+   "kit": "waystation",
+   "min": [
+    -1358,
+    96
+   ],
+   "max": [
+    -1348,
+    104
+   ],
+   "floor_y": 74,
+   "door": "south",
+   "landmark": false,
+   "id": "h2_smithy_4",
+   "district": "h2",
+   "brief": "smithy at Saltmere Crossing, a waystation on the Kingsway"
+  },
+  {
+   "type": "shrine",
+   "kind": "shrine",
+   "kit": "waystation",
+   "min": [
+    -1329,
+    113
+   ],
+   "max": [
+    -1323,
+    119
+   ],
+   "floor_y": 73,
+   "door": "north",
+   "landmark": false,
+   "id": "h2_shrine_5",
+   "district": "h2",
+   "brief": "shrine at Saltmere Crossing, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -1331,
+    91
+   ],
+   "max": [
+    -1322,
+    99
+   ],
+   "floor_y": 74,
+   "door": "south",
+   "landmark": false,
+   "id": "h2_house_6",
+   "district": "h2",
+   "brief": "house at Saltmere Crossing, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -1370,
+    115
+   ],
+   "max": [
+    -1362,
+    124
+   ],
+   "floor_y": 73,
+   "door": "north",
+   "landmark": false,
+   "id": "h2_house_7",
+   "district": "h2",
+   "brief": "house at Saltmere Crossing, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -1371,
+    97
+   ],
+   "max": [
+    -1361,
+    105
+   ],
+   "floor_y": 72,
+   "door": "south",
+   "landmark": false,
+   "id": "h2_house_8",
+   "district": "h2",
+   "brief": "house at Saltmere Crossing, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -1305,
+    97
+   ],
+   "max": [
+    -1296,
+    106
+   ],
+   "floor_y": 68,
+   "door": "west",
+   "landmark": false,
+   "id": "h2_house_9",
+   "district": "h2",
+   "brief": "house at Saltmere Crossing, a waystation on the Kingsway"
+  },
+  {
+   "type": "inn",
+   "kind": "inn",
+   "kit": "waystation",
+   "min": [
+    -811,
+    259
+   ],
+   "max": [
+    -800,
+    273
+   ],
+   "floor_y": 90,
+   "door": "west",
+   "landmark": true,
+   "id": "h3_inn_1",
+   "district": "h3",
+   "brief": "inn at Greywater Rest, a waystation on the Kingsway"
+  },
+  {
+   "type": "stable",
+   "kind": "stable",
+   "kit": "waystation",
+   "min": [
+    -847,
+    260
+   ],
+   "max": [
+    -839,
+    271
+   ],
+   "floor_y": 86,
+   "door": "east",
+   "landmark": false,
+   "id": "h3_stable_2",
+   "district": "h3",
+   "brief": "stable at Greywater Rest, a waystation on the Kingsway"
+  },
+  {
+   "type": "watchtower",
+   "kind": "watchtower",
+   "kit": "waystation",
+   "min": [
+    -822,
+    256
+   ],
+   "max": [
+    -816,
+    262
+   ],
+   "floor_y": 91,
+   "door": "west",
+   "landmark": false,
+   "id": "h3_watchtower_3",
+   "district": "h3",
+   "brief": "watchtower at Greywater Rest, a waystation on the Kingsway"
+  },
+  {
+   "type": "shrine",
+   "kind": "shrine",
+   "kit": "waystation",
+   "min": [
+    -856,
+    256
+   ],
+   "max": [
+    -850,
+    262
+   ],
+   "floor_y": 83,
+   "door": "east",
+   "landmark": false,
+   "id": "h3_shrine_4",
+   "district": "h3",
+   "brief": "shrine at Greywater Rest, a waystation on the Kingsway"
+  },
+  {
+   "type": "smithy",
+   "kind": "smithy",
+   "kit": "waystation",
+   "min": [
+    -797,
+    275
+   ],
+   "max": [
+    -789,
+    285
+   ],
+   "floor_y": 88,
+   "door": "west",
+   "landmark": false,
+   "id": "h3_smithy_5",
+   "district": "h3",
+   "brief": "smithy at Greywater Rest, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -833,
+    275
+   ],
+   "max": [
+    -825,
+    284
+   ],
+   "floor_y": 87,
+   "door": "east",
+   "landmark": false,
+   "id": "h3_house_6",
+   "district": "h3",
+   "brief": "house at Greywater Rest, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -834,
+    241
+   ],
+   "max": [
+    -825,
+    249
+   ],
+   "floor_y": 91,
+   "door": "west",
+   "landmark": false,
+   "id": "h3_house_7",
+   "district": "h3",
+   "brief": "house at Greywater Rest, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -868,
+    240
+   ],
+   "max": [
+    -860,
+    250
+   ],
+   "floor_y": 88,
+   "door": "east",
+   "landmark": false,
+   "id": "h3_house_8",
+   "district": "h3",
+   "brief": "house at Greywater Rest, a waystation on the Kingsway"
+  },
+  {
+   "type": "inn",
+   "kind": "inn",
+   "kit": "waystation",
+   "min": [
+    -346,
+    129
+   ],
+   "max": [
+    -335,
+    143
+   ],
+   "floor_y": 103,
+   "door": "east",
+   "landmark": true,
+   "id": "h4_inn_1",
+   "district": "h4",
+   "brief": "inn at Highfold Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "stable",
+   "kind": "stable",
+   "kit": "waystation",
+   "min": [
+    -312,
+    141
+   ],
+   "max": [
+    -301,
+    149
+   ],
+   "floor_y": 99,
+   "door": "north",
+   "landmark": false,
+   "id": "h4_stable_2",
+   "district": "h4",
+   "brief": "stable at Highfold Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "smithy",
+   "kind": "smithy",
+   "kit": "waystation",
+   "min": [
+    -311,
+    123
+   ],
+   "max": [
+    -301,
+    131
+   ],
+   "floor_y": 96,
+   "door": "south",
+   "landmark": false,
+   "id": "h4_smithy_3",
+   "district": "h4",
+   "brief": "smithy at Highfold Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "watchtower",
+   "kind": "watchtower",
+   "kit": "waystation",
+   "min": [
+    -295,
+    141
+   ],
+   "max": [
+    -289,
+    147
+   ],
+   "floor_y": 95,
+   "door": "north",
+   "landmark": false,
+   "id": "h4_watchtower_4",
+   "district": "h4",
+   "brief": "watchtower at Highfold Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -297,
+    123
+   ],
+   "max": [
+    -288,
+    131
+   ],
+   "floor_y": 96,
+   "door": "south",
+   "landmark": false,
+   "id": "h4_house_5",
+   "district": "h4",
+   "brief": "house at Highfold Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -350,
+    157
+   ],
+   "max": [
+    -342,
+    166
+   ],
+   "floor_y": 112,
+   "door": "north",
+   "landmark": false,
+   "id": "h4_house_6",
+   "district": "h4",
+   "brief": "house at Highfold Stage, a waystation on the Kingsway"
+  },
+  {
+   "type": "house",
+   "kind": "house",
+   "kit": "waystation",
+   "min": [
+    -268,
+    128
+   ],
+   "max": [
+    -260,
+    138
+   ],
+   "floor_y": 94,
+   "door": "west",
+   "landmark": false,
+   "id": "h4_house_7",
+   "district": "h4",
+   "brief": "house at Highfold Stage, a waystation on the Kingsway"
+  }
+ ]
+}

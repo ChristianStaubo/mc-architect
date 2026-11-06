@@ -1,0 +1,57 @@
+{
+ "name": "kingsway",
+ "area": {
+  "min": [
+   -2520,
+   -200
+  ],
+  "max": [
+   400,
+   360
+  ]
+ },
+ "brief": "The Kingsway: a paved royal highway from Kingsreach's harbour avenue to Riverford, about 3 km, with stone bridges over the inlet and the river, and waystation hamlets a day's ride apart: an inn, stables, a smithy, a watchtower, a roadside shrine and a few houses for the people who keep the road.",
+ "style": "royal road style shared by every waystation: grey stone brick and cobblestone bases, spruce and dark oak timber frames, whitewashed (white terracotta or calcite) upper walls, steep dark roofs (deepslate tiles or dark oak), lanterns on posts, banners in the crown's blue and gold, hay, carts and barrels about the yards",
+ "kits": {
+  "bridge": "kits/kingsway_bridge.py",
+  "waystation": "kits/kingsway_waystation.py"
+ },
+ "districts": [
+  {
+   "id": "h1",
+   "name": "Harrowford Stage",
+   "at": [
+    -1964,
+    -28
+   ],
+   "plots": 7
+  },
+  {
+   "id": "h2",
+   "name": "Saltmere Crossing",
+   "at": [
+    -1339,
+    109
+   ],
+   "plots": 9
+  },
+  {
+   "id": "h3",
+   "name": "Greywater Rest",
+   "at": [
+    -826,
+    266
+   ],
+   "plots": 8
+  },
+  {
+   "id": "h4",
+   "name": "Highfold Stage",
+   "at": [
+    -320,
+    136
+   ],
+   "plots": 7
+  }
+ ]
+}
