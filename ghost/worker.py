@@ -23,12 +23,14 @@ async def main():
     client = await Client.connect(config.TEMPORAL)
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
         worker = Worker(client, task_queue=config.TASK_QUEUE, workflows=[BuildWorkflow],
-                        activities=[A.design, A.tell, A.clear_preview, A.check, A.place, A.finish],
+                        activities=[A.tell, A.clear_preview, A.check, A.place, A.finish],
                         activity_executor=pool, max_concurrent_activities=6,
                         # the workflow imports our activities (for their names); they aren't run inside it
                         workflow_runner=SandboxedWorkflowRunner(
                             restrictions=SandboxRestrictions.default.with_passthrough_modules("ghost", "architect",
                                                                                               "psycopg", "cedarpy")))
+        designs = Worker(client, task_queue=config.DESIGN_QUEUE, activities=[A.design], activity_executor=pool,
+                         max_concurrent_activities=4)
         # the city harness: its own queue, so long builder runs never starve the ghosts' quick steps
         city = Worker(client, task_queue=C.QUEUE, workflows=[CityWorkflow, PlotWorkflow], activities=C.ACTIVITIES,
                       activity_executor=pool, max_concurrent_activities=12,
@@ -36,7 +38,7 @@ async def main():
                           restrictions=SandboxRestrictions.default.with_passthrough_modules("ghost", "architect",
                                                                                             "psycopg", "cedarpy")))
         print(f"{name}: waiting for work on {config.TASK_QUEUE} and {C.QUEUE}", flush=True)
-        await asyncio.gather(worker.run(), city.run())
+        await asyncio.gather(worker.run(), designs.run(), city.run())
 
 
 if __name__ == "__main__":

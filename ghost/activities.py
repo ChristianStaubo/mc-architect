@@ -90,10 +90,16 @@ def design(task_id: int, revision: dict | None) -> dict:
         s.update(context=ctx)
         s.pop("pending", None)
     resume = t["detail"].get("claude") if revision else None
+    live = t["detail"].get("claude_live")
+    if not resume and live and activity.info().attempt > 1:
+        # the last attempt died mid-design: carry on in its session instead of starting over
+        resume, text = live, ("You were interrupted (the worker restarted). Check your plan file and whether a "
+                              "preview is showing before redoing anything, then finish the design.\n" + text)
     job = agent.Run(player, text, ctx, str((work / "plan.py").relative_to(config.ROOT)), f"ghost:task{task_id}:{n}",
                     model.name("worker"), time.time(), resume=resume, transcript=work / f"design-{n}.jsonl",
                     site="" if resume else daemon.site_ahead(player, ctx),
                     env={"MC_GHOST": json.dumps({"say_file": str(said), "preview_hint": outbox.PREVIEW_HINT})})
+    _remember_session(task_id, work / f"design-{n}.jsonl", job)
     r = _heartbeating(job.wait)
     lines = [json.loads(x) for x in said.read_text().splitlines()] if said.exists() else []
     pending = sessions.get(player).get("pending")
@@ -106,32 +112,53 @@ def design(task_id: int, revision: dict | None) -> dict:
     return {"ok": bool(pending), "said": detail["said"], "end": r["end"]}
 
 
+def _remember_session(task_id, transcript, job):
+    """As soon as the agent's session id appears in its transcript, store it: a retry can resume it."""
+    def watch():
+        for _ in range(120):
+            if transcript.exists():
+                for line in transcript.read_text().splitlines()[:5]:
+                    if '"session_id"' in line:
+                        try:
+                            sid = json.loads(line).get("session_id")
+                        except ValueError:
+                            continue
+                        if sid:
+                            return tasks.move(task_id, None, claude_live=sid)
+            if job.proc.poll() is not None:
+                return
+            time.sleep(1)
+    threading.Thread(target=watch, daemon=True).start()
+
+
 @activity.defn
 def tell(task_id: int, what: str, data: dict) -> None:
     """The house ghost tells the asker (code-written; the agent's own words when it left some)."""
     t = task(task_id)
     g, p, d = t["ghost"], t["player"], t["detail"]
     words = " ".join(data.get("said") or [])
+    n = len(d.get("briefs") or [])  # which design this is: each one is told once, however often the step runs
+    key = f"task{task_id}:{what}:{n}"
     if what == "preview":
         outbox.say(g, p, words or f"Here's my design ({d.get('blocks', '?')} blocks). Only you can see it.",
-                   outbox.preview_buttons(task_id))
+                   outbox.preview_buttons(task_id), key=key)
     elif what == "failed":
-        outbox.say(g, p, words or "I couldn't draw that one. Try describing it differently?")
+        outbox.say(g, p, words or "I couldn't draw that one. Try describing it differently?", key=key)
     elif what == "needs":
         if d.get("asked") == data["needs"]:  # once per task and approval: a retried step doesn't ask twice
             return
         tasks.move(task_id, "approval", need=data["needs"], asked=data["needs"])
-        outbox.say(g, p, f"That needs {data['who']}'s yes first ({data['why']}). I've asked them.")
+        outbox.say(g, p, f"That needs {data['who']}'s yes first ({data['why']}). I've asked them.", key=key)
         (x0, _, z0), (x1, _, z1) = d.get("frame") or d["box"]
         outbox.say(g, data["approver"], f"{p} wants to build {t['request'][:80]!r}: {d.get('blocks')} blocks at "
                                         f"{x0},{z0}..{x1},{z1}.",
-                   [("Approve", f"/ghost approve {task_id}"), ("Deny", f"/ghost deny {task_id}")])
+                   [("Approve", f"/ghost approve {task_id}"), ("Deny", f"/ghost deny {task_id}")], key=key + ":head")
     elif what == "denied":
-        outbox.say(g, p, f"I can't build that: {data['why']}.")
+        outbox.say(g, p, f"I can't build that: {data['why']}.", key=key)
     elif what == "built":
-        outbox.say(g, p, f"Built it ({data.get('edit')}).", [("Undo", f"/ghost undo {task_id}")])
+        outbox.say(g, p, f"Built it ({data.get('edit')}).", [("Undo", f"/ghost undo {task_id}")], key=key)
     elif what == "dropped":
-        outbox.say(g, p, data.get("text") or "Dropped it.")
+        outbox.say(g, p, data.get("text") or "Dropped it.", key=key)
 
 
 @activity.defn

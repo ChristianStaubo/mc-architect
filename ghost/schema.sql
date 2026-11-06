@@ -134,6 +134,9 @@ CREATE TABLE IF NOT EXISTS heartbeats (         -- each process says it's alive;
 );
 
 ALTER TABLE events ADD COLUMN IF NOT EXISTS handled_at timestamptz;   -- set when its work is done
+ALTER TABLE events ADD COLUMN IF NOT EXISTS decision jsonb;           -- the router's answer, stored before acting on it
+ALTER TABLE events ADD COLUMN IF NOT EXISTS task_id bigint;           -- the task it started, if any
+ALTER TABLE outbox ADD COLUMN IF NOT EXISTS key text UNIQUE;          -- a retried step's line is queued once
 
 CREATE INDEX IF NOT EXISTS outbox_unsent ON outbox (id) WHERE sent_at IS NULL;
 CREATE INDEX IF NOT EXISTS audit_task ON audit (task_id);

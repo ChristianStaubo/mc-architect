@@ -19,13 +19,16 @@ def preview_buttons(task_id):
     return ((YES, f"/ghost yes {task_id}"), (NO, f"/ghost no {task_id}"))
 
 
-def say(ghost, player, text, buttons=(), thread_id=None, conn=None):
-    """Queue a line from `ghost` to `player` (None: everyone). The thread is found when not given."""
+def say(ghost, player, text, buttons=(), thread_id=None, conn=None, key=None):
+    """Queue a line from `ghost` to `player` (None: everyone). The thread is found when not given.
+    key: an idempotency key; a retried step saying the same thing again (same key) queues nothing."""
     text = text[:MAX_CHARS]
 
     def write(c):
-        c.execute("INSERT INTO outbox (ghost, player, text, buttons) VALUES (%s, %s, %s, %s)",
-                  (ghost, player, text, J([list(b) for b in buttons])))
+        if not c.execute("INSERT INTO outbox (ghost, player, text, buttons, key) VALUES (%s, %s, %s, %s, %s) "
+                         "ON CONFLICT (key) DO NOTHING RETURNING id",
+                         (ghost, player, text, J([list(b) for b in buttons]), key)).fetchone():
+            return
         th = thread_id or (player and (c.execute("SELECT id FROM threads WHERE player = %s AND ghost = %s",
                                                  (player, ghost)).fetchone() or {}).get("id"))
         if th:

@@ -12,6 +12,7 @@ from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
     from . import activities as A
+    from .config import DESIGN_QUEUE
 
 QUICK = {"start_to_close_timeout": timedelta(seconds=60), "retry_policy": RetryPolicy(maximum_attempts=5)}
 WAIT_FOR_YES = timedelta(minutes=30)
@@ -57,7 +58,7 @@ class BuildWorkflow:
         while True:  # design, show, wait for yes / no / a change
             self.state = "designing"
             d = await workflow.execute_activity(
-                A.design, args=[task_id, revision], start_to_close_timeout=timedelta(minutes=20),
+                A.design, args=[task_id, revision], task_queue=DESIGN_QUEUE, start_to_close_timeout=timedelta(minutes=20),
                 heartbeat_timeout=timedelta(seconds=30), retry_policy=RetryPolicy(maximum_attempts=3))
             if not d["ok"]:
                 return await self._end(task_id, "failed", "failed", d)

@@ -85,6 +85,7 @@ class Core:
         self.client = None
         self.loop = None
         self.locks = {}
+        self.replay = None
 
     # ---- the plumbing ----
 
@@ -146,11 +147,12 @@ class Core:
         # mid-way) -> handle it now
         row = db.one("INSERT INTO events (plugin_id, kind, player, house, addressed, text, context) "
                      "VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (plugin_id) DO UPDATE "
-                     "SET plugin_id = EXCLUDED.plugin_id RETURNING id, handled_at",
+                     "SET plugin_id = EXCLUDED.plugin_id RETURNING id, handled_at, decision, task_id",
                      f"{e['id']}-{e.get('time', 0)}", kind, player, ctx.get("house"),
                      ctx.get("addressed", "explicit"), text, db.J(ctx))
         if row["handled_at"]:
             return
+        self.replay = row if row["decision"] else None   # we died mid-event: act on what was already decided
         try:
             self.work(row["id"], ctx, kind, text, player)
         finally:
@@ -233,21 +235,29 @@ class Core:
             c.execute("INSERT INTO messages (thread_id, who, text) VALUES (%s, 'player', %s)", (th["id"], text))
         context, open_task = self.context_for(th, player, who, ctx)
         acts, trace = actions_for(open_task, may_ignore), uuid.uuid4().hex
-        before = memory.read(ghost, player)
-        try:
-            a = model.ask("router", router_system(ghost, acts), f'{context}\n\nThey just said: "{text}"',
-                          router_schema(acts), None, trace, notes=memory.path(ghost, player))
-        except model.ModelError as ex:
-            print(f"router failed: {ex}", flush=True)
-            return outbox.say(ghost, player, "Sorry, I lost my train of thought. Say that again?", (), th["id"])
-        if memory.note_change(ghost, player, before, trace):
-            print(f"  (noted something about {player})", flush=True)
+        replay = getattr(self, "replay", None)
+        if replay and replay["id"] == eid:
+            a = replay["decision"]
+            print(f"  (replaying the stored decision for event {eid})", flush=True)
+            if replay["task_id"] and a["action"] == "build":  # its task was already started: just say so
+                return outbox.say(ghost, player, a["reply"] or "On it.", (), th["id"], key=f"event{eid}")
+        else:
+            before = memory.read(ghost, player)
+            try:
+                a = model.ask("router", router_system(ghost, acts), f'{context}\n\nThey just said: "{text}"',
+                              router_schema(acts), None, trace, notes=memory.path(ghost, player))
+            except model.ModelError as ex:
+                print(f"router failed: {ex}", flush=True)
+                return outbox.say(ghost, player, "Sorry, I lost my train of thought. Say that again?", (), th["id"])
+            if memory.note_change(ghost, player, before, trace):
+                print(f"  (noted something about {player})", flush=True)
+            db.run("UPDATE events SET decision = %s WHERE id = %s", db.J(a), eid)   # stored before acting on it
         print(f"  -> {ghost}: {a['action']} {a.get('build') or ''} | {a['reply'][:80]}", flush=True)
         if a["action"] == "stay_quiet":
             return db.run("UPDATE events SET verdict = 'quiet' WHERE id = %s", eid)
-        self.act(a, player, who, ghost, ctx, th, open_task, trace, text)
+        self.act(a, player, who, ghost, ctx, th, open_task, trace, text, eid)
 
-    def act(self, a, player, who, ghost, ctx, th, open_task, trace, words):
+    def act(self, a, player, who, ghost, ctx, th, open_task, trace, words, eid=None):
         action, reply, buttons = a["action"], a["reply"], ()
         zone = config.zone_of(ctx)
         try:
@@ -257,7 +267,8 @@ class Core:
                 tools.act("Move", who, Who.ghost(ghost), zone, None, None, trace, False, {"verb": verb},
                           lambda: bridge.body(ghost, verb, **kw))
             elif action == "build":
-                reply, buttons = self.new_build(player, who, ghost, ctx, th, words, a.get("build") or "", reply, trace, zone)
+                reply, buttons = self.new_build(player, who, ghost, ctx, th, words, a.get("build") or "", reply, trace,
+                                                zone, eid)
             elif action == "change_build":
                 # their own words go to the designer, with the router's reading as a note and where they look now
                 self.signal(open_task["id"], "revise", {"words": words, "note": a.get("build") or "", "context": ctx})
@@ -272,7 +283,7 @@ class Core:
         except bridge.BridgeError as ex:
             print(f"  {action} failed: {ex}", flush=True)
             reply = "I can't quite get there right now. Try again in a moment?"
-        outbox.say(ghost, player, reply, buttons, th["id"])
+        outbox.say(ghost, player, reply, buttons, th["id"], key=eid and f"event{eid}")
 
     def body_state(self, ghost, ctx):
         try:
@@ -292,7 +303,7 @@ class Core:
             return "Pick a house first, then I'm all yours. (/ghost house)"
         return f"I'm not allowed to do that ({d.reason()})."
 
-    def new_build(self, player, who, ghost, ctx, th, request, note, reply, trace, zone):
+    def new_build(self, player, who, ghost, ctx, th, request, note, reply, trace, zone, eid=None):
         """(reply, buttons). Checks first that they may ask for a design at all (a preview changes nothing real)
         and that there's budget; the task and its charge commit together."""
         if ghost == "spirit":
@@ -306,6 +317,8 @@ class Core:
                               "%s, %s, %s, %s, %s) RETURNING id", (player, ghost, th["id"], request,
                                                                     db.J({"context": ctx, "trace": trace, "note": note}))).fetchone()
                 tools.reserve(who.house, "requests", 1, t["id"], state="settled", conn=c)
+                if eid:  # the event remembers the task it started (a redelivery won't start another)
+                    c.execute("UPDATE events SET task_id = %s WHERE id = %s", (t["id"], eid))
         except tools.Denied as d:
             return self.explain(d.decision, "build"), ()
         except tools.OverBudget as ob:

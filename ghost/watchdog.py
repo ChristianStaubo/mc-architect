@@ -146,7 +146,23 @@ def supervise_once(kids, start):
     check()
 
 
+def health():
+    """0 healthy, 1 a process is late (restart it), 2 the store or a core process is gone, 3 stopped on purpose."""
+    if (config.LOCAL / "STOPPED").exists():
+        return 3
+    try:
+        beats = {b["process"]: b["age"] for b in db.all("SELECT process, extract(epoch FROM now() - at)::int AS age "
+                                                        "FROM heartbeats WHERE now() - at < interval '10 minutes'")}
+    except Exception:  # noqa: BLE001
+        return 2
+    core_ok = beats.get("ghost-core", 999) < STALE_S
+    worker_ok = any(a < STALE_S for p, a in beats.items() if p.startswith("ghost-worker-"))
+    return 0 if core_ok and worker_ok else 1 if beats else 2
+
+
 def status():
+    code = health()
+    print(f"health: {['ok', 'a process is late', 'down', 'stopped on purpose'][code]} ({code})")
     print("heartbeats:")
     for b in db.all("SELECT process, extract(epoch FROM now() - at)::int AS age, detail FROM heartbeats ORDER BY process"):
         print(f"  {b['process']:<22} {b['age']:>6} s ago")
@@ -162,4 +178,7 @@ def status():
     for a in db.all("SELECT at, requester, action, resource, decision, rules, result FROM audit ORDER BY id DESC LIMIT 8"):
         print(f"  {a['at']:%H:%M:%S} {a['requester']:<16} {a['action']:<12} {a['resource']:<16} {a['decision']:<5} "
               f"{','.join(a['rules'])} {a['result'] or ''}")
-    return 0
+    unsent = db.one("SELECT count(*) AS n FROM outbox WHERE sent_at IS NULL AND tries >= 5")["n"]
+    if unsent:
+        print(f"{unsent} messages could not be delivered (5 tries)")
+    return code

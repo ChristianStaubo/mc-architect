@@ -14,6 +14,7 @@ LOCAL = ROOT / "local" / "ghost"
 GRANT_KEY = ROOT / "server" / "plugins" / "MCBridge" / "grant-key"  # written by the plugin; models never read it
 TEMPORAL = os.environ.get("GHOST_TEMPORAL", "127.0.0.1:7233")
 TASK_QUEUE = "ghost-builds"
+DESIGN_QUEUE = "ghost-design"   # long design runs: never take the slots a [Build it] click needs
 
 
 @lru_cache
