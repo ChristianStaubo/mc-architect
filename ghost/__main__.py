@@ -6,6 +6,7 @@
   eval <suite> [--k N]         guarantees | listening | scenarios | chaos  (see ghost/evals.py)
   city start NAME [--plan-only] [--districts a,b] [--max-plots N] [--concurrency N] [--run ID]
   city workers NAME --run ID --concurrency N   change how many builders a running build uses
+  city decide NAME --run ID --key K --answer TEXT   answer a blocked worker's DECISION NEEDED
   city status NAME [--run ID]  the city harness (docs/ghost/city.md): plan, fan out, build in parallel
   migrate                      apply ghost/schema.sql
 """

@@ -97,6 +97,16 @@ def run_agent(run, role, key, prompt, writable, agent, resume=None):
 
 # ---- planning ----
 
+SHELL = """Shell: Bash runs only commands that start with ./mc.py (you're already in the repo root: no cd, no &&, no
+cat, sed or python; read files with Read, change them with Write/Edit). Useful: ./mc.py town plots {name} [--district D]
+(the layout as a table), ./mc.py town check {name} --district D (your district's file checked in the city: fix
+every FAIL before you finish), ./mc.py town site {name}."""
+
+DECIDE = """If you can't do it without a decision that isn't yours to make (removing or moving something already
+built, going outside your box), change nothing and end with exactly one line:
+DECISION NEEDED: <the question> || <option 1> || <option 2> [|| more options]
+Someone will answer and you'll be asked to carry on."""
+
 MACRO = """You are planning the districts of a capital city, not its buildings: a team of district planners
 will lay the plots inside each district at the same time, and builders build them in parallel after.
 
@@ -173,7 +183,32 @@ def districts(name: str) -> list:
 
 
 @activity.defn
-def plan_district(run: str, name: str, dist: dict, issues: list | None, infill: dict | None = None) -> dict:
+def _decision(text):
+    """The DECISION NEEDED line a blocked agent ended with: {question, options}, or None."""
+    m = re.search(r"^DECISION NEEDED:\s*(.+)$", text or "", re.M)
+    if not m:
+        return None
+    parts = [x.strip() for x in m.group(1).split("||")]
+    return {"question": parts[0], "options": parts[1:]}
+
+
+def _built(name):
+    return {r["plot"] for r in db.all("SELECT plot FROM city_plots WHERE city = %s AND state IN ('done', 'flawed')", name)}
+
+
+def _take_back(run, name, pids):
+    """Undo everything placed for these plots (building and terrace): an approved decision removed them."""
+    for pid in pids:
+        for e in sorted([e for e in edits.listing() if e.get("task") in (f"town:{name}:{pid}", f"town:{name}:{pid}:terrace")],
+                        key=edits.seq, reverse=True):
+            edits.undo(e["id"], "")
+            activity.heartbeat()  # a big undo takes minutes: without this the activity is timed out and retried
+        db.run("UPDATE city_plots SET state = 'removed', updated_at = now() WHERE city = %s AND plot = %s", name, pid)
+
+
+@activity.defn
+def plan_district(run: str, name: str, dist: dict, issues: list | None, infill: dict | None = None,
+                  answer: str | None = None, session: str | None = None) -> dict:
     """Plan one district's plots; or fix its own issues; or (infill) add lanes, a centrepiece and plots to its
     hollow interior, keeping what's built."""
     d = city_dir(name)
@@ -181,7 +216,12 @@ def plan_district(run: str, name: str, dist: dict, issues: list | None, infill: 
     if f.exists() and not issues and not infill:  # planned on an earlier attempt
         return {"district": dist["id"], "plots": len(_read(f, {}).get("plots", [])), "reused": True}
     x0, z0, x1, z1 = dist["box"]
-    if infill:
+    # built plots of this district, from the merged layout (not the district file, which a retry finds edited)
+    before = {p["id"] for p in _read(city_dir(name) / "layout.json", {}).get("plots", []) if p.get("district") == dist["id"]}
+    if answer:  # the decision this planner asked for, answered: carry on in the same session
+        prompt = (f"The decision you asked for: {answer}\nCarry on now and finish the job (you may do what the decision "
+                  "allows, nothing more). End with one line saying what you changed.")
+    elif infill:
         prompt = INFILL.format(name=name, did=dist["id"], dname=dist.get("name", dist["id"]), x0=x0, x1=x1, z0=z0, z1=z1,
                                covered=infill["covered"], hole=infill["hole"], count=infill["count"],
                                character=dist.get("character", ""),
@@ -193,10 +233,22 @@ def plan_district(run: str, name: str, dist: dict, issues: list | None, infill: 
                                  z1=z1, character=dist.get("character", ""), count=dist.get("plots", 12),
                                  landmarks=", ".join(dist.get("landmarks") or []) or "none",
                                  style=towns.town(name).get("style", ""))
-    out = run_agent(run, "district", dist["id"], prompt, [f"towns/{name}/districts/{dist['id']}.json"], "mc-planner")
+    if not answer:
+        prompt += "\n\n" + SHELL.format(name=name) + "\n\n" + DECIDE
+    out = run_agent(run, "district", dist["id"], prompt, [f"towns/{name}/districts/{dist['id']}.json"], "mc-planner",
+                    resume=session if answer else None)
     plots = _read(f, {}).get("plots", [])
+    ask = None if answer else _decision(out["full"])
+    if ask:
+        return {"district": dist["id"], "decision": ask, "session": out["session"], "plots": len(plots)}
+    gone = (before - {p["id"] for p in plots}) & _built(name)
+    if gone and answer:  # removing built plots needs an approved decision; then their blocks are taken back
+        _take_back(run, name, sorted(gone))
+    elif gone:  # without one, a planner can't drop a built plot: put the file back and say so
+        raise ApplicationError(f"{dist['id']} dropped built plots without a decision: {sorted(gone)}", non_retryable=True)
     bad = [p["id"] for p in plots if not (x0 <= p["min"][0] and p["max"][0] <= x1 and z0 <= p["min"][1] and p["max"][1] <= z1)]
-    return {"district": dist["id"], "plots": len(plots), "outside_box": bad, **{k: out[k] for k in ("minutes", "usd", "denials")}}
+    return {"district": dist["id"], "plots": len(plots), "outside_box": bad, "removed": sorted(gone),
+            **{k: out[k] for k in ("minutes", "usd", "denials")}}
 
 
 @activity.defn
@@ -285,7 +337,8 @@ def build_plot(run: str, name: str, pid: str, feedback: str | None, session: str
     plan = (work / "plan.py").relative_to(ROOT)
     prompt = (f"Critique of your build, fix it:\n{feedback}" if feedback else
               f"{brief}\nYour plan file: {plan}\nYou are one of several builders working on this city at the same "
-              "time, each on its own plot: stay inside yours. Work through the mc-build skill (preview, place, audit, "
+              "time, each on its own plot: stay inside yours. Bash runs only commands starting with ./mc.py (no cd, &&, "
+              "cat or python; you're in the repo root; ./mc.py undo is refused: to revise, change your plan and place it again). Work through the mc-build skill (preview, place, audit, "
               "shots, revise), then end with a short report (what you built, the last edit id, any gaps).")
     out = run_agent(run, "builder", pid, prompt, [str(plan)], "mc-builder", resume=session if feedback else None)
     es = _plot_edits(name, pid)
@@ -333,11 +386,19 @@ def judge_plot(run: str, name: str, pid: str) -> dict:
 
 
 @activity.defn
+def ask(run: str, key: str, decision: dict) -> None:
+    """A blocked worker's question, routed to a person: stored (python -m ghost city status shows it)."""
+    db.run("INSERT INTO city_decisions (run, key, question, options) VALUES (%s, %s, %s, %s) "
+           "ON CONFLICT (run, key) DO UPDATE SET question = EXCLUDED.question, options = EXCLUDED.options, "
+           "asked_at = now(), answer = NULL, answered_at = NULL", run, key, decision["question"], J(decision["options"]))
+
+
+@activity.defn
 def record_plot(run: str, name: str, pid: str, state: str, detail: dict) -> None:
     db.run("INSERT INTO city_plots (run, city, plot, state, detail) VALUES (%s, %s, %s, %s, %s) "
            "ON CONFLICT (run, plot) DO UPDATE SET state = EXCLUDED.state, detail = city_plots.detail || EXCLUDED.detail, "
            "updated_at = now()", run, name, pid, state, J(detail))
 
 
-ACTIVITIES = [plan_macro, districts, plan_district, merge_and_check, lay_ground, plot_ids, build_plot, check_plot,
+ACTIVITIES = [ask, plan_macro, districts, plan_district, merge_and_check, lay_ground, plot_ids, build_plot, check_plot,
               judge_plot, record_plot]

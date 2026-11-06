@@ -170,3 +170,14 @@ CREATE TABLE IF NOT EXISTS city_plots (
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (run, plot)
 );
+
+CREATE TABLE IF NOT EXISTS city_decisions (    -- a blocked worker's question, waiting for a person
+  run         text NOT NULL,
+  key         text NOT NULL,                    -- the district (or plot) that asked
+  question    text NOT NULL,
+  options     jsonb NOT NULL DEFAULT '[]',
+  answer      text,
+  asked_at    timestamptz NOT NULL DEFAULT now(),
+  answered_at timestamptz,
+  PRIMARY KEY (run, key)
+);

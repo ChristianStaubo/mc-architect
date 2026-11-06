@@ -55,6 +55,12 @@ class CityWorkflow:
     def __init__(self):
         self.phase, self.done, self.total, self.running = "starting", 0, 0, []
         self.conc = None
+        self.answers, self.waiting = {}, {}
+
+    @workflow.signal
+    def answer(self, key: str, text: str):
+        """A person's answer to a worker's DECISION NEEDED (python -m ghost city decide)."""
+        self.answers[key] = text
 
     @workflow.signal
     def set_concurrency(self, n: int):
@@ -64,7 +70,7 @@ class CityWorkflow:
     @workflow.query
     def status(self) -> dict:
         return {"phase": self.phase, "done": self.done, "total": self.total, "running": self.running,
-                "concurrency": self.conc}
+                "concurrency": self.conc, "waiting_for_a_decision": self.waiting}
 
     @workflow.run
     async def run(self, args: dict) -> dict:
@@ -82,14 +88,30 @@ class CityWorkflow:
             A.plan_district, args=[run, name, d, issues, infill],
             start_to_close_timeout=timedelta(minutes=A.MINUTES["district"] + 15), **AGENT)
         infill = args.get("infill") or {}   # {district: {covered, hole, count}}: fill hollow interiors
+        async def plan_or_ask(d, issues=None, fill=None):
+            """Plan a district; if its planner is blocked on a decision that isn't its to make, route the question
+            to a person, wait for the answer (others carry on meanwhile), and resume that planner with it."""
+            r = await plan(d, issues, fill)
+            while r.get("decision"):
+                key = d["id"]
+                self.waiting[key] = r["decision"]["question"]
+                await workflow.execute_activity(A.ask, args=[run, key, r["decision"]], **QUICK)
+                await workflow.wait_condition(lambda: key in self.answers)
+                text = self.answers.pop(key)
+                self.waiting.pop(key, None)
+                r = await workflow.execute_activity(
+                    A.plan_district, args=[run, name, d, None, fill, text, r["session"]],
+                    start_to_close_timeout=timedelta(minutes=A.MINUTES["district"] + 15), **AGENT)
+            return r
+
         if infill:
             self.phase = "filling in the districts"
             dists = [d for d in dists if d["id"] in infill]
             only = list(infill)
-            await asyncio.gather(*(plan(d, None, infill[d["id"]]) for d in dists))
+            await asyncio.gather(*(plan_or_ask(d, None, infill[d["id"]]) for d in dists))
         else:
             self.phase = "planning the plots"   # every district planner at once: fan out, fan in
-            await asyncio.gather(*(plan(d) for d in dists))
+            await asyncio.gather(*(plan_or_ask(d) for d in dists))
         for _ in range(2):  # repair rounds: each district fixes only its own problems
             chk = await workflow.execute_activity(A.merge_and_check, name, **QUICK)
             bad = {k: v for k, v in chk["by_district"].items() if v}

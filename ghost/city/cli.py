@@ -21,6 +21,13 @@ async def _start(a):
     print(f"started city-{run} (watch it at http://localhost:8233)")
 
 
+async def _decide(a):
+    c = await Client.connect(config.TEMPORAL)
+    await c.get_workflow_handle(f"city-{a.run}").signal("answer", args=[a.key, a.answer])
+    db.run("UPDATE city_decisions SET answer = %s, answered_at = now() WHERE run = %s AND key = %s", a.answer, a.run, a.key)
+    print(f"answered {a.key}: the planner carries on")
+
+
 async def _workers(a):
     c = await Client.connect(config.TEMPORAL)
     await c.get_workflow_handle(f"city-{a.run}").signal("set_concurrency", a.concurrency)
@@ -42,6 +49,11 @@ async def _status(a):
                         "count(*) FILTER (WHERE end_at IS NULL) AS live FROM city_agents WHERE run = %s GROUP BY role", run):
             print(f"  {r['role']:<9} {r['n']:>4} runs ({r['live']} live), {r['min'] or 0:.0f} agent-min, "
                   f"${r['usd'] or 0:.2f}, {r['denials'] or 0} denied tool calls")
+        for r in db.all("SELECT key, question, options FROM city_decisions WHERE run = %s AND answer IS NULL", run):
+            print(f"  DECISION NEEDED from {r['key']}: {r['question']}")
+            for i, o in enumerate(r["options"], 1):
+                print(f"    {i}. {o}")
+            print(f"    answer: python -m ghost city decide {a.name} --run {run} --key {r['key']} --answer \"...\"")
         for r in db.all("SELECT state, count(*) AS n, avg((detail->>'score')::float) AS score FROM city_plots "
                         "WHERE run = %s GROUP BY state", run):
             print(f"  plots {r['state']:<8} {r['n']:>4}" + (f"  mean critic {r['score']:.1f}" if r["score"] else ""))
@@ -49,7 +61,9 @@ async def _status(a):
 
 def main(argv):
     ap = argparse.ArgumentParser(prog="ghost city")
-    ap.add_argument("action", choices=["start", "status", "workers"])
+    ap.add_argument("action", choices=["start", "status", "workers", "decide"])
+    ap.add_argument("--key", help="decide: the district (or plot) that asked")
+    ap.add_argument("--answer", help="decide: your answer, in words")
     ap.add_argument("name")
     ap.add_argument("--run")
     ap.add_argument("--plots", type=int, default=140)
@@ -60,5 +74,5 @@ def main(argv):
     ap.add_argument("--infill", help='JSON {district: {"covered": 0.35, "hole": 60, "count": 12}}: fill hollow districts')
     a = ap.parse_args(argv)
     db.migrate()
-    asyncio.run(_start(a) if a.action == "start" else _workers(a) if a.action == "workers" else _status(a))
+    asyncio.run({"start": _start, "workers": _workers, "decide": _decide, "status": _status}[a.action](a))
     return 0
