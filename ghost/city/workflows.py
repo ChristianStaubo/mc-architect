@@ -78,11 +78,18 @@ class CityWorkflow:
                                         start_to_close_timeout=timedelta(minutes=A.MINUTES["macro"] + 15), **AGENT)
         dists = await workflow.execute_activity(A.districts, name, **QUICK)
 
-        self.phase = "planning the plots"   # every district planner at once: fan out, fan in
-        plan = lambda d, issues=None: workflow.execute_activity(  # noqa: E731
-            A.plan_district, args=[run, name, d, issues],
+        plan = lambda d, issues=None, infill=None: workflow.execute_activity(  # noqa: E731
+            A.plan_district, args=[run, name, d, issues, infill],
             start_to_close_timeout=timedelta(minutes=A.MINUTES["district"] + 15), **AGENT)
-        await asyncio.gather(*(plan(d) for d in dists))
+        infill = args.get("infill") or {}   # {district: {covered, hole, count}}: fill hollow interiors
+        if infill:
+            self.phase = "filling in the districts"
+            dists = [d for d in dists if d["id"] in infill]
+            only = list(infill)
+            await asyncio.gather(*(plan(d, None, infill[d["id"]]) for d in dists))
+        else:
+            self.phase = "planning the plots"   # every district planner at once: fan out, fan in
+            await asyncio.gather(*(plan(d) for d in dists))
         for _ in range(2):  # repair rounds: each district fixes only its own problems
             chk = await workflow.execute_activity(A.merge_and_check, name, **QUICK)
             bad = {k: v for k, v in chk["by_district"].items() if v}

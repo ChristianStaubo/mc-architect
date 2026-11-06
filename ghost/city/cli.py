@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import json
 import time
 
 from temporalio.client import Client
@@ -14,7 +15,8 @@ async def _start(a):
     c = await Client.connect(config.TEMPORAL)
     run = a.run or f"{a.name}-{time.strftime('%m%d-%H%M')}"
     args = {"run": run, "name": a.name, "plots": a.plots, "concurrency": a.concurrency, "build": not a.plan_only,
-            "districts": a.districts.split(",") if a.districts else None, "max_plots": a.max_plots}
+            "districts": a.districts.split(",") if a.districts else None, "max_plots": a.max_plots,
+            "infill": json.loads(a.infill) if a.infill else None}
     await c.start_workflow("CityWorkflow", args, id=f"city-{run}", task_queue=A.QUEUE)
     print(f"started city-{run} (watch it at http://localhost:8233)")
 
@@ -55,6 +57,7 @@ def main(argv):
     ap.add_argument("--districts")
     ap.add_argument("--max-plots", type=int)
     ap.add_argument("--plan-only", action="store_true")
+    ap.add_argument("--infill", help='JSON {district: {"covered": 0.35, "hole": 60, "count": 12}}: fill hollow districts')
     a = ap.parse_args(argv)
     db.migrate()
     asyncio.run(_start(a) if a.action == "start" else _workers(a) if a.action == "workers" else _status(a))

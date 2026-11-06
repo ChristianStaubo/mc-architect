@@ -128,6 +128,21 @@ Write towns/{name}/districts/{did}.json: {{"plots": [{{"id": "{did}_<name>", "di
 with "{did}_". Every plot inside your box with a 1-block gap to every other plot and off every road.
 End with one line: how many plots, and anything you couldn't fit."""
 
+INFILL = """Your district, {did} ("{dname}", box x {x0}..{x1}, z {z0}..{z1}), is built along its edges but hollow:
+only {covered:.0%} of it is plots or streets, and there's an empty area of about {hole}x{hole} in it. Fill it in
+like a real quarter grows. Edit towns/{name}/districts/{did}.json:
+- keep every plot already in the file exactly as it is (they're built);
+- add 1 to 3 lanes (width 3) running into the interior, under "roads" in the same file: [{{"id": "{did}_lane_<n>",
+  "points": [[x, z], ...], "width": 3}}]; each lane must start on an existing road (read towns/{name}/layout.json)
+  so the network stays connected, and stay inside your box;
+- add one centrepiece suited to the district ({character_short}): a yard, square, green, garden or similar, as a
+  plot with a brief, at the heart of the interior;
+- add about {count} new plots along the new lanes (doors within 4 blocks of a lane or road, 1-block gaps, off every
+  road), ids starting "{did}_" and not reusing existing ids, each with a brief like the existing ones;
+- leave natural ponds and water alone unless a plot is meant as a water build.
+District character: {character}
+End with one line: lanes and plots added."""
+
 FIX = """The merged city layout has problems in your district. Fix them in towns/{name}/districts/{did}.json
 (move, resize or drop plots; never touch other districts):
 {issues}
@@ -158,13 +173,20 @@ def districts(name: str) -> list:
 
 
 @activity.defn
-def plan_district(run: str, name: str, dist: dict, issues: list | None) -> dict:
+def plan_district(run: str, name: str, dist: dict, issues: list | None, infill: dict | None = None) -> dict:
+    """Plan one district's plots; or fix its own issues; or (infill) add lanes, a centrepiece and plots to its
+    hollow interior, keeping what's built."""
     d = city_dir(name)
     f = d / "districts" / f"{dist['id']}.json"
-    if f.exists() and not issues:  # planned on an earlier attempt
+    if f.exists() and not issues and not infill:  # planned on an earlier attempt
         return {"district": dist["id"], "plots": len(_read(f, {}).get("plots", [])), "reused": True}
     x0, z0, x1, z1 = dist["box"]
-    if issues:
+    if infill:
+        prompt = INFILL.format(name=name, did=dist["id"], dname=dist.get("name", dist["id"]), x0=x0, x1=x1, z0=z0, z1=z1,
+                               covered=infill["covered"], hole=infill["hole"], count=infill["count"],
+                               character=dist.get("character", ""),
+                               character_short=dist.get("character", "")[:120].rsplit(" ", 1)[0] + "...")
+    elif issues:
         prompt = FIX.format(name=name, did=dist["id"], issues="\n".join(f"- {i}" for i in issues))
     else:
         prompt = DISTRICT.format(name=name, did=dist["id"], dname=dist.get("name", dist["id"]), x0=x0, x1=x1, z0=z0,
@@ -182,14 +204,17 @@ def merge_and_check(name: str) -> dict:
     """Merge every district's plots into layout.json and run the layout check: {district: [issues]}."""
     d = city_dir(name)
     lay = _read(d / "layout.json", {})
-    plots = []
+    lay.setdefault("base_roads", lay.get("roads", []))  # the macro planner's streets; districts add their lanes
+    plots, lanes = [], []
     for f in sorted((d / "districts").glob("*.json")):
-        plots += _read(f, {}).get("plots", [])
-    lay["plots"] = plots
+        part = _read(f, {})
+        plots += part.get("plots", [])
+        lanes += [{**r, "district": f.stem} for r in part.get("roads", [])]
+    lay["plots"], lay["roads"] = plots, lay["base_roads"] + lanes
     (d / "layout.json").write_text(json.dumps(lay, indent=1))
     issues = towns.check(name, town_terrain(name))
     by = {}
-    owner = {p["id"]: p.get("district") for p in plots}
+    owner = {p["id"]: p.get("district") for p in plots} | {r["id"]: r["district"] for r in lanes}
     roads = []
     for i in issues:
         if i["level"] != "fail":
