@@ -7,8 +7,9 @@ meets the ground at both ends."""
 
 from . import blocks
 from . import bridge as server
-from . import parts
+from . import parts, terrain
 from .build import load
+from .kits import walk_y
 from .placement import water_depths
 
 HIGHWAY_MIX = [("stone_bricks", 5), ("andesite", 3), ("cracked_stone_bricks", 1), ("polished_andesite", 2),
@@ -17,20 +18,18 @@ TURNS = {(1, 0): 0, (0, 1): 1, (-1, 0): 2, (0, -1): 3}  # stamp's clockwise quar
 MIN_RISE = 6
 
 
-def crossing(br, margin=16):
+def crossing(br):
     """What a kit needs to know about a real crossing: direction, water level, depth, bank heights,
     and so the rise and ramps. br: {"a": [x, z], "b": [x, z], "width": 7}."""
     (ax, az), (bx, bz) = br["a"], br["b"]
     if ax != bx and az != bz:
         raise ValueError(f"bridge {br['id']}: banks {br['a']} and {br['b']} aren't on one axis")
-    d = ((bx > ax) - (bx < ax), (bz > az) - (bz < az))
+    d = terrain.unit((ax, az), (bx, bz))
     n = abs(bx - ax) + abs(bz - az)
     w = br.get("width", 7)
-    lo = (min(ax, bx) - margin, min(az, bz) - margin)
-    hi = (max(ax, bx) + margin, max(az, bz) + margin)
-    cols = server.heightmap(lo, hi)
+    cols = server.heightmap((min(ax, bx), min(az, bz)), (max(ax, bx), max(az, bz)))  # the line, bank to bank
     line = [(ax + d[0] * i, az + d[1] * i) for i in range(n + 1)]
-    wet = [p for p in line if blocks.is_water(cols[p][1])]  # (not "water" in the name: waterlogged=false)
+    wet = [p for p in line if blocks.is_water(cols[p][1])]
     if not wet:
         raise ValueError(f"bridge {br['id']}: no water between the banks")
     water_y = max(cols[p][0] for p in wet)
@@ -57,7 +56,7 @@ def bridge_cells(br, kit, seed=1):
     cells = {(sx + x + off[0], c["water_y"] + y, sz + z + off[1]): v for (x, y, z), v in turned.blocks.items()}
     # headroom along the way across: terrain on the ramps must not block it
     for i in range(c["length"]):
-        y = c["rise"] - max(0, c["ramp_a"] - i) - max(0, i - (c["length"] - 1 - c["ramp_b"]))
+        y = walk_y(i, c["length"], c["rise"], c["ramp_a"], c["ramp_b"])
         for k in range(-mid, mid + 1):
             px = sx + c["dir"][0] * i + (k if c["dir"][1] else 0)
             pz = sz + c["dir"][1] * i + (k if c["dir"][0] else 0)

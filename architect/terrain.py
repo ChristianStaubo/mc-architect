@@ -24,6 +24,25 @@ def _pick(rng, mix):
     return mix[-1][0]
 
 
+def site_check(cols, cells, max_spread):
+    """(problem or None, floor_y) for building on `cells`: off the map, water, or steeper than max_spread.
+    The heightmap's top is the highest non-leaf block, so a trunk reads as a spike: tree tops are left out
+    of the spread and the floor (median ground + 1)."""
+    if any(c not in cols for c in cells):
+        return "off the map", None
+    if any(is_water(cols[c]) for c in cells):
+        return "water", None
+    ys = sorted(cols[c][0] for c in cells if not blocks.is_tree(cols[c][1])) or sorted(cols[c][0] for c in cells)
+    if ys[-1] - ys[0] > max_spread:
+        return "steep", None
+    return None, ys[len(ys) // 2] + 1
+
+
+def unit(a, b):
+    """The unit step from a toward b along each axis: (1, 0), (0, -1), (1, 1)..."""
+    return ((b[0] > a[0]) - (b[0] < a[0]), (b[1] > a[1]) - (b[1] < a[1]))
+
+
 def polyline(points):
     """Every block along a list of (x, z) points, in order, one block per step (no diagonal jumps)."""
     out = []

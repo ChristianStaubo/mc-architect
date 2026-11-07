@@ -13,10 +13,9 @@ def cmd_kit(a):
     sizes = [tuple(ints(s.replace("x", ","))) for s in a.sizes.split()] if a.sizes else None
     rows, sheet = kits.sample(path, a.n, sizes, a.kinds.split(",") if a.kinds else None,
                               out_path(f"kit-{path.stem}"), a.town)
-    bad = 0
+    bad = sum(bool(r["problems"]) for r in rows)
     for r in rows:
         ok = "ok  " if not r["problems"] else "FAIL"
-        bad += bool(r["problems"])
         print(f"{ok} {r['kind']:<14} {r['w']}x{r['d']} door {r['door']:<5} seed {r['seed']:<3} "
               f"{r.get('blocks', 0):>5} blocks {r.get('ms', 0):>4} ms")
         for p in r["problems"]:

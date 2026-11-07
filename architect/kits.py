@@ -9,10 +9,13 @@ author iterates on that, and a critic scores the kit from it once instead of sco
 import itertools
 import time
 
+from pathlib import Path
+
 from . import audit as auditing
 from . import render
+from . import town as towns
 from .blocks import parse
-from .build import load
+from .build import load, module
 
 # a bridge kit (KIND = "bridge") is sampled over these crossings instead: (length, rise, depth, ramp_a, ramp_b)
 # (the last two are the Kingsway's real crossings: a viaduct onto a cliff, and a deep river)
@@ -21,21 +24,9 @@ SIZES = [(9, 9), (11, 13), (14, 11), (16, 16), (12, 18), (10, 15), (18, 12), (13
 DOORS = ["south", "east", "north", "west"]
 
 
-def module(path):
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("kit", path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-def kinds_of(path):
+def kinds_of(path, mod=None):
     """The kinds a kit says it builds (its KINDS list), or just "house"."""
-    return list(getattr(module(path), "KINDS", ["house"]))
-
-
-def is_bridge(path):
-    return getattr(module(path), "KIND", "") == "bridge"
+    return list(getattr(mod or module(path), "KINDS", ["house"]))
 
 
 def walk_y(x, length, rise, ramp_a, ramp_b):
@@ -59,7 +50,7 @@ def check_bridge(b, length, width, rise, depth, ramp_a, ramp_b):
         under, feet, head = b.get(x, y - 1, mid), b.get(x, y, mid), b.get(x, y + 1, mid)
         if under is None and not (x < ramp_a or x > length - 1 - ramp_b):
             gaps.append((x, "no deck"))
-        elif not (auditing.passable(feet) or (feet and ("stairs" in feet or "slab" in feet))) or not auditing.passable(head):
+        elif not (auditing.passable(feet) or auditing.is_step(feet)) or not auditing.passable(head):
             gaps.append((x, f"blocked by {feet or head}"))
     if gaps:
         probs.append(f"the way across fails at {len(gaps)} of {length} steps, e.g. " +
@@ -88,7 +79,7 @@ def check(b, w, d, door):
     if x0 < 0 or z0 < 0 or x1 > w - 1 or z1 > d - 1:
         probs.append(f"outside the {w}x{d} plot: x {x0}..{x1}, z {z0}..{z1}")
     doors = [parse(v)[1].get("facing") for v in b.blocks.values()
-             if "_door" in v and parse(v)[1].get("half") == "lower"]
+             if auditing.is_door(v) and parse(v)[1].get("half") == "lower"]
     if door not in doors:
         probs.append(f"no door facing {door} (doors face {sorted(set(doors)) or 'nowhere'})")
     pad = dict(b.blocks)  # on flat grass, with the air spelled out: the audit floods through listed cells
@@ -104,59 +95,51 @@ def check(b, w, d, door):
 
 
 def town_specs(path, town):
-    """The plots of `town` this kit builds, as (w, d, door, kind, seed) the way `mc place --plot` makes them."""
-    import json
-    import zlib
-    from pathlib import Path as P
-    root = P(__file__).resolve().parent.parent / "towns" / town
-    kits = json.loads((root / "town.json").read_text()).get("kits", {})
-    mine = {k for k, v in kits.items() if P(v).stem == P(path).stem}
-    out = []
-    for p in json.loads((root / "layout.json").read_text())["plots"]:
-        if p.get("kit") in mine:
-            out.append(((p["max"][0] - p["min"][0] + 1, p["max"][1] - p["min"][1] + 1), p.get("door") or "south",
-                        p.get("kind") or p.get("type") or "house", zlib.crc32(f"{town}/{p['id']}".encode())))
-    return out
+    """The params of every plot of `town` this kit builds, exactly as `mc place --plot` passes them."""
+    mine = {k for k, v in towns.town(town).get("kits", {}).items() if Path(v).stem == Path(path).stem}
+    return [towns.kit_params(town, p) for p in towns.layout(town)["plots"] if p.get("kit") in mine]
 
 
 def sample(path, n=8, sizes=None, kinds=None, out=None, town=None):
     """n instances of the kit at varied sizes, door sides, kinds and seeds (or exactly the plots of `town`
     it builds): (rows, sheet path)."""
-    if is_bridge(path):
-        return sample_bridge(path, n, out)
-    kinds = kinds or kinds_of(path)
-    specs = town_specs(path, town) if town else list(itertools.islice(zip(
-        itertools.cycle(sizes or SIZES), itertools.cycle(DOORS), itertools.cycle(kinds), itertools.count(1)), n))
+    mod = module(path)   # once: every instance below builds from it
+    if getattr(mod, "KIND", "") == "bridge":
+        return sample_bridge(path, n, out, mod=mod)
+    kinds = kinds or kinds_of(path, mod)
+    specs = town_specs(path, town) if town else [
+        {"w": w, "d": d, "door": door, "kind": kind, "seed": seed} for (w, d), door, kind, seed in
+        itertools.islice(zip(itertools.cycle(sizes or SIZES), itertools.cycle(DOORS), itertools.cycle(kinds),
+                             itertools.count(1)), n)]
     rows, imgs = [], []
-    for (w, d), door, kind, seed in specs:
+    for p in specs:
         t = time.time()
         try:
-            b = load(path, {"w": w, "d": d, "door": door, "kind": kind, "seed": seed})
-            probs = check(b, w, d, door)
+            b = load(path, p, mod)
             imgs.append(render.iso(b.blocks, tile=6))
-            rows.append({"w": w, "d": d, "door": door, "kind": kind, "seed": seed, "blocks": len(b.blocks),
-                         "ms": round((time.time() - t) * 1000), "problems": probs})
+            rows.append({**p, "blocks": len(b.blocks), "ms": round((time.time() - t) * 1000),
+                         "problems": check(b, p["w"], p["d"], p["door"])})
         except Exception as e:  # noqa: BLE001 (a kit's bug is a row, not a crash: the author fixes it)
-            rows.append({"w": w, "d": d, "door": door, "kind": kind, "seed": seed, "problems": [f"error: {e!r}"]})
+            rows.append({**p, "problems": [f"error: {e!r}"]})
     if imgs and out:
         render.sheet(imgs, out, columns=4)
     return rows, out
 
 
-def sample_bridge(path, n=6, out=None, width=7):
+def sample_bridge(path, n=6, out=None, width=7, mod=None):
     rows, imgs = [], []
     for seed, (length, rise, depth, ra, rb) in enumerate(SPANS[:n], 1):
         t = time.time()
         p = {"length": length, "width": width, "rise": rise, "depth": depth, "ramp_a": ra, "ramp_b": rb, "seed": seed}
+        row = {**p, "kind": "bridge", "w": length, "d": width, "door": f"rise {rise}"}
         try:
-            b = load(path, p)
+            b = load(path, p, mod)
             probs, pad = check_bridge(b, length, width, rise, depth, ra, rb)
             view = {k: v for k, v in pad.items() if v != "air" and (k in b.blocks or k[1] <= 0 or v == "dirt")}
             imgs.append(render.iso(view, tile=5))
-            rows.append({**p, "kind": "bridge", "w": length, "d": width, "door": f"rise {rise}", "blocks": len(b.blocks),
-                         "ms": round((time.time() - t) * 1000), "problems": probs})
+            rows.append({**row, "blocks": len(b.blocks), "ms": round((time.time() - t) * 1000), "problems": probs})
         except Exception as e:  # noqa: BLE001
-            rows.append({**p, "kind": "bridge", "w": length, "d": width, "door": f"rise {rise}", "problems": [f"error: {e!r}"]})
+            rows.append({**row, "problems": [f"error: {e!r}"]})
     if imgs and out:
         render.sheet(imgs, out, columns=2)
     return rows, out
