@@ -84,9 +84,9 @@ class CityWorkflow:
                                         start_to_close_timeout=timedelta(minutes=A.MINUTES["macro"] + 15), **AGENT)
         dists = await workflow.execute_activity(A.districts, name, **QUICK)
 
-        plan = lambda d, issues=None, infill=None: workflow.execute_activity(  # noqa: E731
-            A.plan_district, args=[run, name, d, issues, infill],
-            start_to_close_timeout=timedelta(minutes=A.MINUTES["district"] + 15), **AGENT)
+        def plan(d, issues=None, fill=None, answer=None, session=None):
+            return workflow.execute_activity(A.plan_district, args=[run, name, d, issues, fill, answer, session],
+                                             start_to_close_timeout=timedelta(minutes=A.MINUTES["district"] + 15), **AGENT)
         infill = args.get("infill") or {}   # {district: {covered, hole, count}}: fill hollow interiors
         async def plan_or_ask(d, issues=None, fill=None):
             """Plan a district; if its planner is blocked on a decision that isn't its to make, route the question
@@ -99,9 +99,7 @@ class CityWorkflow:
                 await workflow.wait_condition(lambda: key in self.answers)
                 text = self.answers.pop(key)
                 self.waiting.pop(key, None)
-                r = await workflow.execute_activity(
-                    A.plan_district, args=[run, name, d, None, fill, text, r["session"]],
-                    start_to_close_timeout=timedelta(minutes=A.MINUTES["district"] + 15), **AGENT)
+                r = await plan(d, None, fill, text, r["session"])
             return r
 
         if infill:

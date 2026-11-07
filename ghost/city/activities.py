@@ -15,6 +15,7 @@ from temporalio.exceptions import ApplicationError
 
 from .. import bridge as _path, config, db  # noqa: F401 (_path: architect/ on sys.path)
 from ..db import J
+from ..activities import _heartbeating
 from architect import claude, edits, run as mcrun, town as towns  # noqa: E402
 from architect.cli.town import town_terrain  # noqa: E402
 
@@ -182,7 +183,6 @@ def districts(name: str) -> list:
     return _read(city_dir(name) / "districts.json", {}).get("districts", [])
 
 
-@activity.defn
 def _decision(text):
     """The DECISION NEEDED line a blocked agent ended with: {question, options}, or None."""
     m = re.search(r"^DECISION NEEDED:\s*(.+)$", text or "", re.M)
@@ -196,13 +196,16 @@ def _built(name):
     return {r["plot"] for r in db.all("SELECT plot FROM city_plots WHERE city = %s AND state IN ('done', 'flawed')", name)}
 
 
-def _take_back(run, name, pids):
-    """Undo everything placed for these plots (building and terrace): an approved decision removed them."""
+def _take_back(name, pids):
+    """Undo everything placed for these plots (building and terrace): an approved decision removed them.
+    One undo can take minutes: it runs heartbeating, or Temporal times the activity out and retries it."""
+    tasks = {f"town:{name}:{pid}": pid for pid in pids} | {f"town:{name}:{pid}:terrace": pid for pid in pids}
+    for e in sorted([e for e in edits.listing() if e.get("task") in tasks], key=edits.seq, reverse=True):
+        try:
+            _heartbeating(lambda: edits.undo(e["id"], ""))
+        except SystemExit as x:  # a later edit overlaps it: say so, don't retry
+            raise ApplicationError(f"can't take back {tasks[e['task']]}: {x}", non_retryable=True) from None
     for pid in pids:
-        for e in sorted([e for e in edits.listing() if e.get("task") in (f"town:{name}:{pid}", f"town:{name}:{pid}:terrace")],
-                        key=edits.seq, reverse=True):
-            edits.undo(e["id"], "")
-            activity.heartbeat()  # a big undo takes minutes: without this the activity is timed out and retried
         db.run("UPDATE city_plots SET state = 'removed', updated_at = now() WHERE city = %s AND plot = %s", name, pid)
 
 
@@ -243,7 +246,7 @@ def plan_district(run: str, name: str, dist: dict, issues: list | None, infill: 
         return {"district": dist["id"], "decision": ask, "session": out["session"], "plots": len(plots)}
     gone = (before - {p["id"] for p in plots}) & _built(name)
     if gone and answer:  # removing built plots needs an approved decision; then their blocks are taken back
-        _take_back(run, name, sorted(gone))
+        _take_back(name, sorted(gone))
     elif gone:  # without one, a planner can't drop a built plot: put the file back and say so
         raise ApplicationError(f"{dist['id']} dropped built plots without a decision: {sorted(gone)}", non_retryable=True)
     bad = [p["id"] for p in plots if not (x0 <= p["min"][0] and p["max"][0] <= x1 and z0 <= p["min"][1] and p["max"][1] <= z1)]
@@ -377,12 +380,17 @@ def judge_plot(run: str, name: str, pid: str) -> dict:
         return {"score": None, "fix": "", "error": out[-200:]}
     _, brief = mcrun.mc("town", "brief", name, pid)
     o = run_agent(run, "critic", pid, CRITIC.format(sheet=m.group(1), brief=brief), [], "mc-critic")
-    j = re.search(r"\{.*\}", o["full"], re.S)
+    return {**critique(o["full"]), "sheet": m.group(1)}
+
+
+def critique(text):
+    """A critic's JSON reply ({score, keep, fix}) from its full answer; empty fields when it wrote none."""
+    j = re.search(r"\{.*\}", text, re.S)
     try:
         v = json.loads(j.group(0)) if j else {}
     except ValueError:
         v = {}
-    return {"score": v.get("score"), "keep": v.get("keep", ""), "fix": v.get("fix", ""), "sheet": m.group(1)}
+    return {"score": v.get("score"), "keep": v.get("keep", ""), "fix": v.get("fix", "")}
 
 
 @activity.defn

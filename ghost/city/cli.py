@@ -7,29 +7,32 @@ import time
 
 from temporalio.client import Client
 
+from architect import town as towns
+
 from .. import config, db
 from . import activities as A
 
 
-async def _start(a):
-    c = await Client.connect(config.TEMPORAL)
+async def _launch(a, workflow, args, note=""):
+    """Start a city workflow: run id (given or NAME-MMDD-HHMM), workflow id city-<run> (status, decide and
+    workers find it by that)."""
     run = a.run or f"{a.name}-{time.strftime('%m%d-%H%M')}"
-    args = {"run": run, "name": a.name, "plots": a.plots, "concurrency": a.concurrency, "build": not a.plan_only,
-            "districts": a.districts.split(",") if a.districts else None, "max_plots": a.max_plots,
-            "infill": json.loads(a.infill) if a.infill else None}
-    await c.start_workflow("CityWorkflow", args, id=f"city-{run}", task_queue=A.QUEUE)
-    print(f"started city-{run} (watch it at http://localhost:8233)")
+    c = await Client.connect(config.TEMPORAL)
+    await c.start_workflow(workflow, {"run": run, "name": a.name, **args}, id=f"city-{run}", task_queue=A.QUEUE)
+    print(f"started city-{run}{note} (watch it at http://localhost:8233)")
+
+
+async def _start(a):
+    await _launch(a, "CityWorkflow", {
+        "plots": a.plots, "concurrency": a.concurrency, "build": not a.plan_only,
+        "districts": a.districts.split(",") if a.districts else None, "max_plots": a.max_plots,
+        "infill": json.loads(a.infill) if a.infill else None})
 
 
 async def _kits(a):
     """Build a town from kits (ghost/city/kitwork.py): its town.json names the kits to write."""
-    c = await Client.connect(config.TEMPORAL)
-    run = a.run or f"{a.name}-{time.strftime('%m%d-%H%M')}"
-    from architect import town as towns
     keys = list(towns.town(a.name).get("kits", {}))
-    await c.start_workflow("KitTownWorkflow", {"run": run, "name": a.name, "kits": keys, "skip_kits": a.skip_kits},
-                           id=f"city-{run}", task_queue=A.QUEUE)
-    print(f"started city-{run}: kits {keys} (watch it at http://localhost:8233)")
+    await _launch(a, "KitTownWorkflow", {"kits": keys, "skip_kits": a.skip_kits}, f": kits {keys}")
 
 
 async def _decide(a):

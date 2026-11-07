@@ -5,7 +5,7 @@ fix round below PASS -> the ground by code (roads, bridges fitted by the bridge 
 plot stamped by code -> the same plot critic as the city harness on a few sampled plots, so the
 quality compares with Kingsreach's one-agent-per-plot."""
 
-import json
+import asyncio
 import random
 import re
 import time
@@ -16,10 +16,10 @@ from temporalio import activity, workflow
 from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
-    from .. import db
-    from ..db import J
     from . import activities as A
+    from .workflows import AGENT, QUICK
     from architect import edits, kits, run as mcrun, town as towns  # noqa: E402
+    from architect.cli.common import out_path  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 PASS = 6
@@ -74,8 +74,7 @@ def author_kit(run: str, name: str, key: str, feedback: str | None, session: str
               AUTHOR.format(n=n, town=name, what=what, brief=t["brief"], style=t.get("style", ""), file=path,
                             sample_args=sample_args))
     out = A.run_agent(run, "kit", key, prompt, [path], "mc-builder", resume=session if feedback else None)
-    rows, sheet = kits.sample(ROOT / path, out=ROOT / "local" / "renders" / f"{time.strftime('%Y%m%d-%H%M%S')}-kit-{key}.png",
-                              town=None if key == "bridge" else name)
+    rows, sheet = kits.sample(ROOT / path, out=out_path(f"kit-{key}"), town=None if key == "bridge" else name)
     bad = [r for r in rows if r["problems"]]
     return {"key": key, "clean": len(rows) - len(bad), "total": len(rows), "sheet": str(sheet),
             "problems": [p for r in bad for p in r["problems"]][:6],
@@ -88,12 +87,7 @@ def judge_kit(run: str, name: str, key: str, sheet: str) -> dict:
     path = ROOT / _kit_path(name, key)
     o = A.run_agent(run, "critic", f"kit-{key}", KIT_CRITIC.format(sheet=sheet, kinds=", ".join(kits.kinds_of(path))
                     if key != "bridge" else "bridge", brief=t["brief"]), [], "mc-critic")
-    j = re.search(r"\{.*\}", o["full"], re.S)
-    try:
-        v = json.loads(j.group(0)) if j else {}
-    except ValueError:
-        v = {}
-    return {"score": v.get("score"), "keep": v.get("keep", ""), "fix": v.get("fix", "")}
+    return A.critique(o["full"])
 
 
 @activity.defn
@@ -124,9 +118,9 @@ def stamp_plots(run: str, name: str) -> dict:
         ok, msg = mcrun.mc("place", t["kits"][p["kit"]], "--plot", f"{name}/{p['id']}", timeout=600,
                            MC_RUN_ID=f"city:{run}:stamp")
         s = round(time.time() - t0, 1)
-        e = [x for x in edits.listing() if x.get("task") == f"town:{name}:{p['id']}"]
+        m = re.search(r"placed (e\d+)", msg)
         A.record_plot(run, name, p["id"], "done" if ok else "flawed",
-                      {"stamped": True, "seconds": s, "edit": e[-1]["id"] if e else None, "usd": 0, "minutes": s / 60,
+                      {"stamped": True, "seconds": s, "edit": m.group(1) if m else None, "usd": 0, "minutes": s / 60,
                        **({} if ok else {"error": msg.strip()[-300:]})})
         if not ok:
             fails.append(p["id"])
@@ -143,9 +137,6 @@ def sample_plots(name: str, k: int) -> list:
 
 KIT_ACTIVITIES = [author_kit, judge_kit, lay_bridges, stamp_plots, sample_plots]
 
-AGENT = {"heartbeat_timeout": timedelta(minutes=2),
-         "retry_policy": RetryPolicy(initial_interval=timedelta(minutes=2), maximum_attempts=3)}
-QUICK = {"start_to_close_timeout": timedelta(minutes=10), "retry_policy": RetryPolicy(maximum_attempts=3)}
 LONG = {"start_to_close_timeout": timedelta(hours=2), "heartbeat_timeout": timedelta(minutes=15),
         "retry_policy": RetryPolicy(maximum_attempts=3)}
 
@@ -165,7 +156,7 @@ class KitTownWorkflow:
         j = await workflow.execute_activity(judge_kit, args=[run, name, key, r["sheet"]],
                                             start_to_close_timeout=timedelta(minutes=20), **AGENT)
         first = j.get("score")
-        if r["clean"] < r["total"] or (j.get("score") or 0) < PASS:
+        if r["clean"] < r["total"] or (first or 0) < PASS:
             fb = "\n".join(x for x in [f"Sample: {r['total'] - r['clean']} of {r['total']} not clean: {r['problems']}"
                                        if r["clean"] < r["total"] else "", f"Critic ({j.get('score')}/10): {j.get('fix', '')}"] if x)
             r2 = await workflow.execute_activity(author_kit, args=[run, name, key, fb, r["session"]],
@@ -182,7 +173,7 @@ class KitTownWorkflow:
         t0 = workflow.now()
         if not args.get("skip_kits"):
             self.phase = "designing the kits"   # every kit's author at once
-            await asyncio_gather(*(self._kit(run, name, k) for k in args["kits"]))
+            await asyncio.gather(*(self._kit(run, name, k) for k in args["kits"]))
         t1 = workflow.now()
         self.phase = "laying the road"
         await workflow.execute_activity(A.lay_ground, args=[run, name, None], **LONG)
@@ -207,8 +198,3 @@ class KitTownWorkflow:
         scores = [j["score"] for j in js if j.get("score")]
         return {"kits": self.kits, "bridges": bridges, "stamp": st, "sampled": js, "timing": self.timing,
                 "mean_score": round(sum(scores) / len(scores), 1) if scores else None}
-
-
-async def asyncio_gather(*aws):
-    import asyncio
-    return await asyncio.gather(*aws)
