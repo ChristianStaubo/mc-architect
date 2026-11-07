@@ -78,3 +78,40 @@ not the file. (The terrace stayed: the new lane runs over it.)
   planner's question ended up in a log and the district silently got nothing.
 - **Harness bugs found by running it:** argument order for `mc town`, `workflow.wait` returning lists,
   long critic answers cut before parsing, interrupted runs left "live" in the records. All fixed.
+
+## Kits: agents design once, code builds many (2026-11-07)
+Measuring Kingsreach showed where the time went: placing a house through WorldEdit takes under a
+second, the `mc` commands about 3 s, but each house had its own Sonnet session writing and revising
+a plan (1.4 min, ~19 turns, ~10k output tokens), and a third of all agent time went to critic and
+fix rounds that moved scores less than a point. So a kit (`kits/README.md`) is one parametric design,
+`build(w, d, door, kind, seed)`, that fills a plot exactly. An agent writes it once, checking it with
+`mc kit sample` (every instance built offline, checked and drawn on one sheet). One critic scores the
+kit from that sheet, and code stamps it on every plot (`mc place KIT --plot`).
+`KitTownWorkflow` (`ghost/city/kitwork.py`, `python -m ghost city kits NAME`) runs kit authors in
+parallel, then a critic per kit with one fix round, then the ground and bridges by code, then the
+stamping, then the plot critic on a sample of 6.
+
+## The Kingsway (kw1)
+A 3.2 km highway from Kingsreach to Riverford: `scripts/survey.py` reads the corridor (2,900 x 560
+blocks, 65 s), `architect/route.py` routes it by A* (grades, high ground, few straight crossings) and
+`scripts/kingsway.py` lays it out by code: 54 road pieces, 2 bridges, 4 waystation hamlets (31 plots).
+
+| | Kingsreach (agent per house) | Kingsway (kits) |
+|---|---|---|
+| design | 363 agent runs, ~$62 | 2 kit authors (Opus) + 4 kit critic runs: 27 min, ~$11 |
+| building | ~70 min for 151 plots | roads and terraces 24 s; 2 bridges < 1 s; **31 buildings 15 s** |
+| quality (critic, sampled) | 5.8 | 5.2 (kits 6/10; "the kinds look too alike") |
+
+The cost no longer grows with the number of buildings. Quality is a little lower, and fixing it in
+the kit fixes every building at once. Bugs found by running it: a `waterlogged=false` lantern read as
+water put a bridge 20 blocks high; a space in a building's name hid the contact sheets from the critic.
+("$" is Claude Code's API-equivalent estimate; the runs used the subscription.)
+
+## The Kingsway Express
+`scripts/express.py`, by code with no agents: an underground blue-ice boat line under the Kingsway, two
+2-wide lanes at y 28 in a deepslate shell, legs that run straight through six stations (platforms,
+bubble-column elevators up and down, a ladder, a hut on free ground). 3.6 km and ~150k blocks placed
+in about 6 s, every lane block checked in-world. First built with 1-wide lanes, which take no boat (a
+boat is ~1.4 wide). Rebuilding it showed the real limit of `edits.undo`: it restores a whole box
+snapshot, so it refuses when any later edit's box overlaps, and a long L-shaped tunnel's box overlaps
+everything. The fix belongs in `edits.py` (restore only the edit's own cells).
