@@ -94,7 +94,7 @@ def _fit(path, i, side, kind, front, depth, cols, taken):
         if any(c not in cols for c in cells):
             why = "off the map"
             break
-        if any("water" in cols[c][1] for c in cells):
+        if any(blocks.is_water(cols[c][1]) for c in cells):
             why = "water"
             break
         # trees: the heightmap's top is the highest non-leaf block, so a trunk reads as a spike

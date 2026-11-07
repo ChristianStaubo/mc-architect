@@ -5,6 +5,7 @@ A crossing is two bank points on one axis (route.py makes them so). The deck run
 water; where a bank is lower, the bridge grows a ramp onto the land (1 up per block), so the kit always
 meets the ground at both ends."""
 
+from . import blocks
 from . import bridge as server
 from . import parts
 from .build import load
@@ -29,7 +30,7 @@ def crossing(br, margin=16):
     hi = (max(ax, bx) + margin, max(az, bz) + margin)
     cols = server.heightmap(lo, hi)
     line = [(ax + d[0] * i, az + d[1] * i) for i in range(n + 1)]
-    wet = [p for p in line if "water" in cols[p][1]]
+    wet = [p for p in line if blocks.is_water(cols[p][1])]  # (not "water" in the name: waterlogged=false)
     if not wet:
         raise ValueError(f"bridge {br['id']}: no water between the banks")
     water_y = max(cols[p][0] for p in wet)

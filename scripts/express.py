@@ -4,9 +4,9 @@ each Kingsway waystation. All by code (no agents): it's a line, a cross-section 
   python scripts/express.py plan            # stations, legs, the depth it must run at; writes local/express.json
   python scripts/express.py place [--only leg-1,st-kingsreach]   # place what isn't placed yet (undoable edits)
 
-Cross-section (looking along a leg): shell | ice lane | divider | ice lane | shell, 2 blocks of air over
-the ice, a ceiling with a light every 8 blocks. A 1-wide lane between walls holds a boat straight, so at
-~70 blocks/s you only steer at the corners. Stations: a hall where the lanes run between platforms, a
+Cross-section (looking along a leg): shell | 2-wide ice lane | divider | 2-wide ice lane | shell, 2 blocks
+of air over the ice, a ceiling with a light every 8 blocks. (A boat is about 1.4 blocks wide: a 1-wide lane
+doesn't take one.) Stations: a hall where the lanes run between platforms, a
 bubble column up (soul sand) and one down (magma) to a hut on the surface, and a ladder shaft as backup."""
 import argparse
 import json
@@ -20,6 +20,7 @@ from architect import town as towns  # noqa: E402
 from architect.placement import water_depths  # noqa: E402
 
 PLAN = ROOT / "local" / "express.json"
+VERSION = "w2"   # edit tasks are express:<id>:<VERSION>; w2 = 2-wide lanes (w1's 1-wide lanes took no boat)
 SHELL, WALL, DIVIDER, CEIL = "deepslate_bricks", "deepslate_bricks", "deepslate_brick_wall", "deepslate_tiles"
 LIGHT = "sea_lantern"
 ENDS = {"kingsreach": (-2468, 250), "riverford": (272, -58)}   # near each town's end of the Kingsway
@@ -131,10 +132,13 @@ def band(path, r):
     return {(x + dx, z + dz) for x, z in path for dx in range(-r, r + 1) for dz in range(-r, r + 1)}
 
 
+LANE = (1, 2)   # a lane's offsets from the centre line, on each side
+
+
 def lane_paths(pts):
-    """The two lanes: the centre polyline offset one block to either side (corners joined)."""
+    """The lanes' lines: the centre polyline offset 1 and 2 blocks to either side (corners joined)."""
     out = []
-    for s in (1, -1):
+    for s in (1, 2, -1, -2):
         lane = []
         for i, p in enumerate(pts):
             ns = []
@@ -153,19 +157,20 @@ def lane_paths(pts):
 def tunnel_cells(pts, y):
     path = terrain.polyline([tuple(p) for p in pts])
     cells = {}
-    for x, z in band(path, 2):      # the shell: floor, walls, ceiling
+    for x, z in band(path, 3):      # the shell: floor, walls, ceiling
         cells[(x, y - 1, z)] = SHELL
         for h in range(3):
             cells[(x, y + h, z)] = WALL
         cells[(x, y + 3, z)] = CEIL
-    for x, z in band(path, 1):      # the bore
+    for x, z in band(path, 2):      # the bore
         for h in range(3):
             cells[(x, y + h, z)] = "air"
         cells[(x, y - 1, z)] = SHELL
-    for lane in lane_paths(pts):
+    out_lanes = lane_paths(pts)
+    for lane in out_lanes:
         for k, (x, z) in enumerate(lane):
             cells[(x, y, z)] = "blue_ice"
-            if k % 8 == 4:
+            if k % 8 == 4 and (lane is out_lanes[0] or lane is out_lanes[2]):  # one light over each lane
                 cells[(x, y + 3, z)] = LIGHT
     for x, z in path:               # the divider between the lanes
         for h in range(3):
@@ -185,7 +190,7 @@ def station_cells(st, y, lgs):
     across = (-along[1] * st.get("side", 1), along[0] * st.get("side", 1))  # side: which side the shafts and hut go
     at = lambda a, c: (sx + along[0] * a + across[0] * c, sz + along[1] * a + across[1] * c)  # noqa: E731
     cells = {}
-    L, W = 7, 6
+    L, W = 7, 7
     for a in range(-L, L + 1):
         for c in range(-W, W + 1):
             x, z = at(a, c)
@@ -194,13 +199,13 @@ def station_cells(st, y, lgs):
             for h in range(4):
                 cells[(x, y + h, z)] = "deepslate_tiles" if edge else "air"
             cells[(x, y + 4, z)] = "deepslate_tiles"
-            if abs(a) == L and abs(c) <= 1:  # the track runs on through the hall's end walls
+            if abs(a) == L and abs(c) <= 2:  # the track runs on through the hall's end walls
                 for h in range(3):
                     cells[(x, y + h, z)] = "air"
                 cells[(x, y + 3, z)] = CEIL
-            if abs(c) >= 2 and not edge:
+            if abs(c) >= 3 and not edge:
                 cells[(x, y, z)] = "polished_deepslate" if (a + c) % 2 else "deepslate_tiles"  # platforms
-            if abs(c) == 1:
+            if abs(c) in (1, 2):
                 cells[(x, y, z)] = "blue_ice"
             if c == 0 and abs(a) < L:
                 cells[(x, y, z)] = DIVIDER if abs(a) > 1 else "polished_deepslate"  # a gap to cross over
@@ -298,14 +303,14 @@ def place(only=None):
     y = p["ice_y"]
     done = {e.get("task") for e in edits.listing()}
     for leg in p["legs"]:
-        task = f"express:{leg['id']}"
+        task = f"express:{leg['id']}:{VERSION}"
         if task in done or (only and leg["id"] not in only):
             continue
         cells = tunnel_cells(leg["points"], y)
         e = edits.place(cells, label=f"express-{leg['id']}", run="express", task=task)
         print(f"{leg['id']} ({leg['from']} -> {leg['to']}): {e['changed']} blocks changed", flush=True)
     for st in p["stations"]:
-        task = f"express:{st['id']}"
+        task = f"express:{st['id']}:{VERSION}"
         if task in done or (only and st["id"] not in only):
             continue
         cells, at, shafts, across = station_cells(st, y, p["legs"])
