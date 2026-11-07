@@ -6,14 +6,12 @@ agents write the kits that build it (kits/kingsway_*.py), not the layout.
 import argparse
 import json
 import math
-import random
-import statistics
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from architect import blocks, bridge, route, terrain  # noqa: E402
+from architect import bridge, route, terrain  # noqa: E402
 from architect import town as towns  # noqa: E402
 
 START, GOAL = (-2470, 234), (280, -47)   # Kingsreach's harbour avenue, Riverford's back street
@@ -45,7 +43,7 @@ def pieces(path_pts, start_id):
             for i, pc in enumerate(pc for pc in out if pc[0] != pc[-1])]
 
 
-def hamlet(name, hid, path, k, taken, rng):
+def hamlet(name, hid, path, k, taken):
     """Plots on both sides of the highway around path[k], doors to the road."""
     cx, cz = path[k]
     cols = bridge.heightmap((cx - 60, cz - 60), (cx + 60, cz + 60))
@@ -91,20 +89,12 @@ def _fit(path, i, side, kind, front, depth, cols, taken):
         if ring & taken:
             continue
         cells = [(x, z) for x in range(x0, x1 + 1) for z in range(z0, z1 + 1)]
-        if any(c not in cols for c in cells):
-            why = "off the map"
-            break
-        if any(blocks.is_water(cols[c][1]) for c in cells):
-            why = "water"
-            break
-        # trees: the heightmap's top is the highest non-leaf block, so a trunk reads as a spike
-        ys = [cols[c][0] for c in cells if not blocks.is_tree(cols[c][1])] or [cols[c][0] for c in cells]
-        if max(ys) - min(ys) > 8:
-            why = "steep"
+        why, floor = terrain.site_check(cols, cells, 8)
+        if why:
             break
         taken |= set(cells)
         return {"type": kind, "kind": kind, "kit": "waystation", "min": [x0, z0], "max": [x1, z1],
-                "floor_y": int(statistics.median(ys)) + 1, "door": door, "landmark": kind == "inn"}
+                "floor_y": floor, "door": door, "landmark": kind == "inn"}
     WHY[why] = WHY.get(why, 0) + 1
     return None
 
@@ -115,7 +105,7 @@ def main():
     a = ap.parse_args()
     s = route.survey("kingsway")
     pts, crossings = route.waypoints(s, route.plan(s, START, GOAL))
-    roads, bridges, run, k = [], [], [pts[0]], 1
+    roads, bridges, run = [], [], [pts[0]]
     banks = {tuple(c[0]): c for c in crossings}
     for p in pts[1:]:
         run.append(p)
@@ -125,21 +115,20 @@ def main():
             bridges.append({"id": f"br-{len(bridges) + 1}", "a": list(c[0]), "b": list(c[1]), "width": WIDTH + 2,
                             "seed": len(bridges) + 1})
             run = []
-        elif run == [p] or (len(run) == 1):
-            pass
-    roads += pieces([q for q in run if q], len(roads) + 1)
+    roads += pieces(run, len(roads) + 1)
     path = terrain.polyline([tuple(q) for r in roads for q in r["points"]])
     taken = set()
     for r in roads:
         taken |= towns.road_cells(r)
-    rng = random.Random(7)
     plots, districts = [], []
     for i in range(a.hamlets):
         k = int(len(path) * (i + 1) / (a.hamlets + 1))
         for shift in (0, 40, -40, 80, -80, 120, -120):  # nudge along the road to firmer, drier ground
-            got = hamlet(NAMES[i], f"h{i + 1}", path, k + shift, taken, rng) if 0 <= k + shift < len(path) else []
+            trial = set(taken)  # a nudge that's given up mustn't leave its plots reserved
+            got = hamlet(NAMES[i], f"h{i + 1}", path, k + shift, trial) if 0 <= k + shift < len(path) else []
             if len(got) >= 6:
                 break
+        taken |= {(x, z) for q in got for x in range(q["min"][0], q["max"][0] + 1) for z in range(q["min"][1], q["max"][1] + 1)}
         plots += got
         districts.append({"id": f"h{i + 1}", "name": NAMES[i], "at": list(path[k + shift]), "plots": len(got)})
         print(f"{NAMES[i]}: {len(got)} plots at {path[k + shift]}")

@@ -15,13 +15,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from architect import blocks, bridge, edits, terrain  # noqa: E402
+from architect import bridge, edits, terrain  # noqa: E402
 from architect import town as towns  # noqa: E402
 from architect.placement import water_depths  # noqa: E402
 
 PLAN = ROOT / "local" / "express.json"
 VERSION = "w2"   # edit tasks are express:<id>:<VERSION>; w2 = 2-wide lanes (w1's 1-wide lanes took no boat)
-SHELL, WALL, DIVIDER, CEIL = "deepslate_bricks", "deepslate_bricks", "deepslate_brick_wall", "deepslate_tiles"
+SHELL, DIVIDER, CEIL = "deepslate_bricks", "deepslate_brick_wall", "deepslate_tiles"
 LIGHT = "sea_lantern"
 ENDS = {"kingsreach": (-2468, 250), "riverford": (272, -58)}   # near each town's end of the Kingsway
 
@@ -49,17 +49,12 @@ def find_spot(near, taken, size=9, reach=40):
         for dz in range(-reach, reach + 1, 2):
             x, z = cx + dx, cz + dz
             cells = [(x + i, z + j) for i in range(-h, h + 1) for j in range(-h, h + 1)]
-            if any(c in taken or c not in cols for c in cells):
+            if any(c in taken for c in cells):
                 continue
-            tops = [cols[c] for c in cells]
-            if any(blocks.is_water(b) for _, b in tops):
-                continue
-            ys = [y for y, b in tops if not blocks.is_tree(b)] or [y for y, _ in tops]
-            if max(ys) - min(ys) > 3:
-                continue
+            why, floor = terrain.site_check(cols, cells, 3)
             d = dx * dx + dz * dz
-            if best is None or d < best[0]:
-                best = (d, (x, z), sorted(ys)[len(ys) // 2])
+            if not why and (best is None or d < best[0]):
+                best = (d, (x, z), floor - 1)
     if not best:
         raise SystemExit(f"no free spot near {near}")
     return best[1], best[2]
@@ -78,10 +73,10 @@ def legs(stations):
             corner = (bx, az) if x_first else (ax, bz)
             pts = [(ax, az), corner, (bx, bz)]
             pts = [p for i, p in enumerate(pts) if i == 0 or p != pts[i - 1]]
-            d0 = ((pts[1][0] > ax) - (pts[1][0] < ax), (pts[1][1] > az) - (pts[1][1] < az))
+            d0 = terrain.unit((ax, az), pts[1])
             if arrive and (d0[0] or d0[1]) and d0 != arrive[1]:
                 uturns += 1
-            d1 = ((bx > pts[-2][0]) - (bx < pts[-2][0]), (bz > pts[-2][1]) - (bz < pts[-2][1]))
+            d1 = terrain.unit(pts[-2], (bx, bz))
             arrive = ("x" if d1[0] else "z", d1)
             out.append({"id": f"leg-{len(out) + 1}", "from": a["id"], "to": b["id"], "points": [list(p) for p in pts]})
         return uturns, out
@@ -93,16 +88,21 @@ def depth_needed(lgs):
     well below it."""
     low = 10 ** 9
     for leg in lgs:
-        path = terrain.polyline([tuple(p) for p in leg["points"]])[::8]
-        for i in range(0, len(path), 64):
-            chunk = path[i:i + 64]
-            xs, zs = [p[0] for p in chunk], [p[1] for p in chunk]
-            cols = bridge.heightmap((min(xs), min(zs)), (max(xs), max(zs)))
-            wet = [(x, z, cols[(x, z)][0]) for x, z in chunk if blocks.is_water(cols[(x, z)][1])]
-            dep = water_depths(wet)
-            for x, z in chunk:
-                y, b = cols[(x, z)]
-                low = min(low, y - dep.get((x, z), 0))
+        for a, b in zip(leg["points"], leg["points"][1:]):
+            low = min(low, _lowest(terrain.polyline([tuple(a), tuple(b)])[::8]))
+    return low
+
+
+def _lowest(path):
+    """The lowest bed (or ground) under a straight run of sample points, 64 at a time."""
+    low = 10 ** 9
+    for i in range(0, len(path), 64):
+        chunk = path[i:i + 64]
+        xs, zs = [p[0] for p in chunk], [p[1] for p in chunk]
+        cols = bridge.heightmap((min(xs), min(zs)), (max(xs), max(zs)))
+        dep = water_depths([(x, z, cols[(x, z)][0]) for x, z in chunk if terrain.is_water(cols[(x, z)])])
+        for x, z in chunk:
+            low = min(low, cols[(x, z)][0] - dep.get((x, z), 0))
     return low
 
 
@@ -132,26 +132,19 @@ def band(path, r):
     return {(x + dx, z + dz) for x, z in path for dx in range(-r, r + 1) for dz in range(-r, r + 1)}
 
 
-LANE = (1, 2)   # a lane's offsets from the centre line, on each side
+LANE = (1, 2)   # a lane's offsets from the centre line (each side): 2 wide
+OFFSETS = (*LANE, *(-o for o in LANE))
 
 
 def lane_paths(pts):
-    """The lanes' lines: the centre polyline offset 1 and 2 blocks to either side (corners joined)."""
-    out = []
-    for s in (1, 2, -1, -2):
-        lane = []
-        for i, p in enumerate(pts):
-            ns = []
-            for a, b in ((pts[i - 1], p) if i else (None, None), (p, pts[i + 1]) if i + 1 < len(pts) else (None, None)):
-                if a is None:
-                    continue
-                dx, dz = (b[0] > a[0]) - (b[0] < a[0]), (b[1] > a[1]) - (b[1] < a[1])
-                ns.append((-dz, dx))   # the left normal
-            ox = s * (ns[0][0] + (ns[1][0] if len(ns) > 1 else 0))
-            oz = s * (ns[0][1] + (ns[1][1] if len(ns) > 1 else 0))
-            lane.append((p[0] + ox, p[1] + oz))
-        out.append(terrain.polyline(lane))
-    return out
+    """The lanes' lines (offsets OFFSETS): the centre polyline moved sideways along the left normal of the
+    segments meeting at each point (summed at a corner, so the lines join)."""
+    steps = [terrain.unit(a, b) for a, b in zip(pts, pts[1:])]
+    normals = []
+    for i in range(len(pts)):
+        meet = steps[max(i - 1, 0):i + 1]
+        normals.append((sum(-dz for dx, dz in meet), sum(dx for dx, dz in meet)))
+    return [terrain.polyline([(p[0] + s * n[0], p[1] + s * n[1]) for p, n in zip(pts, normals)]) for s in OFFSETS]
 
 
 def tunnel_cells(pts, y):
@@ -160,21 +153,19 @@ def tunnel_cells(pts, y):
     for x, z in band(path, 3):      # the shell: floor, walls, ceiling
         cells[(x, y - 1, z)] = SHELL
         for h in range(3):
-            cells[(x, y + h, z)] = WALL
+            cells[(x, y + h, z)] = SHELL
         cells[(x, y + 3, z)] = CEIL
     for x, z in band(path, 2):      # the bore
         for h in range(3):
             cells[(x, y + h, z)] = "air"
-        cells[(x, y - 1, z)] = SHELL
-    out_lanes = lane_paths(pts)
-    for lane in out_lanes:
+    for s, lane in zip(OFFSETS, lane_paths(pts)):
         for k, (x, z) in enumerate(lane):
             cells[(x, y, z)] = "blue_ice"
-            if k % 8 == 4 and (lane is out_lanes[0] or lane is out_lanes[2]):  # one light over each lane
+            if k % 8 == 4 and abs(s) == LANE[0]:  # one light over each lane
                 cells[(x, y + 3, z)] = LIGHT
     for x, z in path:               # the divider between the lanes
         for h in range(3):
-            cells[(x, y + h, z)] = DIVIDER if h < 2 else WALL
+            cells[(x, y + h, z)] = DIVIDER if h < 2 else SHELL
     return cells
 
 
@@ -186,7 +177,7 @@ def station_cells(st, y, lgs):
     # which way the line runs through the station: from its first leg's first step
     l0 = mine[0]
     p0, p1 = (l0["points"][0], l0["points"][1]) if l0["from"] == st["id"] else (l0["points"][-1], l0["points"][-2])
-    along = ((p1[0] > p0[0]) - (p1[0] < p0[0]), (p1[1] > p0[1]) - (p1[1] < p0[1]))
+    along = terrain.unit(p0, p1)
     across = (-along[1] * st.get("side", 1), along[0] * st.get("side", 1))  # side: which side the shafts and hut go
     at = lambda a, c: (sx + along[0] * a + across[0] * c, sz + along[1] * a + across[1] * c)  # noqa: E731
     cells = {}
@@ -235,10 +226,10 @@ def station_cells(st, y, lgs):
             cells[(x, yy, z)] = "air"
     # ladders on the shaft's wall away from the hall
     lx, lz = shafts["ladder"]
-    face = {(1, 0): "west", (-1, 0): "east", (0, 1): "north", (0, -1): "south"}[across]
+    back = terrain.DIRS[(-across[0], -across[1])]   # facing back toward the hall
     for yy in range(y + 1, top + 1):
         cells[(lx + across[0], yy, lz + across[1])] = "deepslate_bricks"
-        cells[(lx, yy, lz)] = f"ladder[facing={face}]"
+        cells[(lx, yy, lz)] = f"ladder[facing={back}]"
     # a corridor from the platform to the shafts, doors holding the water in
     for a in range(-3, 4):
         for c in (W, W + 1):
@@ -248,24 +239,16 @@ def station_cells(st, y, lgs):
             for h in (1, 2):
                 cells[(x, y + h, z)] = "air"
             cells[(x, y + 3, z)] = "deepslate_tiles"
-    dface = {(1, 0): "east", (-1, 0): "west", (0, 1): "south", (0, -1): "north"}
-    for kind in ("up", "down"):
-        x, z = shafts[kind]
-        dx, dz = x - across[0], z - across[1]   # the shaft's wall toward the corridor
-        cells[(dx, y + 1, dz)] = f"spruce_door[facing={dface[(-across[0], -across[1])]},half=lower,open=true,hinge=left]"
-        cells[(dx, y + 2, dz)] = f"spruce_door[facing={dface[(-across[0], -across[1])]},half=upper,open=true,hinge=left]"
-    x, z = shafts["ladder"]
-    cells[(x - across[0], y + 1, z - across[1])] = "air"
-    cells[(x - across[0], y + 2, z - across[1])] = "air"
-    # at the top, each shaft opens into the hut the same way (doors hold the columns' water)
-    for kind in ("up", "down"):
-        x, z = shafts[kind]
-        dx, dz = x - across[0], z - across[1]
-        cells[(dx, top, dz)] = f"spruce_door[facing={dface[(-across[0], -across[1])]},half=lower,open=true,hinge=left]"
-        cells[(dx, top + 1, dz)] = f"spruce_door[facing={dface[(-across[0], -across[1])]},half=upper,open=true,hinge=left]"
-    x, z = shafts["ladder"]
-    cells[(x - across[0], top, z - across[1])] = "air"
-    cells[(x - across[0], top + 1, z - across[1])] = "air"
+    # each shaft opens toward the hall at the bottom and into the hut at the top: open doors hold the
+    # columns' water, the ladder shaft is just open
+    for base in (y + 1, top):
+        for kind, (x, z) in shafts.items():
+            wx, wz = x - across[0], z - across[1]   # the shaft's wall on the hall side
+            if kind == "ladder":
+                cells[(wx, base, wz)] = cells[(wx, base + 1, wz)] = "air"
+            else:
+                cells[(wx, base, wz)] = f"spruce_door[facing={back},half=lower,open=true,hinge=left]"
+                cells[(wx, base + 1, wz)] = f"spruce_door[facing={back},half=upper,open=true,hinge=left]"
     # the hut on the surface: a 9 x 5 stone room over the three shafts, doors to them, a sign and lamp
     for a in range(-4, 5):
         for c in (W + 1, W + 2, W + 3):
@@ -278,19 +261,17 @@ def station_cells(st, y, lgs):
             cells.setdefault((x, top - 1, z), "stone_bricks" if edge else "polished_andesite")  # a floor under all of it
             for h in range(2, 6):  # a footing down into the ground, around the shafts
                 cells.setdefault((x, top - h, z), "stone_bricks")
-            for h in range(0, 4):
-                if edge:
+            if edge:
+                for h in range(4):
                     cells[(x, top + h, z)] = "stone_bricks" if h < 3 else "stone_brick_slab[type=bottom]"
-            if not edge:
-                cells.setdefault((x, top - 1, z), "polished_andesite")
+            else:
                 cells[(x, top + 3, z)] = "stone_brick_slab[type=bottom]"
                 for h in range(0, 3):
                     cells.setdefault((x, top + h, z), "air")
     # the hut's door, on the side away from the shafts
     x, z = at(0, W - 1)
-    f = dface[(-across[0], -across[1])]
-    cells[(x, top, z)] = f"oak_door[facing={f},half=lower,hinge=left]"
-    cells[(x, top + 1, z)] = f"oak_door[facing={f},half=upper,hinge=left]"
+    cells[(x, top, z)] = f"oak_door[facing={back},half=lower,hinge=left]"
+    cells[(x, top + 1, z)] = f"oak_door[facing={back},half=upper,hinge=left]"
     x, z = at(1, W - 2)
     cells[(x, top, z)] = "lantern[hanging=false]"
     x, z = at(-1, W - 2)
