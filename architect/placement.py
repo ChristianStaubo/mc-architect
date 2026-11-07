@@ -21,23 +21,19 @@ def bounds(cells):
     return (min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs))
 
 
-# names models keep writing that this server renamed: rewritten in place, not refused (46 of 155 refused
-# placements in the Kingsreach runs were 'chain', each costing the builder a round)
-RENAMED = {"chain": "iron_chain"}
-
-
 def check_blocks(cells):
     """Refuse before placing (or previewing) if any block-data string won't parse on this server, with
-    the closest real names. Known renames (RENAMED) are fixed in `cells` first, with a note.
+    the closest real names. Known renames (blocks.RENAMED) are fixed in `cells` first, with a note (plans
+    get them from Build.set already; this catches cells built any other way).
     r2: 'dark_oak_log[axis=x][axis=z]' only failed at place time."""
     fixed = Counter()
     for k, b in cells.items():
-        base = blocks.name(b)
-        if base in RENAMED:
-            cells[k] = b.replace(base, RENAMED[base], 1)
-            fixed[base] += 1
+        c = blocks.canonical(b)
+        if c != b:
+            cells[k] = c
+            fixed[blocks.name(b)] += 1
     for old, n in fixed.items():
-        print(f"note: {old} is called {RENAMED[old]} on this server; renamed {n} block(s)", file=sys.stderr)
+        print(f"note: {old} rewritten as the server names it ({n} block(s))", file=sys.stderr)
     names = sorted({b for b in cells.values() if not blocks.is_air(b)})
     bad = bridge.call("/validate", {"blocks": names})["invalid"]
     if not bad:

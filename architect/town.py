@@ -10,6 +10,7 @@ towns/<name>/layout.json  the planner's layout:
 """
 
 import json
+import zlib
 import statistics
 from pathlib import Path
 
@@ -41,6 +42,14 @@ def plot(name, pid):
         if p["id"] == pid:
             return p
     raise SystemExit(f"no plot {pid} in {name}")
+
+
+def kit_params(name, p):
+    """What a kit (kits/README.md) builds for plot p of town `name`: its size, door side, kind, and a seed
+    from its id. `mc place --plot` and `mc kit sample --town` both use this, so a sample is the build."""
+    return {"w": p["max"][0] - p["min"][0] + 1, "d": p["max"][1] - p["min"][1] + 1,
+            "door": p.get("door") or "south", "kind": p.get("kind") or p.get("type") or "house",
+            "seed": zlib.crc32(f"{name}/{p['id']}".encode())}
 
 
 def road_cells(r):

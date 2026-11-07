@@ -62,6 +62,14 @@ def emits(b):
     return 0
 
 
+def is_step(b):
+    """A block you can walk up onto in front of a door or along a deck: stairs, or a bottom slab."""
+    if b is None:
+        return False
+    n, props = parse(b)
+    return n.endswith("_stairs") or (n.endswith("_slab") and props.get("type") == "bottom")
+
+
 def is_door(b):
     return b is not None and name(b).endswith("_door")
 
@@ -122,7 +130,7 @@ def audit(cells, box):
         for side, sign in (("outside", 1), ("inside", -1)):
             c = (p[0] + sign * d[0], p[1], p[2] + sign * d[2])
             here, above = cells.get(c), cells.get((c[0], c[1] + 1, c[2]))
-            step = here is not None and ("stairs" in here or "slab[type=bottom" in here)  # a step up is fine
+            step = is_step(here)  # a step up is fine
             if not ((passable(here) or step) and passable(above)):
                 add("door", "fail", f"door at {p} is blocked on its {side} ({cells.get(c)})", [p])
 

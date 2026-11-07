@@ -7,15 +7,10 @@ import inspect
 from collections import Counter
 from pathlib import Path
 
-from .blocks import name
+from .blocks import canonical, name
 
 
-def _states(block):
-    """Python's True/False written into block states (lakeside: spruce_fence[north=False]) become the
-    lowercase the server wants."""
-    if "[" in block and ("=True" in block or "=False" in block):
-        block = block.replace("=True", "=true").replace("=False", "=false")
-    return block
+_states = canonical  # every block a plan sets is written the way the server takes it
 
 
 class Build:
@@ -81,13 +76,20 @@ def payload(cells, label="build"):
     return {"origin": list(lo), "size": list(size), "palette": palette, "rle": rle, "label": label}
 
 
-def load(path, params=None):
-    """Run a plan file's build(); its optional PLACE (the `mc place` arguments a reference plan goes on
-    its task's plot with) rides along as build.place_args. A kit (kits/README.md) takes parameters:
-    build(w, d, door, kind, seed, ...) gets those of `params` its signature names."""
+def module(path):
+    """A plan or kit file, executed as a module."""
     spec = importlib.util.spec_from_file_location(Path(path).stem, path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
+    return mod
+
+
+def load(path, params=None, mod=None):
+    """Run a plan file's build(); its optional PLACE (the `mc place` arguments a reference plan goes on
+    its task's plot with) rides along as build.place_args. A kit (kits/README.md) takes parameters:
+    build(w, d, door, kind, seed, ...) gets those of `params` its signature names. `mod`: the file
+    already loaded (a kit sampled many times)."""
+    mod = mod or module(path)
     takes = inspect.signature(mod.build).parameters
     b = mod.build(**{k: v for k, v in (params or {}).items() if k in takes})
     b.place_args = getattr(mod, "PLACE", [])

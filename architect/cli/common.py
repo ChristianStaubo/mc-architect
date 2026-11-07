@@ -17,7 +17,7 @@ RENDERS = ROOT / "local" / "renders"
 
 def out_path(stem):
     RENDERS.mkdir(parents=True, exist_ok=True)
-    stem = "-".join(str(stem).split())  # no spaces: callers find the path in the output with \S+
+    stem = re.sub(r"[^\w.-]+", "-", str(stem))  # one token: callers find the path in the output with \S+
     return RENDERS / f"{time.strftime('%Y%m%d-%H%M%S')}-{stem}.png"
 
 

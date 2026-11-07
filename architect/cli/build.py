@@ -5,7 +5,6 @@ import sys
 import json
 import os
 import time
-import zlib
 from collections import Counter
 
 from .. import blocks, bridge, edits, evals, journal, render, terrain
@@ -103,12 +102,7 @@ def resolve(a):
 def kit_params(a):
     """What a kit (kits/README.md) is built for: the plot's size, door side and type, a seed from its id,
     then any --kit k=v,... overrides. Plain plans ignore these."""
-    params = {}
-    if a.plot:
-        p = towns.plot(*a.plot.split("/"))
-        params = {"w": p["max"][0] - p["min"][0] + 1, "d": p["max"][1] - p["min"][1] + 1,
-                  "door": p.get("door") or "south", "kind": p.get("kind") or p.get("type") or "house",
-                  "seed": zlib.crc32(a.plot.encode())}
+    params = towns.kit_params(a.plot.split("/")[0], towns.plot(*a.plot.split("/"))) if a.plot else {}
     for kv in filter(None, (getattr(a, "kit", None) or "").split(",")):
         k, v = kv.split("=", 1)
         params[k.strip()] = int(v) if v.strip().lstrip("-").isdigit() else v.strip()

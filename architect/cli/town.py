@@ -21,6 +21,12 @@ def town_terrain(name, refresh=False):
     return {tuple(map(int, k.split(","))): (v[0], v[1]) for k, v in json.loads(p.read_text()).items()}
 
 
+def plot_row(p):
+    """One plot as a table row (town show, town plots)."""
+    return (f"{p['id']:<34} {p.get('district', ''):<14} {p.get('type', '')[:22]:<22} x {p['min'][0]}..{p['max'][0]} "
+            f"z {p['min'][1]}..{p['max'][1]} floor y {p.get('floor_y')} door {p.get('door')}")
+
+
 def cmd_town(a):
     name = a.name
     if a.action == "site":
@@ -48,9 +54,7 @@ def cmd_town(a):
         lay = towns.layout(name)
         print(f"{len(lay.get('roads', []))} roads, {len(lay.get('plots', []))} plots")
         for n, pid in numbering.items():
-            p = towns.plot(name, pid)
-            print(f"  {n:>2} {pid:<16} {p.get('district', ''):<12} {p.get('type', ''):<18} "
-                  f"x {p['min'][0]}..{p['max'][0]} z {p['min'][1]}..{p['max'][1]} floor y {p.get('floor_y')} door {p.get('door')}")
+            print(f"  {n:>2} {plot_row(towns.plot(name, pid))}")
         for i in issues:
             print(f"  {i['level'].upper():<4} {i['what']:<16} {i['msg']}")
         fails = sum(i["level"] == "fail" for i in issues)
@@ -60,8 +64,7 @@ def cmd_town(a):
         lay = towns.layout(name)
         for p in lay.get("plots", []):
             if not a.district or p.get("district") == a.district:
-                print(f"{p['id']:<34} {p.get('district', ''):<14} {p.get('type', '')[:22]:<22} x {p['min'][0]}..{p['max'][0]} "
-                      f"z {p['min'][1]}..{p['max'][1]} floor {p.get('floor_y')} door {p.get('door')}")
+                print(plot_row(p))
         for r in lay.get("roads", []):
             if not a.district or r.get("district") in (None, a.district):
                 pts = r["points"]
@@ -72,8 +75,9 @@ def cmd_town(a):
         lay = towns.merged(name, a.district)
         mine = {p["id"] for p in lay["plots"] if p.get("district") == a.district} | \
             {r["id"] for r in lay["roads"] if r.get("district") == a.district}
-        issues = [i for i in towns.check(name, town_terrain(name), lay) if i["what"] in mine or i["level"] == "fail"
-                  and i["what"] not in {p["id"] for p in lay["plots"]}]
+        plots = {p["id"] for p in lay["plots"]}   # (another district's plot failing is that district's problem)
+        issues = [i for i in towns.check(name, town_terrain(name), lay)
+                  if i["what"] in mine or (i["level"] == "fail" and i["what"] not in plots)]
         for i in issues:
             print(f"  {i['level'].upper():<4} {i['what']:<30} {i['msg']}")
         fails = sum(i["level"] == "fail" for i in issues)

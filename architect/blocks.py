@@ -20,6 +20,21 @@ def parse(block):
     return name, props
 
 
+# names models keep writing that this server renamed (46 of 155 refused Kingsreach placements were 'chain')
+RENAMED = {"chain": "iron_chain"}
+
+
+def canonical(block):
+    """The block string the server takes: renamed blocks (RENAMED) get their current name, and Python's
+    True/False in states (lakeside: spruce_fence[north=False]) become lowercase."""
+    base = parse(block)[0]
+    if base in RENAMED:
+        block = block.replace(base, RENAMED[base], 1)
+    if "[" in block and ("=True" in block or "=False" in block):
+        block = block.replace("=True", "=true").replace("=False", "=false")
+    return block
+
+
 def name(block):
     return parse(block)[0]
 
