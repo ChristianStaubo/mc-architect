@@ -78,6 +78,12 @@ class PolicyPairs(unittest.TestCase):
         # a guest can't borrow the ghost's rights
         self.assertFalse(policy.both(GUEST, LAKE_GHOST, "Build", LAKE, c(10)).allowed)
 
+    def test_error_denies(self):
+        # without overlaps_build the no-building-over-builds forbid errors; Cedar would skip it and allow
+        d = policy.authorize(ALEX, "Build", LAKE, {"blocks": 40, "head_approved": False, "zone_head_approved": False})
+        self.assertFalse(d.allowed)
+        self.assertTrue(d.errors)
+
     def test_zones(self):
         self.assertEqual(config.zone_at(348, -190).id, "lakeside_market")  # protected wins
         self.assertEqual({z.id for z in config.zones_touching((300, -160, 320, -140))}, {"lakeside", "commons"})

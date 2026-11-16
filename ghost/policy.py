@@ -92,7 +92,9 @@ def authorize(who, action, resource, context=None):
     r = cedarpy.is_authorized({"principal": _ref(who), "action": f'Action::"{action}"', "resource": res,
                                "context": context or {}}, policies, _entities(who, resource))
     rules = [ids[int(p[len("policy"):])] if p.startswith("policy") else p for p in r.diagnostics.reasons]
-    return Decision(r.allowed, rules, list(r.diagnostics.errors))
+    errors = list(r.diagnostics.errors)
+    # Cedar skips a policy whose condition errors, so a broken forbid could let a permit through: fail closed
+    return Decision(r.allowed and not errors, rules, errors)
 
 
 def both(requester, ghost, action, resource, context=None):
