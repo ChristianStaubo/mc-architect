@@ -53,7 +53,7 @@ public final class WorldRoutes {
     public WorldRoutes(Plugin plugin, HttpBridge bridge) {
         this.plugin = plugin;
         try {
-            this.grants = new Grants(plugin.getDataFolder().toPath());
+            this.grants = new Grants(plugin.getDataFolder().toPath(), plugin.getLogger());
         } catch (java.io.IOException e) {
             throw new IllegalStateException("can't read the grant key or keys.json", e);
         }

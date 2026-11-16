@@ -14,14 +14,17 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static dev.mcarchitect.core.Json.map;
 
@@ -40,13 +43,15 @@ public final class HttpBridge {
     private final Gson gson = new Gson();
     private final HttpServer http;
     private final byte[] token;
+    private final ExecutorService pool = Executors.newFixedThreadPool(6);  // a long-polling inbox holds one thread
 
     public HttpBridge(Plugin plugin) throws IOException {
         this.plugin = plugin;
-        this.token = loadToken(plugin.getDataFolder().toPath().resolve("token")).getBytes(StandardCharsets.UTF_8);
+        this.token = loadToken(plugin.getDataFolder().toPath().resolve("token"), plugin.getLogger())
+                .getBytes(StandardCharsets.UTF_8);
         int port = Integer.parseInt(System.getenv().getOrDefault("MC_BRIDGE_PORT", "8765"));
         http = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
-        http.setExecutor(Executors.newFixedThreadPool(6));  // a long-polling inbox holds one thread
+        http.setExecutor(pool);
         plugin.getLogger().info("bridge on port " + port);
     }
 
@@ -56,6 +61,7 @@ public final class HttpBridge {
 
     public void stop() {
         http.stop(0);
+        pool.shutdownNow();  // HttpServer.stop leaves its executor's threads alive across a plugin disable
     }
 
     public void route(String path, Handler handler) {
@@ -108,13 +114,31 @@ public final class HttpBridge {
         }
     }
 
-    private static String loadToken(Path file) throws IOException {
-        if (Files.exists(file)) return Files.readString(file).trim();
+    private static String loadToken(Path file, Logger log) throws IOException {
+        if (Files.exists(file)) {
+            String t = Files.readString(file).trim();
+            ownerOnly(file, log);  // files made before this was owner-only
+            return t;
+        }
         Files.createDirectories(file.getParent());
         byte[] raw = new byte[32];
         new SecureRandom().nextBytes(raw);
         String t = HexFormat.of().formatHex(raw);
         Files.writeString(file, t + "\n");
+        ownerOnly(file, log);
         return t;
+    }
+
+    /**
+     * Make a secret (the token, the grant key) readable by its owner only. The owner is the server's user,
+     * which on the host is the user the CLI runs as (Docker Desktop shows the bind mount's files as theirs).
+     * Best effort: a file system without POSIX modes, or a file we don't own, keeps its mode and logs why.
+     */
+    static void ownerOnly(Path file, Logger log) {
+        try {
+            Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
+        } catch (UnsupportedOperationException | IOException e) {
+            log.warning("could not make " + file.getFileName() + " owner-only: " + e);
+        }
     }
 }

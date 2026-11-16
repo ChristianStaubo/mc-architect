@@ -35,7 +35,7 @@ final class Grants {
     private final Map<String, Map<String, Object>> applied = new LinkedHashMap<>();   // key -> the edit summary
     private final Map<String, Integer> used = new LinkedHashMap<>();     // task -> blocks placed under grants
 
-    Grants(Path dataFolder) throws IOException {
+    Grants(Path dataFolder, java.util.logging.Logger log) throws IOException {
         Files.createDirectories(dataFolder);
         keysFile = dataFolder.resolve("keys.jsonl");
         Path keyFile = dataFolder.resolve("grant-key");
@@ -45,6 +45,7 @@ final class Grants {
             Files.writeString(keyFile, HexFormat.of().formatHex(k));
         }
         secret = HexFormat.of().parseHex(Files.readString(keyFile).trim());
+        HttpBridge.ownerOnly(keyFile, log);  // new, or made before this was owner-only
         if (Files.exists(keysFile))
             for (String line : Files.readAllLines(keysFile)) {
                 if (line.isBlank()) continue;
