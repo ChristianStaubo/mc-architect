@@ -1,8 +1,10 @@
 """The gate's exit code: skipped server checks are a failure, not a silent green. No server needed."""
 
 import io
+import tempfile
 import unittest
 from contextlib import redirect_stdout
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -36,6 +38,25 @@ class GateExit(unittest.TestCase):
 
     def test_failed_check_fails(self):
         self.assertEqual(gate(record(failed=1))[0], 1)
+
+
+class KitsInGate(unittest.TestCase):
+    def test_every_kit_has_an_offline_row(self):
+        kits = {p.stem for p in regression.ROOT.joinpath("kits").glob("*.py")
+                if not p.name.startswith("_")}
+        rows = {name for group, name, needs_server, _ in regression.checks(offline=True) if group == "kits"}
+        self.assertTrue(kits)
+        self.assertEqual(rows, kits)
+
+    def test_a_broken_kit_fails_with_its_first_problem(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            kit = Path(tmp) / "broken.py"
+            kit.write_text("def build(w, d, door, kind, seed):\n    raise RuntimeError('no walls')\n")
+            with mock.patch("architect.cli.common.out_path", return_value=Path(tmp) / "sheet.png"):
+                ok, detail = regression.check_kit(kit)()
+        self.assertFalse(ok)
+        self.assertTrue(detail.startswith("0/4 clean; house seed 1: error:"), detail)
+        self.assertIn("no walls", detail)
 
 
 if __name__ == "__main__":

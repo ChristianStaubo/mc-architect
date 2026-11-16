@@ -7,6 +7,7 @@ server: block names valid on this server, place + undo restoring a scratch plot 
 live test, and replays of past tool-bug incidents (which must pass once fixed)."""
 
 import json
+import re
 import subprocess
 import sys
 import time
@@ -149,6 +150,12 @@ def example_plans():
     return sorted((ROOT / "plans").glob("*.py"))
 
 
+def kit_files():
+    """kits/*.py that are kits (kits/README.md): a module-level build(), not a _helper."""
+    return sorted(p for p in (ROOT / "kits").glob("*.py")
+                  if not p.name.startswith("_") and re.search(r"^def build\(", p.read_text(), re.M))
+
+
 # ---- checks: each returns (ok, detail) ----
 
 def check_unit_tests():
@@ -171,6 +178,22 @@ def check_part(name):
 
 def check_example_plan(path):
     return lambda: _audit_offline(load_plan(path))
+
+
+def check_kit(path, n=4):
+    """A few of the kit's variants built offline (kits.sample, as `mc kit sample` does): all clean."""
+    def fn():
+        from . import kits
+        from .cli.common import out_path
+        rows, _ = kits.sample(path, n, out=out_path(f"kit-{path.stem}"))
+        bad = [r for r in rows if r["problems"]]
+        if not rows:
+            return False, "no samples"
+        if bad:
+            r = bad[0]
+            return False, f"{len(rows) - len(bad)}/{len(rows)} clean; {r['kind']} seed {r['seed']}: {r['problems'][0]}"
+        return True, f"{len(rows)}/{len(rows)} clean"
+    return fn
 
 
 def check_block_names():
@@ -254,6 +277,7 @@ def checks(offline=False):
     out = [("tests", "unit tests", False, check_unit_tests)]
     out += [("parts", n, False, check_part(n)) for n in REFERENCES]
     out += [("plans", p.stem, False, check_example_plan(p)) for p in example_plans()]
+    out += [("kits", p.stem, False, check_kit(p)) for p in kit_files()]
     if not offline:
         out += [("server", "block names", True, check_block_names),
                 ("server", "place + undo", True, check_place_undo),
