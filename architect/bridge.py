@@ -56,6 +56,11 @@ def _call(path, body, timeout):
     except (http.client.HTTPException, ConnectionError) as e:
         # Docker's port forwarder accepts, then drops, while the server is still starting.
         raise BridgeError(f"bridge not ready ({type(e).__name__}): is the server still starting?") from None
+    except TimeoutError:
+        # A stalled or restarting server times out the read; callers expect BridgeError for any bridge failure.
+        raise BridgeError(f"bridge timed out after {timeout}s on {path}") from None
+    except OSError as e:
+        raise BridgeError(f"bridge not ready ({type(e).__name__}): is the server still starting?") from None
 
 
 def status():

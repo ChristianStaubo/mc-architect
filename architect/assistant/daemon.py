@@ -149,7 +149,37 @@ def _timings(run_id, t0):
     return firsts
 
 
+SORRY = "Something went wrong on my side. Try again in a moment."
+
+
+def _warn(player, log):
+    """Tell a player something failed, without letting a bridge failure escape."""
+    try:
+        say(player, SORRY, "warn")
+    except bridge.BridgeError as ex:
+        log(f"couldn't tell {player}: {ex}")
+
+
 def finish(player, job, run_id, log):
+    """Report a job's end, then always free the player's slot and start the next queued request."""
+    try:
+        _report(player, job, run_id, log)
+    except Exception as ex:  # the slot must be freed whatever went wrong, or the player stays busy forever
+        log(f"{player}: finishing failed: {ex!r}")
+        _warn(player, log)
+    finally:
+        with lock:
+            jobs.pop(player, None)
+            nxt = queue.popleft() if queue else None
+        if nxt:
+            try:
+                start(*nxt, log)
+            except Exception as ex:
+                log(f"{nxt[0]['player']}: starting failed: {ex!r}")
+                _warn(nxt[0]["player"], log)
+
+
+def _report(player, job, run_id, log):
     r = job.wait()
     with sessions.edit(player) as s:
         if r["session_id"]:
@@ -166,11 +196,6 @@ def finish(player, job, run_id, log):
         say(player, f"Something went wrong on my side ({r['end']}). Try again, or ask the server owner.", "warn")
     elif "say" not in firsts:  # the agent didn't talk to them: pass on its last words
         say(player, r["result"].strip().splitlines()[-1][:300] if r["result"].strip() else "Done.")
-    with lock:
-        jobs.pop(player, None)
-        nxt = queue.popleft() if queue else None
-    if nxt:
-        start(*nxt, log)
 
 
 def on_request(event, model, log):
@@ -213,9 +238,13 @@ def serve(model="sonnet", log=print):
                 handle(e, model, log)
             except Exception as ex:  # one bad event mustn't stop the architect
                 log(f"error handling {e}: {ex!r}")
-                say(e["player"], "Something went wrong on my side. Try again in a moment.", "warn")
+                _warn(e["player"], log)
             finally:
-                bridge.ack([e["id"]])
+                try:
+                    bridge.ack([e["id"]])
+                except bridge.BridgeError as bex:
+                    # No retry list: the plugin's inbox hands an unacknowledged event out again after 60 s.
+                    log(f"couldn't ack {e['id']}: {bex}")
 
 
 def status():

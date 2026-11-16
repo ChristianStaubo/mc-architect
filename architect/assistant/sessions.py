@@ -4,6 +4,7 @@ and the context of their latest request."""
 
 import contextlib
 import json
+import os
 import shutil
 import time
 from pathlib import Path
@@ -37,7 +38,10 @@ def _all():
     with locked(DIR):
         everyone = all_players()
         yield everyone
-        FILE.write_text(json.dumps(everyone, indent=1))
+        # Write aside and swap in, so lock-free readers (all_players) never see a half-written file.
+        tmp = FILE.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(everyone, indent=1))
+        os.replace(tmp, FILE)
 
 
 @contextlib.contextmanager
