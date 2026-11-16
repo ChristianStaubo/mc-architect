@@ -85,7 +85,7 @@ def run_agent(run, role, key, prompt, writable, agent, resume=None):
     res = claude.result_of(lines)
     end = "timeout" if time.time() > deadline else claude.end_of(res)
     denials = len(res.get("permission_denials") or [])
-    out = {"end": end, "session": res.get("session_id"), "usd": res.get("total_cost_usd"),
+    out = {"end": end, "session": res.get("session_id"), "usd": res.get("total_cost_usd") or 0,
            "turns": res.get("num_turns"), "minutes": round((time.time() - t0) / 60, 1), "denials": denials,
            "report": (res.get("result") or "")[-1200:]}
     full = res.get("result") or ""
@@ -383,14 +383,31 @@ def judge_plot(run: str, name: str, pid: str) -> dict:
     return {**critique(o["full"]), "sheet": m.group(1)}
 
 
+def _score(v):
+    """A number, or None: 7 and 7.5 as they are, "6/10" -> 6; a bool or anything else -> None."""
+    if isinstance(v, bool):
+        return None
+    if isinstance(v, (int, float)):
+        return v
+    m = re.match(r"\s*(\d+(?:\.\d+)?)", v) if isinstance(v, str) else None
+    if not m:
+        return None
+    return float(m.group(1)) if "." in m.group(1) else int(m.group(1))
+
+
+def _text(v):
+    return v if isinstance(v, str) else "" if v is None else str(v)
+
+
 def critique(text):
-    """A critic's JSON reply ({score, keep, fix}) from its full answer; empty fields when it wrote none."""
-    j = re.search(r"\{.*\}", text, re.S)
+    """A critic's JSON reply ({score, keep, fix}) from its full answer; empty fields when it wrote none.
+    The score is always a number or None (workflow code compares it), keep and fix always strings."""
+    j = re.search(r"\{.*\}", text or "", re.S)   # from the first { to the last }: an object, or no JSON at all
     try:
         v = json.loads(j.group(0)) if j else {}
     except ValueError:
         v = {}
-    return {"score": v.get("score"), "keep": v.get("keep", ""), "fix": v.get("fix", "")}
+    return {"score": _score(v.get("score")), "keep": _text(v.get("keep")), "fix": _text(v.get("fix"))}
 
 
 @activity.defn

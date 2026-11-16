@@ -163,9 +163,11 @@ class KitTownWorkflow:
                                                  start_to_close_timeout=tmo, **AGENT)
             j = await workflow.execute_activity(judge_kit, args=[run, name, key, r2["sheet"]],
                                                 start_to_close_timeout=timedelta(minutes=20), **AGENT)
-            r = {**r2, "minutes": r["minutes"] + r2["minutes"], "usd": r["usd"] + r2["usd"]}
+            r = {**r2, "minutes": (r.get("minutes") or 0) + (r2.get("minutes") or 0),
+                 "usd": (r.get("usd") or 0) + (r2.get("usd") or 0)}
         self.kits[key] = {"score": j.get("score"), "first_score": first, "clean": f"{r['clean']}/{r['total']}",
-                          "minutes": round(r["minutes"], 1), "usd": round(r["usd"], 2), "fix": j.get("fix", "")[:200]}
+                          "minutes": round(r.get("minutes") or 0, 1), "usd": round(r.get("usd") or 0, 2),
+                          "fix": j.get("fix", "")[:200]}
 
     @workflow.run
     async def run(self, args: dict) -> dict:
