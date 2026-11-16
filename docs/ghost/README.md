@@ -81,5 +81,6 @@ mid-way (now resumed on redelivery); a body that vanished when its chunk unloade
   making too many calls; it stops the workflow and tells the player. It doesn't yet escalate to a
   stronger model first.
 - **Trace rows** are written as each model call finishes (not batched yet).
+- **Flat modules** in `ghost/`, not a package per layer (design.md, Folder structure).
 - Not built yet: memory beyond the thread, the town crier, the guardian, the ops room page, mega-builds,
   the spirit's body.

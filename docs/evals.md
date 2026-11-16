@@ -40,10 +40,11 @@ interval, cost and time. `--vs OLD_RUN` compares two runs task by task. Every ta
 solution (`evals/reference/`) that passes its checks, so a failing task means the builder, not the test.
 
 ## Architect behaviour
-Nine scripted conversations in `evals/scenarios/`, played by virtual players on their own plots: build
+Ten scripted conversations in `evals/scenarios/`, played by virtual players on their own plots: build
 here, build in my selection, change it, too big, not a build, unclear, cancel, yes with nothing waiting,
-undo with nothing built. Checks are code: did it preview before placing, place exactly what it previewed,
-stay where asked, and leave the ground exactly as it was after undo.
+undo with nothing built, and a small build at their feet from preview to yes to undo. Checks are code:
+did it preview before placing, place exactly what it previewed, stay where asked, and leave the ground
+exactly as it was after undo.
 
 ## Notes
 - Agent runs use the Claude Code CLI on your subscription. Dollar figures in reports are API-equivalent

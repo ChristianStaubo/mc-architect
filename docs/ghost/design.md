@@ -34,7 +34,7 @@ engine: one store, one policy engine, one worker pool, one bridge.
  last-line policy check                                                             ▼
  keyed bridge (/place ...) ◄──── tool layer: policy · budget · lease · key · audit ◄── workers
  chat ◄────────────────────────── outbox ◄── replies (only the router talks to players)
-                                       store (SQLite): events, threads, tasks, approvals,
+                                       store (Postgres): events, threads, tasks, approvals,
                                        budgets, leases, memory, audit, outbox, workflows
  watchdog: heartbeats + progress ──► pause / escalate / restart          ops room: reads the store
 ```
@@ -207,26 +207,33 @@ times and reports pass^k; chaos tests kill containers mid-build. Each suite gets
 | Judge | the house cup judge against your own ratings | agreement measured; pairwise, order-swapped |
 
 ## Folder structure
+As built (the first proposal had a package per layer; flat modules were enough):
 ```
 ghost/                    the agent system (Python), next to architect/ (the building toolkit it uses)
-  store/                  SQLite schema, migrations, the step log / workflows, the outbox
-  sources/                bridge inbox, timers → triggers
-  filter.py               the fast path
-  threads.py
-  router/                 house ghosts and the spirit (personas, dispatch, replies)
-  workers/                task kinds: build, commission, mega-build phase, digest
-  tools/                  the tool layer (every world-touching call), idempotency, leases, budgets
-  policy/                 the engine wrapper, approvals, grants
-  memory/                 memory store, consolidation, retention, forget-me
-  body/                   the body interface; the plugin ghost entity; later a real player
-  watchdog/               liveness and progress
-  obs/                    audit, traces, metrics, the ops room
-  evals/                  simulated players, gauntlet, chaos, load, judge calibration
-policies/                 Cedar schema and policies, shared by Python and the plugin
-plugin/src/dev/mcarchitect/
-  ghost/                  the ghost body entity, /ghost, events to the inbox
-  houses/                 houses, zones, roles, the house picker on first join
-  policy/                 the last-line check on world edits
+  __main__.py             python -m ghost: the processes and the evals
+  config.py               houses, zones, the database, secrets
+  schema.sql, db.py       the Postgres store and its schema
+  core.py                 ghost-core: the always-on loop (listening, routing)
+  bridge.py               the ghost plugin's routes over the bridge
+  members.py              who is in which house, with which role
+  policy.py               authorize(): Cedar, the one question every action asks
+  tools.py                the tool layer (every world-touching call)
+  tasks.py                a task's states and the one way to change them
+  workflows.py            a build as a Temporal workflow
+  activities.py           what the workflow's steps do
+  worker.py               ghost-worker: runs the workflows and activities
+  model.py                the one model interface
+  memory.py               what a ghost remembers about each player
+  outbox.py               what the ghosts say
+  watchdog.py             liveness and progress
+  evals.py, evals_scenarios.py, sim.py   the evals and their simulated players
+  city/                   a city built by many agents at once (docs/ghost/city.md)
+policies/                 Cedar schema and policies
+ghost-plugin/src/dev/mcarchitect/ghost/
+  GhostPlugin.java        events to ghost-core, what the ghosts say
+  Listen.java             who a chat message is addressed to
+  Houses.java             the houses, who's in them, the house picker
+  Bodies.java             the ghosts' bodies
 docs/ghost/               this design and the ones that follow
 ```
 `architect/assistant/` (today's `/arc` daemon) becomes the first worker kind and is retired once the
