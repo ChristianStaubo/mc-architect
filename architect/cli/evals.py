@@ -17,6 +17,10 @@ def cmd_eval(a):
             mark = {"pass": "ok  ", "fail": "FAIL", "skipped": "skip"}[r["status"]]
             print(f"  {mark} {r['group']:<7} {r['check']:<22} {r['seconds']:>5}s  {r['detail'][:90]}")
         print(f"{rec['passed']} passed, {rec['failed']} failed, {rec['skipped']} skipped")
+        if rec["skipped"] and not a.offline:  # a gate that couldn't run is not a pass
+            print(f"FAIL: {rec['skipped']} checks skipped (server not running). "
+                  "Start it (docker compose up -d) or run: mc eval gate --offline")
+            return 1
         return 1 if rec["failed"] else 0
     if a.action == "list":
         for tid, t in evals.tasks().items():
