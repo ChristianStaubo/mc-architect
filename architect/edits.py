@@ -146,10 +146,11 @@ def _restore_body(e):
 
 def retire_in(lo, hi, how):
     """Mark every live edit inside the box lo..hi undone without touching the world: the box was put back
-    some other way (an eval site reset), so their snapshots no longer describe what's there."""
+    some other way (an eval site reset), so their snapshots no longer describe what's there. Interrupted
+    places in the box are retired too: undoing one later would put its stale snapshot over the reset box."""
     box = {"min": list(lo), "max": list(hi)}
     with _locked():
-        gone = [e for e in listing() if _overlap(e, box)]
+        gone = [e for e in listing() + interrupted() if _overlap(e, box)]
         for e in gone:
             _write({**e, "undone": time.strftime("%Y-%m-%dT%H:%M:%S"), "undo_via": how})
     return gone

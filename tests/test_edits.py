@@ -160,6 +160,20 @@ class EditsTest(unittest.TestCase):
         edits.undo(older["id"])
         self.assertEqual(self.world.cells, self.original)
 
+    def test_a_site_reset_retires_an_interrupted_place(self):
+        self.world.fail, self.world.apply_then_fail = TimeoutError("bridge timed out"), True
+        with self.assertRaises(TimeoutError):
+            edits.place(house(), "cut off")
+        lost = edits.interrupted()[0]["id"]
+        gone = edits.retire_in((0, 0, 0), (9, 3, 9), "site reset")
+        self.assertEqual([e["id"] for e in gone], [lost])
+        self.assertEqual(edits.interrupted(), [])
+        world, places = dict(self.world.cells), self.world.places
+        with self.assertRaises(SystemExit) as cm:
+            edits.undo(lost)
+        self.assertIn("already undone", str(cm.exception))
+        self.assertEqual((self.world.cells, self.world.places), (world, places))
+
     def test_the_same_key_twice_places_once(self):
         first = edits.place(house(), "hut", key="k1")
         again = edits.place(house(), "hut", key="k1")
