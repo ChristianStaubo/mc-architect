@@ -11,8 +11,9 @@ from .. import bridge, incidents, journal
 from . import assistant, build, evals, kit, look, recorder, town, world
 from .common import Parser
 
-# The in-game architect's agent (MC_ROLE=architect) never changes the world itself (docs/architect.md).
-ARCHITECT_DENIED = {"place", "undo", "cmd", "restart", "eval", "town"}
+# The in-game architect's agent (MC_ROLE=architect) never changes the world itself (docs/architect.md),
+# and never answers /arc for a player (mc architect ask) or runs the bench.
+ARCHITECT_DENIED = {"place", "undo", "cmd", "restart", "eval", "town", "architect", "bench"}
 GROUPS = [world, build, look, recorder, town, kit, evals, assistant]
 
 

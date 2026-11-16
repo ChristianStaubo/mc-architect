@@ -15,7 +15,10 @@ from .common import ghost_mode, ints
 
 
 def player_of(a):
-    p = a.for_ or os.environ.get("MC_PLAYER")
+    own = os.environ.get("MC_PLAYER")
+    if os.environ.get("MC_ROLE") == "architect" and own and a.for_ and a.for_.lower() != own.lower():
+        sys.exit(f"refused: the architect previews for the player who asked ({own})")
+    p = a.for_ or own
     if not p:
         sys.exit("refused: whose preview? --for PLAYER (or MC_PLAYER)")
     return p

@@ -8,6 +8,8 @@
       "Bash(./mc.py eval:*)",
       "Bash(./mc.py town:*)",
       "Bash(./mc.py ghost:*)",
+      "Bash(./mc.py architect:*)",
+      "Bash(./mc.py bench:*)",
       "Read(server/plugins/MCBridge/**)",
       "Read(local/ghost/**)",
       "Edit(server/**)",
@@ -16,7 +18,24 @@
       "Edit(config/**)",
       "Edit(ghost/**)",
       "Read(local/ghost-memory/**)",
-      "Edit(local/ghost-memory/**)"
+      "Edit(local/ghost-memory/**)",
+      "Edit(architect/**)",
+      "Edit(mc.py)",
+      "Edit(.claude/**)",
+      "Edit(plugin/**)",
+      "Edit(ghost-plugin/**)",
+      "Edit(scripts/**)",
+      "Edit(evals/**)",
+      "Edit(tests/**)",
+      "Edit(docker/**)",
+      "Edit(kits/**)",
+      "Edit(towns/**)",
+      "Edit(plans/**)",
+      "Edit(docs/**)",
+      "Edit(local/assistant/sessions.json)",
+      "Edit(local/edits/**)",
+      "Edit(local/runs/**)",
+      "Edit(local/evals/**)"
     ]
   }
 }

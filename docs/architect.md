@@ -53,7 +53,9 @@ Minecraft                          your machine
 The tools enforce these, not the agent's good manners:
 - Without a marked area: at most 48 blocks wide and 64 tall, within 32 blocks of the spot you're looking
   at, and never on the spot you're standing.
-- The agent can only preview and talk. Placing, undoing and console commands are refused to it.
+- The agent can only preview and talk. Placing, undoing and console commands are refused to it, and so
+  are answering /arc for anyone (`mc architect ask`), previewing for anyone but the player who asked, and
+  editing the harness (`.claude/architect-settings.json`). Plans still run as Python: not a sandbox.
 - Two requests run at a time; the rest wait their turn. Operators only for now (`mcbridge.architect`).
 
 ## Running and testing
