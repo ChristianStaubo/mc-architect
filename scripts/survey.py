@@ -11,7 +11,8 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
 from architect import blocks, bridge  # noqa: E402
 
 ap = argparse.ArgumentParser()
@@ -21,7 +22,7 @@ ap.add_argument("--step", type=int, default=4)
 ap.add_argument("--tile", type=int, default=128)
 a = ap.parse_args()
 x0, z0, x1, z1 = a.box
-out = Path("local/survey")
+out = ROOT / "local" / "survey"
 tiles = out / f"{a.name}.tiles"
 tiles.mkdir(parents=True, exist_ok=True)
 w, h = (x1 - x0) // a.step + 1, (z1 - z0) // a.step + 1

@@ -1,6 +1,6 @@
 """Live test of the 2x2 piston door on scratch ground (needs the running server; forceloads its chunks,
 since redstone only runs in ticking chunks). python3 scripts/test_door_live.py -> PASS / FAIL"""
-import sys, time; sys.path.insert(0, '.')
+import sys, time; from pathlib import Path; sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from architect import bridge, edits, redstone
 O = (330, 66, 330)
 bridge.command(f"forceload add {O[0] - 10} {O[2] - 10} {O[0] + 5} {O[2] + 10}")  # the door's chunks
