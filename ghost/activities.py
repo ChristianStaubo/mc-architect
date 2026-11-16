@@ -147,9 +147,8 @@ def tell(task_id: int, what: str, data: dict) -> None:
     elif what == "failed":
         outbox.say(g, p, words or "I couldn't draw that one. Try describing it differently?", key=key)
     elif what == "needs":
-        if d.get("asked") == data["needs"]:  # once per task and approval: a retried step doesn't ask twice
-            return
-        tasks.move(task_id, "approval", need=data["needs"], asked=data["needs"])
+        # a retried step runs all of this again: the move is the same, and the outbox keys queue each line once
+        tasks.move(task_id, "approval", need=data["needs"])
         outbox.say(g, p, f"That needs {data['who']}'s yes first ({data['why']}). I've asked them.", key=key)
         (x0, _, z0), (x1, _, z1) = d.get("frame") or d["box"]
         outbox.say(g, data["approver"], f"{p} wants to build {t['request'][:80]!r}: {d.get('blocks')} blocks at "
