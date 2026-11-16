@@ -1,5 +1,8 @@
-"""Edits that survive restarts. Before every place we save what was in the box (a snapshot); undo uses
-WorldEdit's own history when the edit is the server's latest, and otherwise puts the snapshot back.
+"""Edits that survive restarts. Before every place we save what was in the box (a snapshot) and record the
+edit, both before the blocks change; undo uses WorldEdit's own history when the edit is the server's latest,
+and otherwise puts the snapshot back. A place interrupted after its record was written (a timeout, a dropped
+connection, Ctrl-C) leaves a "placing" record: hidden from listing(), shown by interrupted(), it keeps its id
+and snapshot, blocks undoing older edits under it, and an explicit `mc undo eN` restores what was there.
 Snapshots keep block states, not container contents (a chest comes back empty)."""
 
 import gzip
@@ -34,8 +37,14 @@ def _write(e):
 
 
 def listing():
-    """Edits not undone yet."""
-    return [e for e in _all() if not e.get("undone")]
+    """Edits not undone yet (finished ones: an interrupted place is in interrupted())."""
+    return [e for e in _all() if not e.get("undone") and e.get("state") != "placing"]
+
+
+def interrupted():
+    """Unkeyed places whose record was written but whose bridge call never answered: the blocks may or may
+    not have changed. Not undone yet."""
+    return [e for e in _all() if not e.get("undone") and e.get("state") == "placing"]
 
 
 def seq(e):
@@ -75,8 +84,12 @@ def undo(eid=None, run=""):
 
 
 def _place(cells, label, run="", task="", key=None, grant=None, **extra):
-    """Snapshot the box, place, record (with any `extra` fields). Returns the edit record.
+    """Snapshot the box, record (with any `extra` fields), place, record again. Returns the edit record.
 
+    The record is always written before the blocks change. Without a key it's written "placing" and, once
+    the bridge answers, rewritten with the server's id and count and no state (as finished records always
+    looked); an interrupted place leaves the "placing" record, which keeps its id and snapshot from being
+    reused, counts in undo's overlap check, and is restored by an explicit undo of its id.
     With an idempotency `key` (the ghost's workers: a retried step must never build twice) the record is
     written *pending* with its snapshot before the blocks change, then marked applied. A retry with the
     same key finds that record: applied, it's returned as it is; pending (a crash in between), the same
@@ -102,7 +115,7 @@ def _place(cells, label, run="", task="", key=None, grant=None, **extra):
          "t": time.strftime("%Y-%m-%dT%H:%M:%S"), "snapshot": snap.name, **extra}
     if key:
         e |= {"key": key, "state": "pending"}
-        _write(e)
+    _write(e if key else e | {"state": "placing"})
     r = bridge.place(body | ({"key": key} if key else {}) | ({"grant": grant} if grant else {}))
     e |= {"server_id": r["id"], "changed": r["changed"]} | ({"state": "applied"} if key else {})
     _write(e)
@@ -147,7 +160,7 @@ def _overlap(a, b):
 
 
 def _undo(eid=None, run=""):
-    live = listing()
+    live = listing() + interrupted()
     e = get(eid) if eid else newest(run)
     if e.get("undone"):
         raise SystemExit(f"{e['id']} is already undone")
