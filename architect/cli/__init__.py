@@ -14,6 +14,10 @@ from .common import Parser
 # The in-game architect's agent (MC_ROLE=architect) never changes the world itself (docs/architect.md),
 # and never answers /arc for a player (mc architect ask) or runs the bench.
 ARCHITECT_DENIED = {"place", "undo", "cmd", "restart", "eval", "town", "architect", "bench"}
+# An eval builder (MC_ROLE=builder, architect/trials.py) builds from its brief: no server commands, no daemon,
+# and of the eval actions only `brief` (check places the reference answer; the rest judge, reset or report).
+BUILDER_DENIED = {"cmd", "restart", "architect", "bench"}
+BUILDER_EVAL_ALLOWED = {"brief"}
 GROUPS = [world, build, look, recorder, town, kit, evals, assistant]
 
 
@@ -27,6 +31,10 @@ def main(doc):
         a.run = a.task  # `mc eval report RUN`
     if os.environ.get("MC_ROLE") == "architect" and a.cmd in ARCHITECT_DENIED:
         sys.exit(f"refused: the architect previews and talks; mc {a.cmd} is for the player's /arc yes and undo")
+    if os.environ.get("MC_ROLE") == "builder" and (
+            a.cmd in BUILDER_DENIED or (a.cmd == "eval" and a.action not in BUILDER_EVAL_ALLOWED)):
+        what = f"eval {a.action}" if a.cmd == "eval" else a.cmd
+        sys.exit(f"refused: an eval builder builds from its brief; mc {what} is for the harness")
     t0 = time.time()
     code, err, kind, exc = 0, None, None, None
     try:

@@ -29,7 +29,8 @@ and its checks:
 
 Each trial:
 1. The plot is put back exactly as it was (`evals/sites/`), and the world is held still.
-2. A builder agent works on it headless, limited to the `mc` tools.
+2. A builder agent works on it headless, limited to the `mc` tools (`MC_ROLE=builder`: no `eval check`,
+   `cmd` or `restart`), unable to read the answers or edit anything but its own plan (`architect/trials.py`).
 3. **Code graders** decide pass or fail: can you walk to every door and storey, does it stay in its plot,
    is it over the water, are the trees still standing... (`architect/graders.py`).
 4. **Judges** score the contact sheet 1-10 against `evals/RUBRIC.md`, three dimensions each.

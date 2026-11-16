@@ -19,6 +19,10 @@ RESULTS = evals.RESULTS
 WORK = ROOT / "local" / "trials"  # live workspaces; moved under RESULTS (which builders can't read) when done
 SECRET = ["local/evals/**", "local/plans/**", "evals/reference/**", "evals/sites/**", "evals/results/**",
           "evals/ratings.jsonl"]
+# Builders write only their plan (under local/trials/): never the harness, the graders or the tasks.
+HARNESS = ["architect/**", "mc.py", ".claude/**", "evals/**", "tests/**", "plugin/**", "scripts/**", "kits/**",
+           "plans/**", "towns/**", "docs/**", "STYLE.md", "CLAUDE.md"]
+DENIED_MC = ["eval check", "eval reset", "cmd", "restart"]  # also refused by mc.py for MC_ROLE=builder
 HASHED = [".claude/agents/mc-builder.md", ".claude/skills/mc-build/SKILL.md", "STYLE.md", "CLAUDE.md",
           "evals/RUBRIC.md", "architect/parts.py"]
 
@@ -51,10 +55,13 @@ def save(rec):
 
 
 def settings_file(run):
-    """Builder permissions: read the repo, never the answers (other trials, references, scores)."""
+    """Builder permissions: read the repo, never the answers (other trials, references, scores); edit only
+    their own workspace; no mc command that places the answer or touches the server."""
     p = WORK / run / "settings.json"
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps({"permissions": {"deny": [f"Read(./{s})" for s in SECRET]}}, indent=1))
+    deny = ([f"Read(./{s})" for s in SECRET] + [f"Bash(./mc.py {c}:*)" for c in DENIED_MC]
+            + [f"Edit(./{s})" for s in HARNESS])
+    p.write_text(json.dumps({"permissions": {"deny": deny}}, indent=1))
     return p
 
 
@@ -94,7 +101,7 @@ def trial(run, t, i, model, settings, sheet, judge_model=None):
     b = t["budget"]
     cmd = claude.command(prompt(t, run_id, str(plan)), model, claude.MC_TOOLS, b.get("usd", 3.0),
                          agent="mc-builder", settings=settings)
-    env = {**os.environ, "MC_RUN_ID": run_id}
+    env = {**os.environ, "MC_RUN_ID": run_id, "MC_ROLE": "builder"}
     t0 = time.time()
     try:
         p = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True, timeout=(b["minutes"] + 10) * 60)
