@@ -34,6 +34,8 @@ import static dev.mcarchitect.core.Json.world;
  */
 public final class WorldRoutes {
     private static final int MAX_HISTORY = 100;
+    /** /kick re-places blocks one by one on the main thread; a big box would freeze the server. */
+    static final int MAX_KICK = 64 * 64 * 64;
 
     private final Plugin plugin;
     private final Deque<Edit> history = new ArrayDeque<>();
@@ -64,7 +66,11 @@ public final class WorldRoutes {
                 .filter(m -> m.isBlock() && !m.isLegacy()).map(m -> m.getKey().getKey()).sorted().toList()));
         bridge.route("/validate", b -> bridge.sync(() -> validate(b)));
         bridge.route("/use", b -> bridge.sync(() -> use(b)));
-        bridge.route("/kick", b -> bridge.sync(() -> map("kicked", kick(world(b), ints(b, "min", 3), ints(b, "max", 3)))));
+        bridge.route("/kick", b -> {
+            int[] lo = ints(b, "min", 3), hi = ints(b, "max", 3);
+            checkKick(lo, hi);
+            return bridge.sync(() -> map("kicked", kick(world(b), lo, hi)));
+        });
         bridge.route("/sign", b -> bridge.sync(() -> sign(b)));
     }
 
@@ -217,6 +223,17 @@ public final class WorldRoutes {
     private int kickAround(org.bukkit.block.Block c) {
         return kick(c.getWorld(), new int[]{c.getX() - 1, c.getY() - 1, c.getZ() - 1},
                 new int[]{c.getX() + 1, c.getY() + 1, c.getZ() + 1});
+    }
+
+    /** The /kick route's limit (kickAround's 3x3x3 box needs none). Longs, so huge coordinates can't overflow. */
+    private static void checkKick(int[] lo, int[] hi) {
+        long v = 1;
+        for (int i = 0; i < 3; i++) {
+            long side = (long) hi[i] - lo[i] + 1;
+            if (side < 1) throw new IllegalArgumentException("max must be >= min");
+            v *= side;
+            if (v > MAX_KICK) throw new IllegalArgumentException("kick box too large (max " + MAX_KICK + " blocks)");
+        }
     }
 
     private int kick(World w, int[] lo, int[] hi) {
