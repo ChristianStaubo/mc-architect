@@ -62,7 +62,12 @@ def prompt(task, dims, image):
 
 def _parse(text, dims):
     m = re.search(r"\{.*\}", text or "", re.S)
-    data = json.loads(m.group(0)) if m else {}
+    try:
+        data = json.loads(m.group(0)) if m else {}
+    except ValueError:  # braces in prose, or broken JSON: every dimension unknown, never a crash
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
     out = {}
     for d in dims:
         v = data.get(d, {})
@@ -78,7 +83,10 @@ def judge_group(task, dims, sheet, model):
         img = Path(tmp) / "sheet.png"
         shutil.copy(sheet, img)
         cmd = claude.command(prompt(task, dims, img), model, ["Read"], 1.0, deny=NO_TOOLS, stream=False)
-        p = subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=600)
+        try:
+            p = subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=600)
+        except subprocess.TimeoutExpired:  # a slow judge costs its dimensions, not the trial
+            return {d: {"score": "unknown", "evidence": "judge timed out"} for d in dims}, 0.0
     try:
         res = json.loads(p.stdout)
     except ValueError:
