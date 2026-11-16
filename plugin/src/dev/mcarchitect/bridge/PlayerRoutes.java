@@ -40,7 +40,30 @@ public final class PlayerRoutes {
                 "world_height", new int[]{w.getMinHeight(), w.getMaxHeight()}, "edits", world.historySize());
     }
 
+    private static final java.util.Set<String> LIFECYCLE = java.util.Set.of("stop", "restart", "reload", "rl");
+
+    /**
+     * Refuse stop, restart and reload (also namespaced, and after `execute ... run`): Paper's /restart only
+     * stops the server here and /reload breaks plugins. The CLI refuses them too, but the bridge is the door.
+     */
+    private static void refuseLifecycle(String cmd) {
+        String c = cmd.trim().toLowerCase(java.util.Locale.ROOT);
+        refuseWord(c);
+        for (int i = c.indexOf(" run "); i >= 0; i = c.indexOf(" run ", i + 1)) refuseWord(c.substring(i + 5));
+    }
+
+    private static void refuseWord(String c) {
+        c = c.trim();
+        if (c.startsWith("/")) c = c.substring(1);
+        String word = c.split("\\s+", 2)[0];
+        word = word.substring(word.indexOf(':') + 1);  // minecraft:stop, bukkit:reload
+        if (LIFECYCLE.contains(word))
+            throw new IllegalArgumentException("refused: '" + word
+                    + "' through the bridge; restart the server from outside (mc restart)");
+    }
+
     private Object command(String cmd) {
+        refuseLifecycle(cmd);
         List<String> out = new ArrayList<>();
         var sender = Bukkit.createCommandSender(c -> out.add(PlainTextComponentSerializer.plainText().serialize(c)));
         boolean ok = Bukkit.dispatchCommand(sender, cmd.startsWith("/") ? cmd.substring(1) : cmd);
@@ -51,6 +74,7 @@ public final class PlayerRoutes {
      * doesn't give them one). Replies go to the player's chat, not back here. */
     private Object asPlayer(String name, String cmd) {
         Player p = Bukkit.getPlayerExact(name);
+        refuseLifecycle(cmd);
         if (p == null) throw new IllegalArgumentException(name + " isn't online");
         return map("ok", Bukkit.dispatchCommand(p, cmd.startsWith("/") ? cmd.substring(1) : cmd));
     }
