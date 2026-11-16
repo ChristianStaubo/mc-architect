@@ -20,13 +20,16 @@ import java.util.HexFormat;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.logging.Level;
 
 import static dev.mcarchitect.core.Json.map;
 
 /**
  * The agent's way into the game: a small JSON-over-HTTP API behind a bearer token (plugins/MCBridge/token).
  * Features add their own routes; handlers that touch the world wrap their work in sync() so it runs on the
- * main thread. An IllegalArgumentException becomes a 400 (the caller's mistake), anything else a 500.
+ * main thread. An IllegalArgumentException becomes a 400 (the caller's mistake), a main-thread timeout a 503,
+ * anything else a 500 (logged with its stack).
  */
 public final class HttpBridge {
     public interface Handler {
@@ -70,8 +73,16 @@ public final class HttpBridge {
                 }
             } catch (Exception e) {
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
-                status = cause instanceof IllegalArgumentException ? 400 : 500;
-                result = map("error", String.valueOf(cause.getMessage()), "type", cause.getClass().getSimpleName());
+                if (cause instanceof TimeoutException) {  // its message is null; say what happened
+                    status = 503;
+                    result = map("error", "the server's main thread didn't answer in 120 s",
+                            "type", cause.getClass().getSimpleName());
+                } else {
+                    status = cause instanceof IllegalArgumentException ? 400 : 500;
+                    // a 500 is our bug, not the caller's: keep the stack in the server log, never in the reply
+                    if (status == 500) plugin.getLogger().log(Level.WARNING, "bridge " + path + " failed", cause);
+                    result = map("error", String.valueOf(cause.getMessage()), "type", cause.getClass().getSimpleName());
+                }
             }
             send(ex, status, gson.toJson(result));
         });
