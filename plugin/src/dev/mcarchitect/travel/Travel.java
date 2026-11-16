@@ -66,8 +66,8 @@ public final class Travel implements Feature, CommandExecutor {
                 if (args.length != 1) return false;  // shows the usage from plugin.yml
                 ask(p, args[0], command.getName().equals("tpahere"));
             }
-            case "tpaccept" -> answer(p, args.length > 0 ? args[0] : null, true);
-            case "tpdeny" -> answer(p, args.length > 0 ? args[0] : null, false);
+            case "tpaccept", "tpdeny" -> answer(p, args.length > 0 ? args[0] : null,
+                    args.length > 1 ? args[1] : null, command.getName().equals("tpaccept"));
             default -> { return false; }
         }
         return true;
@@ -148,14 +148,24 @@ public final class Travel implements Feature, CommandExecutor {
                 + " The request lasts a minute.");
         String ask = here ? from.getName() + " wants you to teleport to them. "
                 : from.getName() + " wants to teleport to you. ";
+        String which = " " + from.getName() + " " + kind(here);  // so an old button can't answer a newer request
         to.sendMessage(Component.text(ask, NamedTextColor.GOLD)
-                .append(Chat.button("Accept", "/tpaccept " + from.getName(), NamedTextColor.GREEN))
+                .append(Chat.button("Accept", "/tpaccept" + which, NamedTextColor.GREEN))
                 .append(Component.text(" "))
-                .append(Chat.button("Deny", "/tpdeny " + from.getName(), NamedTextColor.RED))
+                .append(Chat.button("Deny", "/tpdeny" + which, NamedTextColor.RED))
                 .append(Component.text("  or /tpaccept, /tpdeny", NamedTextColor.GRAY)));
     }
 
-    private void answer(Player target, String fromName, boolean accept) {
+    /** A request's kind as the chat buttons carry it: "here" (/tpahere) or "to" (/tpa). */
+    private static String kind(boolean here) {
+        return here ? "here" : "to";
+    }
+
+    /**
+     * Accept or deny a request. kind is null when typed; the buttons send it, and a /tpahere that replaced a
+     * /tpa (or the reverse) must not be answered by the first message's button, which promised the other move.
+     */
+    private void answer(Player target, String fromName, String kind, boolean accept) {
         LinkedHashMap<UUID, Request> mine = requests.getOrDefault(target.getUniqueId(), new LinkedHashMap<>());
         long now = System.currentTimeMillis();
         mine.entrySet().removeIf(e -> now - e.getValue().time() > REQUEST_MS || Bukkit.getPlayer(e.getKey()) == null);
@@ -168,6 +178,10 @@ public final class Travel implements Feature, CommandExecutor {
         }
         if (fromId == null) {
             warn(target, fromName == null ? "You have no teleport requests." : "No request from " + fromName + ".");
+            return;
+        }
+        if (kind != null && !kind.equalsIgnoreCase(kind(mine.get(fromId).here()))) {
+            warn(target, "That request changed. Use the newest message.");
             return;
         }
         Request r = mine.remove(fromId);
