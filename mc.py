@@ -29,8 +29,9 @@ When the tools fall short
                                     requests and commands, the plan as it was, the server log; replay = dry rerun
   mc friction [--all] | resolve ID "<fix>" --cause C | stats
 The in-game architect (docs/architect.md)
-  mc architect serve | status       the daemon that answers /arc in game; what it's doing
-  mc architect ask "TEXT" --as NAME --at X,Y,Z [--facing F] [--selection ...]   a virtual player asks
+  mc architect serve | status [--all]   the daemon that answers /arc in game; what it's doing (--all: everyone)
+  mc architect ask "TEXT" --as NAME --at X,Y,Z [--facing F] [--selection ...] [--target X,Y,Z]
+                                    a virtual player asks (--target: the spot they look at)
   mc preview PLAN --for PLAYER [place options]   show a plan to one player only, as ghost blocks
   mc say PLAYER "TEXT" [--button "Label=/command"]   a line in their chat from the architect
   mc bench                          time the architect on three fixed requests
@@ -43,12 +44,18 @@ Evals (docs/evals.md)
 Towns (towns/NAME/town.json + layout.json)
   mc town site NAME                 the area's height grid, slope classes, terrain and slope maps
   mc town show NAME                 check the layout (plots, roads, doors, water, earthworks) + map; exit 2 on a fail
+  mc town plots NAME [--district D]        the plots and roads as a table (one district's only)
+  mc town check NAME --district D   check towns/NAME/districts/D.json merged into the layout; exit 2 on a fail
   mc town road NAME ROAD [--dry-run]       build a road (follows the land, bridges over water)
+  mc town bridge NAME BRIDGE [--dry-run]   build a layout bridge with the town's bridge kit, fitted to the water
   mc town terrace NAME PLOT [--dry-run]    level a plot at its floor_y with retaining walls
   mc town brief NAME PLOT           a builder's brief for a plot; build it with place --plot NAME/PLOT
   mc town shots NAME                the whole town from four corners and above (the town critic's input)
   mc town tidy NAME [--dry-run]     remove whole trees touching plots and roads (never inside plots)
   mc town status NAME               what's built
+Kits (kits/README.md)
+  mc kit sample KIT [--n N] [--sizes "9x9 12x14"] [--town T] [--kinds a,b]
+                                    a kit's variants built offline, checked and drawn on one sheet; exit 2 if any fail
 Server
   mc doctor | status | restart | cmd "<command>"  (cmd refuses stop/restart/reload)
 
