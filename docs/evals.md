@@ -10,10 +10,11 @@ How we know a change made the builders better, not just different. Three suites,
 
 ## Regression gate
 Everything that works must keep working: the unit tests, every building part and example plan audited in
-a flat test world, a few offline samples of every kit (`kits/*.py`, as `mc kit sample` checks them), block names checked against the server, place and undo restoring a plot exactly, the
-redstone door tested live, and every build task's reference solution passing its own checks. It must be
-100%. Without `--offline` it needs the server: skipped server checks fail the gate. `./mc.py eval gate
---offline` runs the half that needs no server (the pre-push hook uses it).
+a flat test world, a few offline samples of every kit (`kits/*.py`, as `mc kit sample` checks them), block
+names checked against the server, place and undo restoring a plot exactly, the redstone door tested live,
+and every build task's reference solution passing its own checks. It must be 100%. Without `--offline` it
+needs the server: skipped server checks fail the gate. `./mc.py eval gate --offline` runs the half that
+needs no server (the pre-push hook uses it).
 
 ## Build quality
 Fifteen tasks in `evals/tasks/`: a cottage on a meadow, a tavern on a slope, a covered bridge over a

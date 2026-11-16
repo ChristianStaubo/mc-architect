@@ -19,7 +19,8 @@ server only gets builds the user approves.
 - `.claude/agents/`: `mc-builder` (Sonnet, builds a task), `mc-critic` (scores from pictures), `mc-architect`
   (answers players' `/arc` in game: preview and talk, never place; docs/architect.md).
 - `evals/scenarios/`: scripted `/arc` conversations checked by code (`mc eval scenarios`).
-- `towns/NAME/`: a town's `town.json`, `layout.json` (plots, roads, bridges) and a city's `districts/` (`mc town`).
+- `towns/NAME/`: a town's `town.json`, `layout.json` (plots, roads, bridges), its `plans/` and a city's
+  `districts/` (`mc town`).
 - `kits/`: parametric designs, one file for many plots (`mc kit sample`, kits/README.md). The long-road
   scripts in `scripts/`: `survey.py`, `kingsway.py`, `express.py` (docs/ghost/city.md).
 - `plugin/`: the Paper plugin (Java), one package per feature: `bridge/` (the agent's API), `travel/`
