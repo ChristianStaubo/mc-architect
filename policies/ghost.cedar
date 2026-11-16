@@ -20,10 +20,10 @@ permit (principal is Player, action == Action::"Build", resource)
 when { context.blocks <= 2000
        && (if resource has house then principal has house && principal.house == resource.house else true) };
 
-@id("member-big-build")                // your own house's zone, up to 20,000 blocks, with the head's yes
+@id("member-big-build")                // your own house's zone, or the commons, up to 20,000 blocks, with the head's yes
 permit (principal is Player, action == Action::"Build", resource)
 when { context.blocks <= 20000 && context.head_approved
-       && resource has house && principal has house && principal.house == resource.house };
+       && (if resource has house then principal has house && principal.house == resource.house else principal has house) };
 
 @id("cross-house")                     // another house's zone: only with that house head's yes
 permit (principal is Player, action == Action::"Build", resource)
